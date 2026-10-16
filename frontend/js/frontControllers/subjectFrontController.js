@@ -11,19 +11,30 @@ document.addEventListener('bt:ready', () => {
     const searchInput = document.getElementById('subjectSearch');
     const sortSelect = document.getElementById('subjectSort');
     const clearButton = document.getElementById('subjectClear');
-    const loadMoreButton = document.getElementById('subjectLoadMore');
+    const paginationNode = document.getElementById('subjectPagination');
     const resultsLabel = document.getElementById('subjectResults');
     const grid = document.getElementById('subjectMaterials');
+    const editPanel = document.getElementById('materialEditPanel');
+    const editForm = document.getElementById('materialEditForm');
+    const editTitulo = document.getElementById('materialEditTitulo');
+    const editDesc = document.getElementById('materialEditDesc');
+    const editCancel = document.getElementById('materialEditCancel');
 
-    const PAGE_SIZE = 6;
+    const PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     let allMaterials = [];
-    let visibleCount = PAGE_SIZE;
+    let currentPage = 1;
     let debounce;
+    let canManage = false;
+    let editingMaterial = null;
+    const canFavorite = authHelper.isAuthenticated();
+    const me = authHelper.getUser() || {};
 
     async function load() {
         Loader.skeletons(document.getElementById('subjectMaterials'), 3);
         try {
             const { subject } = await apiService.get(`/subjects/${subjectId}`);
+            canManage = authHelper.isRole('Superadmin')
+                || (authHelper.isRole('Profesor') && Number(subject.profesorId) === Number(me.id));
             renderHeadline(subject);
             await loadMaterials();
         } catch (error) {
@@ -80,12 +91,68 @@ document.addEventListener('bt:ready', () => {
         return btn;
     }
 
+    /** Abre el panel de edicion con los datos del material seleccionado. */
+    function openEditPanel(material) {
+        if (!editPanel || !editForm) return;
+        editingMaterial = material;
+        if (editTitulo) editTitulo.value = material.titulo || '';
+        if (editDesc) editDesc.value = material.descripcion || '';
+        editPanel.classList.remove('bt-hidden');
+        editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        editTitulo?.focus();
+    }
+
+    function closeEditPanel() {
+        editingMaterial = null;
+        editPanel?.classList.add('bt-hidden');
+    }
+
+    editForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!editingMaterial) return;
+        const btn = editForm.querySelector('bt-button');
+        try {
+            btn?.setLoading(true);
+            const result = await apiService.put(`/materials/${editingMaterial.id}`, {
+                titulo: editTitulo?.value || '',
+                descripcion: editDesc?.value || ''
+            });
+            Toast.success(result.message);
+            closeEditPanel();
+            await loadMaterials();
+        } catch (error) {
+            Toast.error(error.message);
+        } finally {
+            btn?.setLoading(false);
+        }
+    });
+
+    editCancel?.addEventListener('click', closeEditPanel);
+
+    /** Quita el material de esta materia (y lo elimina si queda huerfano). */
+    async function removeFromSubject(material) {
+        const confirmed = await Modal.confirm({
+            title: LanguageManager.t('material.removeFromSubject'),
+            message: LanguageManager.t('material.removeConfirm'),
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+        try {
+            const result = await apiService.del(`/materials/${material.id}/subjects/${subjectId}`);
+            Toast.success(result.message);
+            if (editingMaterial && editingMaterial.id === material.id) closeEditPanel();
+            await loadMaterials();
+        } catch (error) {
+            Toast.error(error.message);
+        }
+    }
+
     async function loadMaterials() {
         Loader.skeletons(grid, 3);
         try {
             const result = await apiService.get(`/subjects/${subjectId}/materials`, { q: searchInput?.value || '' });
             allMaterials = result.materials || [];
-            visibleCount = PAGE_SIZE;
+            currentPage = 1;
             applyAndRender();
         } catch (error) {
             render(grid, Cards.empty(error.message));
@@ -106,27 +173,41 @@ document.addEventListener('bt:ready', () => {
     }
 
     function applyAndRender() {
-        const total = allMaterials.length;
-        const shown = Math.min(visibleCount, total);
+        const sorted = sortMaterials(allMaterials);
+        const total = sorted.length;
+        const totalPages = Pagination.totalPages(total, PAGE_SIZE);
+        if (currentPage > totalPages) currentPage = totalPages;
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const shown = sorted.slice(start, start + PAGE_SIZE);
 
         if (resultsLabel) {
-            resultsLabel.textContent = total ? LanguageManager.t('filters.showing', { shown, total }) : '';
+            resultsLabel.textContent = total ? LanguageManager.t('filters.showing', { shown: shown.length, total }) : '';
         }
 
         if (!total) {
             render(grid, Cards.empty(LanguageManager.t('subject.noMaterials')));
         } else {
-            render(grid, sortMaterials(allMaterials).slice(0, shown).map(m => Cards.material(m)));
+            render(grid, shown.map(m => Cards.material(m, {
+                onToggleFavorite: canFavorite ? (material) => Cards.toggleFavorite(material) : null,
+                onEdit: canManage ? openEditPanel : null,
+                onDelete: canManage ? removeFromSubject : null,
+                deleteLabel: 'material.removeFromSubject'
+            })));
         }
-        if (loadMoreButton) loadMoreButton.classList.toggle('bt-hidden', shown >= total || total === 0);
+
+        Pagination.render(paginationNode, {
+            page: currentPage,
+            total,
+            pageSize: PAGE_SIZE,
+            onChange: (page) => { currentPage = page; applyAndRender(); }
+        });
     }
 
     searchInput?.addEventListener('input', () => {
         clearTimeout(debounce);
         debounce = setTimeout(loadMaterials, 300);
     });
-    sortSelect?.addEventListener('change', applyAndRender);
-    loadMoreButton?.addEventListener('click', () => { visibleCount += PAGE_SIZE; applyAndRender(); });
+    sortSelect?.addEventListener('change', () => { currentPage = 1; applyAndRender(); });
     clearButton?.addEventListener('click', () => {
         if (searchInput) searchInput.value = '';
         if (sortSelect) sortSelect.value = 'newest';

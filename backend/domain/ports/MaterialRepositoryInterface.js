@@ -19,7 +19,12 @@ class MaterialRepositoryInterface extends RepositoryInterface {
     async deleteAssociation(materialId, subjectId)           { return this._notImplemented('deleteAssociation'); }
     async countAssociations(materialId)                      { return this._notImplemented('countAssociations'); }
     async cancelPendingUpload(materialId)                    { return this._notImplemented('cancelPendingUpload'); }
+    async update(materialId, changes)                        { return this._notImplemented('update'); }
     async delete(materialId)                                 { return this._notImplemented('delete'); }
+    async toggleFavorite(materialId, userId)                 { return this._notImplemented('toggleFavorite'); }
+    async findFavorites(userId, filters)                     { return this._notImplemented('findFavorites'); }
+    async findFavoriteIds(userId)                            { return this._notImplemented('findFavoriteIds'); }
+    async countFavorites(materialId)                         { return this._notImplemented('countFavorites'); }
 }
 
 module.exports = MaterialRepositoryInterface;

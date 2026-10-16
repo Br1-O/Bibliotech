@@ -19,6 +19,7 @@ module.exports = (container) => {
     router.post('/:id/request-association', verifyToken, requireRole(Role.PROFESOR), controller.requestAssociation);
     router.post('/:id/confirm-association', verifyToken, requireRole(Role.SUPERADMIN), controller.confirmAssociation);
     router.post('/:id/reject-association', verifyToken, requireRole(Role.SUPERADMIN), controller.rejectAssociation);
+    router.put('/:id', verifyToken, requireRole(Role.SUPERADMIN), controller.update);
 
     return router;
 };

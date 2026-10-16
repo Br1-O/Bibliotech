@@ -13,7 +13,9 @@ USE bibliotech;
 
 -- Usuario de la aplicacion y permisos sobre la base.
 CREATE USER IF NOT EXISTS 'bibliotech'@'localhost' IDENTIFIED BY 'bibliotech';
+CREATE USER IF NOT EXISTS 'bibliotech'@'%' IDENTIFIED BY 'bibliotech';
 GRANT ALL PRIVILEGES ON bibliotech.* TO 'bibliotech'@'localhost';
+GRANT ALL PRIVILEGES ON bibliotech.* TO 'bibliotech'@'%';
 
 -- ---------------------------------------------------------------------
 -- 1. Roles (RD-02: entidad relacional independiente)
@@ -36,6 +38,7 @@ CREATE TABLE users (
     password          VARCHAR(255) NOT NULL,
     reset_token       VARCHAR(255) NULL,
     token_expiration  DATETIME     NULL,
+    estado            ENUM('Activo','Inactivo','Baneado') NOT NULL DEFAULT 'Activo',
     created_at        TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(id)
 );
@@ -66,6 +69,8 @@ CREATE TABLE materials (
     categories   TEXT,
     descripcion  TEXT,
     estado       ENUM('Aprobado','Pendiente','Cancelado') NOT NULL DEFAULT 'Pendiente',
+    es_favorito  TINYINT(1) NOT NULL DEFAULT 0,
+    contador_favoritos INT NOT NULL DEFAULT 0,
     created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_materials_autor FOREIGN KEY (autor_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -108,6 +113,33 @@ CREATE TABLE audit_logs (
     CONSTRAINT fk_log_usuario FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- ---------------------------------------------------------------------
+-- 8. Etiquetas tematicas (Thematic Tags)
+-- ---------------------------------------------------------------------
+CREATE TABLE thematic_tags (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    nombre       VARCHAR(100) NOT NULL,
+    categoria    VARCHAR(100) NOT NULL,
+    creado_por   INT          NULL,
+    baneado      TINYINT(1)   NOT NULL DEFAULT 0,
+    created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_tag_categoria (nombre, categoria),
+    CONSTRAINT fk_tags_creado_por FOREIGN KEY (creado_por) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- ---------------------------------------------------------------------
+-- 9. Favoritos de materiales
+-- ---------------------------------------------------------------------
+CREATE TABLE material_favorites (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id   INT NOT NULL,
+    material_id  INT NOT NULL,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_usuario_material (usuario_id, material_id),
+    CONSTRAINT fk_fav_usuario  FOREIGN KEY (usuario_id)  REFERENCES users(id)    ON DELETE CASCADE,
+    CONSTRAINT fk_fav_material FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE
+);
+
 -- =====================================================================
 --  Datos semilla (contrasenas hasheadas con BCrypt)
 -- =====================================================================
@@ -117,10 +149,10 @@ INSERT INTO roles (nombre, descripcion) VALUES
     ('Alumno',     'Se suscribe a materias y sugiere material educativo.');
 
 -- Contrasenas: Admin123 / Profesor123 / Alumno123
-INSERT INTO users (role_id, nombre, apellido, email, password) VALUES
-    (1, 'Sofia',  'Administradora', 'admin@bibliotech.edu',    '$2b$10$7kqsOVra.LklVWruf3wMdO9hHwRgvZFELZZYoSk.hHvERrfNpmsR2'),
-    (2, 'Pablo',  'Profesor',       'profesor@bibliotech.edu', '$2b$10$T.QhGCCqKoV4rcWhKfiYw.70NrJFYOCjgtK7W7YWuxV7SOqob38/i'),
-    (3, 'Ana',    'Alumna',         'alumno@bibliotech.edu',   '$2b$10$lZodM9mteQ7QdaOBdyggGuPREI1zFu4nt2212xC/ZmXnjn5BI0Fmq');
+INSERT INTO users (role_id, nombre, apellido, email, password, estado) VALUES
+    (1, 'Sofia',  'Administradora', 'admin@bibliotech.edu',    '$2b$10$7kqsOVra.LklVWruf3wMdO9hHwRgvZFELZZYoSk.hHvERrfNpmsR2', 'Activo'),
+    (2, 'Pablo',  'Profesor',       'profesor@bibliotech.edu', '$2b$10$T.QhGCCqKoV4rcWhKfiYw.70NrJFYOCjgtK7W7YWuxV7SOqob38/i', 'Activo'),
+    (3, 'Ana',    'Alumna',         'alumno@bibliotech.edu',   '$2b$10$lZodM9mteQ7QdaOBdyggGuPREI1zFu4nt2212xC/ZmXnjn5BI0Fmq', 'Activo');
 
 INSERT INTO subjects (nombre, descripcion, profesor_id, estado_asociacion) VALUES
     ('Programacion I', 'Introduccion a la algoritmia y estructuras basicas.', 2, 'Activa'),

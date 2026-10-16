@@ -146,6 +146,29 @@ class AuthService {
         return { message: 'messages.passwordChanged' };
     }
 
+
+    async banUser(userId, usuarioId = null) {
+        const user = await this.userRepository.findById(userId);
+        if (!user) throw new AppError('errors.notFound', { status: 404 });
+        await this.userRepository.updateEstado(userId, 'Baneado');
+        await this.auditLogService.record(AuditLog.OPERACIONES.BANEO_ALUMNO, usuarioId, userId);
+        return { message: 'messages.banned' };
+    }
+
+    async unbanUser(userId, usuarioId = null) {
+        const user = await this.userRepository.findById(userId);
+        if (!user) throw new AppError('errors.notFound', { status: 404 });
+        await this.userRepository.updateEstado(userId, 'Activo');
+        return { message: 'messages.userUnbanned' };
+    }
+
+    async softDeleteUser(userId, usuarioId = null) {
+        const user = await this.userRepository.findById(userId);
+        if (!user) throw new AppError('errors.notFound', { status: 404 });
+        await this.userRepository.softDelete(userId);
+        return { message: 'messages.userDeleted' };
+    }
+
     async getUserById(id) {
         const user = await this.userRepository.findById(id);
         if (!user) throw new AppError('errors.notFound', { status: 404 });

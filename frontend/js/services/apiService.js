@@ -53,6 +53,7 @@ const apiService = {
     },
 
     post(endpoint, data) { return this.request(endpoint, 'POST', data); },
+    put(endpoint, data) { return this.request(endpoint, 'PUT', data); },
     del(endpoint) { return this.request(endpoint, 'DELETE'); },
 
     upload(endpoint, formData) { return this.request(endpoint, 'POST', formData, true); }

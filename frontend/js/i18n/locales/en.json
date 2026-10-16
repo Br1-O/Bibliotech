@@ -11,7 +11,9 @@
     "logout": "Sign out",
     "profile": "My profile",
     "myPanel": "My panel",
-    "menu": "Menu"
+    "menu": "Menu",
+    "mySubscriptions": "My subscriptions",
+    "favorites": "Favorites"
   },
   "roles": {
     "Superadmin": "Superadmin",
@@ -69,7 +71,9 @@
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
     "backToLogin": "Back to sign in",
-    "demoHint": "Test accounts: admin@bibliotech.edu / profesor@bibliotech.edu / alumno@bibliotech.edu (password per role + 123)"
+    "demoHint": "Test accounts: admin@bibliotech.edu / profesor@bibliotech.edu / alumno@bibliotech.edu (password per role + 123)",
+    "ban": "Ban user",
+    "unban": "Unban user"
   },
   "validation": {
     "required": "{field} is required.",
@@ -100,6 +104,12 @@
     "clear": "Clear filters",
     "showing": "Showing {shown} of {total}",
     "loadMore": "Load more"
+  },
+  "pagination": {
+    "label": "Pagination of results",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {total}"
   },
   "subjects": {
     "badge": "Subject",
@@ -148,6 +158,10 @@
     "reject": "Reject",
     "cancel": "Cancel upload",
     "associated": "Link to my subject",
+    "edit": "Edit material",
+    "editHint": "Change the title or description of the material in your subject.",
+    "removeFromSubject": "Remove from subject",
+    "removeConfirm": "The material will be removed from this subject. If it does not belong to another subject and is not in anyone's favorites, it will be permanently deleted. Continue?",
     "types": {
       "PDF": "PDF",
       "Word": "Word",
@@ -159,7 +173,9 @@
       "Aprobado": "Approved",
       "Pendiente": "Pending",
       "Cancelado": "Cancelled"
-    }
+    },
+    "addFavorite": "Add to favorites",
+    "removeFavorite": "Remove from favorites"
   },
   "student": {
     "panelTitle": "Student panel",
@@ -198,7 +214,13 @@
     "reject": "Reject",
     "totalUsers": "Users",
     "totalSubjects": "Subjects",
-    "totalMaterials": "Materials"
+    "totalMaterials": "Materials",
+    "subjectManagement": "Manage subjects",
+    "thematicTags": "Thematic tags",
+    "subjectManagementHint": "Choose a subject to modify its title, description or head teacher.",
+    "editSubject": "Edit subject",
+    "selectSubject": "Subject to edit",
+    "noTags": "No tags."
   },
   "errors": {
     "notFound": "Resource not found.",
@@ -207,7 +229,8 @@
     "invalidCredentials": "Invalid credentials.",
     "invalidToken": "Invalid or expired token.",
     "serverError": "Internal server error.",
-    "network": "Could not reach the server."
+    "network": "Could not reach the server.",
+    "tooManyRequests": "Too many requests. Please try again later."
   },
   "messages": {
     "registerSuccess": "Account created successfully. You can now sign in.",
@@ -227,10 +250,21 @@
     "materialAssociated": "Material associated to the subject.",
     "materialApproved": "Material approved and published.",
     "materialCancelled": "Pending upload cancelled.",
+    "materialUpdated": "Material updated successfully.",
     "materialDeleted": "Material deleted.",
+    "materialRemovedFromSubject": "Material removed from the subject.",
     "materialDuplicateProfessor": "The material already exists. It was associated to your subject.",
     "materialDuplicateStudent": "The material already exists. A pending request was created.",
     "roleCreated": "Role created successfully.",
-    "deleteConfirm": "This action cannot be undone. Continue?"
+    "deleteConfirm": "This action cannot be undone. Continue?",
+    "subjectUpdated": "Subject updated successfully.",
+    "userUnbanned": "User unbanned.",
+    "userDeleted": "User deactivated.",
+    "favoriteAdded": "Added to favorites.",
+    "favoriteRemoved": "Removed from favorites."
+  },
+  "favorites": {
+    "title": "My favorites",
+    "empty": "You have not added any materials to favorites yet."
   }
 }

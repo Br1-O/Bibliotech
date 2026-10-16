@@ -16,16 +16,37 @@ const ValidationError = require('../../validator/ValidationError');
 const Required = require('../../validator/rules/Required');
 const Length = require('../../validator/rules/Length');
 const In = require('../../validator/rules/In');
+const fileHelper = require('../../utils/fileHelper');
 
 const PENDING_LIMIT = 3;
 
 class MaterialService {
-    constructor(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager) {
+    constructor(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService = null, fileStorage = fileHelper) {
         this.materialRepository = materialRepository;
         this.subjectRepository = subjectRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.auditLogService = auditLogService;
         this.languageManager = languageManager;
+        this.thematicTagService = thematicTagService;
+        this.fileStorage = fileStorage;
+    }
+
+    /** Materias (de las que contiene el material) cuyo titular es el profesor. */
+    async ownedSubjectIds(material, ctx) {
+        const owned = [];
+        for (const subjectId of material.materiasIds || []) {
+            const subject = await this.subjectRepository.findById(subjectId);
+            if (subject && subject.profesorId === ctx.usuarioId) owned.push(subjectId);
+        }
+        return owned;
+    }
+
+    /** Verifica que el usuario pueda gestionar el material (profesor titular o Superadmin). */
+    async assertCanManage(material, ctx) {
+        if (ctx.rol === 'Superadmin') return;
+        if (ctx.rol !== 'Profesor') throw new AppError('errors.forbidden', { status: 403 });
+        const owned = await this.ownedSubjectIds(material, ctx);
+        if (!owned.length) throw new AppError('errors.forbidden', { status: 403 });
     }
 
     toArray(value) {
@@ -109,6 +130,14 @@ class MaterialService {
             if (esProfesor) {
                 const subject = await this.subjectRepository.findById(subjectId);
                 if (subject) await this.notifyObservers(subject, material);
+            }
+        }
+
+        // Persistir etiquetas tematicas nuevas (ignora baneadas/duplicadas)
+        if (this.thematicTagService) {
+            const tags = this.toArray(dto.categories);
+            for (const tag of tags) {
+                try { await this.thematicTagService.create({ nombre: tag, categoria: 'general' }, ctx.usuarioId); } catch (e) { /* ignore */ }
             }
         }
 
@@ -199,6 +228,49 @@ class MaterialService {
     }
 
     /**
+     * Un profesor (titular de alguna materia donde vive el material) o el
+     * Superadmin modifica el titulo y/o la descripcion del material.
+     */
+    async update(materialId, dto, ctx) {
+        const material = await this.materialRepository.findById(materialId);
+        if (!material) throw new AppError('errors.notFound', { status: 404 });
+        await this.assertCanManage(material, ctx);
+
+        const changes = {};
+        if (dto.titulo !== undefined && dto.titulo !== null) {
+            changes.titulo = String(dto.titulo).trim();
+        }
+        if (dto.descripcion !== undefined) {
+            changes.descripcion = (dto.descripcion === null ? '' : String(dto.descripcion)).trim() || null;
+        }
+        if (changes.titulo === undefined && changes.descripcion === undefined) {
+            throw new AppError('validation.invalidData', { status: 422 });
+        }
+
+        if (changes.titulo !== undefined) {
+            const validator = new ValidationHandler(this.languageManager)
+                .with(new Required('titulo'))
+                .with(new Length('titulo', { min: 2, max: 150 }));
+            if (!validator.validateThis({ titulo: changes.titulo })) throw new ValidationError(validator.getErrors());
+        }
+
+        await this.materialRepository.update(materialId, changes);
+        await this.auditLogService.record(AuditLog.OPERACIONES.MODIFICACION_MATERIAL, ctx.usuarioId, materialId);
+        const updated = await this.materialRepository.findById(materialId);
+        return { message: 'messages.materialUpdated', material: updated };
+    }
+
+    /**
+     * Borrado / desasociacion de material (RD-04).
+     * - Un alumno no puede borrar material confirmado.
+     * - Si se indica subjectId, el profesor titular de esa materia (o el
+     *   Superadmin) quita el material unicamente de esa materia.
+     * - Sin subjectId, el profesor lo quita de todas sus materias.
+     * - Superadmin sin subjectId: borrado total.
+     * El material se elimina fisicamente (registro + almacenamiento) solo si
+     * ya no pertenece a ninguna materia y ningun usuario lo tiene en favoritos.
+     */
+    /**
      * RD-04: un alumno no puede borrar material confirmado (solo cancelar sus
      * subidas pendientes). Un profesor solo borra material de sus materias;
      * el Superadmin puede borrar cualquiera.
@@ -223,15 +295,36 @@ class MaterialService {
         return { message: 'messages.materialDeleted' };
     }
 
-    async getGlobalContent(filters) {
-        return this.materialRepository.findAllGlobal(filters);
+    async getGlobalContent(filters, usuarioId = null) {
+        const materials = await this.materialRepository.findAllGlobal(filters);
+        return this.attachFavoriteFlag(materials, usuarioId);
     }
 
-    async getBySubject(subjectId, filters) {
+    async getBySubject(subjectId, filters, usuarioId = null) {
         const subject = await this.subjectRepository.findById(subjectId);
         if (!subject) throw new AppError('errors.notFound', { status: 404 });
         const materials = await this.materialRepository.findBySubject(subjectId, filters);
-        return { subject, materials };
+        return { subject, materials: await this.attachFavoriteFlag(materials, usuarioId) };
+    }
+
+    /** Marca esFavorito segun los favoritos del usuario autenticado (RF favoritos). */
+    async attachFavoriteFlag(materials, usuarioId) {
+        if (!usuarioId || !materials || !materials.length) return materials;
+        const ids = await this.materialRepository.findFavoriteIds(usuarioId);
+        const set = new Set(ids.map(Number));
+        materials.forEach(m => { m.esFavorito = set.has(Number(m.id)) ? 1 : 0; });
+        return materials;
+    }
+
+    async toggleFavorite(materialId, usuarioId) {
+        if (!materialId || !usuarioId) throw new AppError('errors.invalidData', { status: 400 });
+        const material = await this.materialRepository.findById(materialId);
+        if (!material) throw new AppError('errors.notFound', { status: 404 });
+        return this.materialRepository.toggleFavorite(materialId, usuarioId);
+    }
+
+    async getFavorites(usuarioId, filters = {}) {
+        return this.materialRepository.findFavorites(usuarioId, filters);
     }
 }
 

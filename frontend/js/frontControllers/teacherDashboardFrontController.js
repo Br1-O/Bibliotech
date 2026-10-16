@@ -15,10 +15,15 @@ document.addEventListener('bt:ready', () => {
     const form = document.getElementById('teacherMaterialForm');
     const subjectsSelect = document.getElementById('teacherMaterialSubjects');
     const mySubjectsNode = document.getElementById('mySubjects');
+    const mySubjectsPagination = document.getElementById('mySubjectsPagination');
     const reviewNode = document.getElementById('pendingReview');
     const observerNode = document.getElementById('observerPanel');
     const existingNode = document.getElementById('existingMaterials');
+    const tTagsInput = document.getElementById('tTags');
+    if (tTagsInput && window.BTTagInput) window.BTTagInput(tTagsInput);
     let mySubjects = [];
+    let subjectPage = 1;
+    const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
 
     setupTypeToggle(form);
 
@@ -52,13 +57,31 @@ document.addEventListener('bt:ready', () => {
     }
 
     function renderMySubjects() {
-        if (!mySubjects.length) { render(mySubjectsNode, Cards.empty(LanguageManager.t('teacher.noSubjects'))); return; }
-        render(mySubjectsNode, mySubjects.map(s => Cards.subject(s, {
+        if (!mySubjectsNode) return;
+        const total = mySubjects.length;
+        if (!total) {
+            render(mySubjectsNode, Cards.empty(LanguageManager.t('teacher.noSubjects')));
+            Pagination.render(mySubjectsPagination, { total: 0, pageSize: SUBJECT_PAGE_SIZE });
+            return;
+        }
+        const totalPages = Pagination.totalPages(total, SUBJECT_PAGE_SIZE);
+        if (subjectPage > totalPages) subjectPage = totalPages;
+        const start = (subjectPage - 1) * SUBJECT_PAGE_SIZE;
+        const pageItems = mySubjects.slice(start, start + SUBJECT_PAGE_SIZE);
+
+        render(mySubjectsNode, pageItems.map(s => Cards.subject(s, {
             subscribeButton: el('bt-button', {
                 size: 'sm', variant: 'secondary', label: LanguageManager.t('teacher.observers'),
                 on: { click: () => loadObservers(s) }
             })
         })));
+
+        Pagination.render(mySubjectsPagination, {
+            page: subjectPage,
+            total,
+            pageSize: SUBJECT_PAGE_SIZE,
+            onChange: (page) => { subjectPage = page; renderMySubjects(); }
+        });
     }
 
     /** RF-05.1: lista de alumnos suscriptos con opcion de baneo. */

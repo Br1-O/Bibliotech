@@ -13,8 +13,15 @@ document.addEventListener('bt:ready', () => {
 
     const pendingList = document.getElementById('pendingList');
     const subscriptionsList = document.getElementById('subscriptionsList');
+    const subscriptionsPagination = document.getElementById('subscriptionsPagination');
     const form = document.getElementById('materialForm');
     const subjectsSelect = document.getElementById('materialSubjects');
+    const tagsInput = document.getElementById('matTags');
+    if (tagsInput && window.BTTagInput) window.BTTagInput(tagsInput);
+
+    const SUBSCRIPTION_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
+    let allSubscriptions = [];
+    let subscriptionPage = 1;
 
     populateSubjects();
     setupTypeToggle(form);
@@ -65,18 +72,37 @@ document.addEventListener('bt:ready', () => {
     async function loadSubscriptions() {
         try {
             const { subscriptions } = await apiService.get('/subscriptions/mine');
+            allSubscriptions = subscriptions || [];
             const badge = document.getElementById('subscriptionCount');
-            if (badge) badge.textContent = subscriptions.length;
-
-            if (!subscriptions.length) {
-                render(subscriptionsList, Cards.empty(LanguageManager.t('student.noSubscriptions')));
-                return;
-            }
-            render(subscriptionsList, subscriptions.map(s => el('div', { className: 'bt-row bt-between bt-panel' }, [
-                el('a', { text: s.materiaNombre || `Materia #${s.materia_id}`, attrs: { href: `/materia/${s.materia_id}` } }),
-                el('span', { className: `bt-badge bt-badge--${s.estado === 'Baneado' ? 'danger' : 'success'}`, text: s.estado })
-            ])));
+            if (badge) badge.textContent = allSubscriptions.length;
+            renderSubscriptions();
         } catch (error) { Toast.error(error.message); }
+    }
+
+    function renderSubscriptions() {
+        if (!subscriptionsList) return;
+        const total = allSubscriptions.length;
+        if (!total) {
+            render(subscriptionsList, Cards.empty(LanguageManager.t('student.noSubscriptions')));
+            Pagination.render(subscriptionsPagination, { total: 0, pageSize: SUBSCRIPTION_PAGE_SIZE });
+            return;
+        }
+        const totalPages = Pagination.totalPages(total, SUBSCRIPTION_PAGE_SIZE);
+        if (subscriptionPage > totalPages) subscriptionPage = totalPages;
+        const start = (subscriptionPage - 1) * SUBSCRIPTION_PAGE_SIZE;
+        const pageItems = allSubscriptions.slice(start, start + SUBSCRIPTION_PAGE_SIZE);
+
+        render(subscriptionsList, pageItems.map(s => el('div', { className: 'bt-row bt-between bt-panel' }, [
+            el('a', { text: s.materiaNombre || `Materia #${s.materia_id}`, attrs: { href: `/materia/${s.materia_id}` } }),
+            el('span', { className: `bt-badge bt-badge--${s.estado === 'Baneado' ? 'danger' : 'success'}`, text: s.estado })
+        ])));
+
+        Pagination.render(subscriptionsPagination, {
+            page: subscriptionPage,
+            total,
+            pageSize: SUBSCRIPTION_PAGE_SIZE,
+            onChange: (page) => { subscriptionPage = page; renderSubscriptions(); }
+        });
     }
 
     function updateStats(pendingCount) {

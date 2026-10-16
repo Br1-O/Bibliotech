@@ -11,7 +11,9 @@
     "logout": "Salir",
     "profile": "Mi perfil",
     "myPanel": "Mi panel",
-    "menu": "Menu"
+    "menu": "Menu",
+    "mySubscriptions": "Mis suscripciones",
+    "favorites": "Favoritos"
   },
   "roles": {
     "Superadmin": "Superadministrador",
@@ -69,7 +71,9 @@
     "noAccount": "Aun no tienes cuenta?",
     "hasAccount": "Ya tienes cuenta?",
     "backToLogin": "Volver al inicio de sesion",
-    "demoHint": "Cuentas de prueba: admin@bibliotech.edu / profesor@bibliotech.edu / alumno@bibliotech.edu (contrasena segun rol + 123)"
+    "demoHint": "Cuentas de prueba: admin@bibliotech.edu / profesor@bibliotech.edu / alumno@bibliotech.edu (contrasena segun rol + 123)",
+    "ban": "Banear usuario",
+    "unban": "Desbanear usuario"
   },
   "validation": {
     "required": "{field} es obligatorio.",
@@ -92,6 +96,10 @@
     "viewDetail": "Ver detalle",
     "by": "por"
   },
+  "favorites": {
+    "title": "Mis favoritos",
+    "empty": "Todavia no agregaste materiales a favoritos."
+  },
   "filters": {
     "sort": "Ordenar por",
     "newest": "Mas recientes",
@@ -100,6 +108,12 @@
     "clear": "Limpiar filtros",
     "showing": "Mostrando {shown} de {total}",
     "loadMore": "Cargar mas"
+  },
+  "pagination": {
+    "label": "Paginacion de resultados",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "page": "Pagina {page} de {total}"
   },
   "subjects": {
     "badge": "Materia",
@@ -148,6 +162,12 @@
     "reject": "Rechazar",
     "cancel": "Cancelar subida",
     "associated": "Asociar a mi materia",
+    "edit": "Editar material",
+    "editHint": "Modifica el titulo o la descripcion del material en tu materia.",
+    "removeFromSubject": "Quitar de la materia",
+    "removeConfirm": "Se quitara el material de esta materia. Si no pertenece a otra materia ni figura en favoritos, se eliminara definitivamente. Continuar?",
+    "addFavorite": "Agregar a favoritos",
+    "removeFavorite": "Quitar de favoritos",
     "types": {
       "PDF": "PDF",
       "Word": "Word",
@@ -198,7 +218,13 @@
     "reject": "Rechazar",
     "totalUsers": "Usuarios",
     "totalSubjects": "Materias",
-    "totalMaterials": "Materiales"
+    "totalMaterials": "Materiales",
+    "subjectManagement": "Gestionar materias",
+    "subjectManagementHint": "Elige una materia para modificar su titulo, descripcion o profesor titular.",
+    "editSubject": "Modificar materia",
+    "selectSubject": "Materia a modificar",
+    "noTags": "No hay etiquetas.",
+    "thematicTags": "Etiquetas tematicas"
   },
   "errors": {
     "notFound": "Recurso no encontrado.",
@@ -207,7 +233,8 @@
     "invalidCredentials": "Credenciales invalidas.",
     "invalidToken": "Token invalido o expirado.",
     "serverError": "Error interno del servidor.",
-    "network": "No se pudo conectar con el servidor."
+    "network": "No se pudo conectar con el servidor.",
+    "tooManyRequests": "Demasiadas solicitudes. Intenta de nuevo más tarde."
   },
   "messages": {
     "registerSuccess": "Cuenta creada correctamente. Ya puedes iniciar sesion.",
@@ -227,10 +254,17 @@
     "materialAssociated": "Material asociado a la materia.",
     "materialApproved": "Material aprobado y publicado.",
     "materialCancelled": "Subida pendiente cancelada.",
+    "materialUpdated": "Material actualizado correctamente.",
     "materialDeleted": "Material eliminado.",
+    "materialRemovedFromSubject": "Material quitado de la materia.",
     "materialDuplicateProfessor": "El material ya existe. Se asocio a tu materia.",
     "materialDuplicateStudent": "El material ya existe. Se genero una solicitud pendiente.",
     "roleCreated": "Rol creado correctamente.",
-    "deleteConfirm": "Esta accion no se puede deshacer. Continuar?"
+    "deleteConfirm": "Esta accion no se puede deshacer. Continuar?",
+    "subjectUpdated": "Materia actualizada correctamente.",
+    "userUnbanned": "Usuario desbaneado.",
+    "userDeleted": "Usuario desactivado.",
+    "favoriteAdded": "Agregado a favoritos.",
+    "favoriteRemoved": "Quitado de favoritos."
   }
 }

@@ -27,10 +27,16 @@ class MariaDBAuditLogRepository extends AuditLogRepositoryInterface {
 
     async findAll() {
         const [rows] = await db.execute(`
-            SELECT l.*, u.email AS usuarioEmail
-            FROM audit_logs l LEFT JOIN users u ON u.id = l.usuario_id
+            SELECT l.*, u.email AS usuarioEmail, 
+                   CONCAT(u.nombre, ' ', u.apellido) AS usuarioNombre,
+                   COALESCE(m.titulo, s.nombre, u2.nombre, CONCAT(u2.nombre, ' ', u2.apellido)) AS registroNombre
+            FROM audit_logs l 
+            LEFT JOIN users u ON u.id = l.usuario_id
+            LEFT JOIN materials m ON m.id = l.registro_id
+            LEFT JOIN subjects s ON s.id = l.registro_id
+            LEFT JOIN users u2 ON u2.id = l.registro_id
             ORDER BY l.timestamp DESC, l.id DESC LIMIT 500`);
-        return rows.map(r => ({ ...map(r), usuarioEmail: r.usuarioEmail }));
+        return rows.map(r => ({ ...map(r), usuarioEmail: r.usuarioEmail, usuarioNombre: r.usuarioNombre, registroNombre: r.registroNombre }));
     }
 
     async findByUser(userId) {

@@ -20,6 +20,9 @@ module.exports = (container) => {
     router.get('/me', verifyToken, controller.me);
     router.post('/professors', verifyToken, requireRole(Role.SUPERADMIN), controller.createProfessor);
     router.get('/users', verifyToken, requireRole(Role.SUPERADMIN), controller.listUsers);
+    router.put('/users/:id/ban', verifyToken, requireRole(Role.SUPERADMIN), controller.banUser);
+    router.put('/users/:id/unban', verifyToken, requireRole(Role.SUPERADMIN), controller.unbanUser);
+    router.delete('/users/:id', verifyToken, requireRole(Role.SUPERADMIN), controller.softDeleteUser);
 
     return router;
 };

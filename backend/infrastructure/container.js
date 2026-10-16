@@ -11,6 +11,8 @@ const MariaDBSubjectRepository = require('./repositories/MariaDBSubjectRepositor
 const MariaDBMaterialRepository = require('./repositories/MariaDBMaterialRepository');
 const MariaDBSubscriptionRepository = require('./repositories/MariaDBSubscriptionRepository');
 const MariaDBAuditLogRepository = require('./repositories/MariaDBAuditLogRepository');
+const MariaDBThematicTagRepository = require('./repositories/MariaDBThematicTagRepository');
+const ThematicTagService = require('../application/services/ThematicTagService');
 
 const AuditLogService = require('../application/services/AuditLogService');
 const AuthService = require('../application/services/AuthService');
@@ -19,6 +21,7 @@ const SubjectService = require('../application/services/SubjectService');
 const MaterialService = require('../application/services/MaterialService');
 const SubscriptionService = require('../application/services/SubscriptionService');
 const LanguageManager = require('../validator/LanguageManager');
+const fileHelper = require('../utils/fileHelper');
 
 /**
  * Construye el grafo de dependencias. Cambiar el motor de persistencia
@@ -31,9 +34,11 @@ function buildContainer() {
     const materialRepository = new MariaDBMaterialRepository();
     const subscriptionRepository = new MariaDBSubscriptionRepository();
     const auditLogRepository = new MariaDBAuditLogRepository();
+    const thematicTagRepository = new MariaDBThematicTagRepository();
 
     const languageManager = new LanguageManager();
     const auditLogService = new AuditLogService(auditLogRepository);
+    const thematicTagService = new ThematicTagService(thematicTagRepository, auditLogService);
 
     return {
         // Repositorios (puertos de salida)
@@ -43,6 +48,7 @@ function buildContainer() {
         materialRepository,
         subscriptionRepository,
         auditLogRepository,
+        thematicTagRepository,
 
         // Infraestructura de soporte
         languageManager,
@@ -52,8 +58,9 @@ function buildContainer() {
         roleService: new RoleService(roleRepository, auditLogService, languageManager),
         authService: new AuthService(userRepository, roleRepository, auditLogService, languageManager),
         subjectService: new SubjectService(subjectRepository, userRepository, auditLogService, languageManager),
-        materialService: new MaterialService(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager),
-        subscriptionService: new SubscriptionService(subscriptionRepository, subjectRepository, userRepository, auditLogService, languageManager)
+        materialService: new MaterialService(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService, fileHelper),
+        subscriptionService: new SubscriptionService(subscriptionRepository, subjectRepository, userRepository, auditLogService, languageManager),
+        thematicTagService
     };
 }
 

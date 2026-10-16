@@ -57,9 +57,17 @@ module.exports = (container) => {
                     q: req.query.q,
                     tags: req.query.tags ? [].concat(req.query.tags) : []
                 };
-                const result = await materialService.getBySubject(req.params.id, filters);
+                const result = await materialService.getBySubject(req.params.id, filters, req.usuarioId);
                 return ok(req, res, result);
             } catch (error) { return next(error); }
-        }
+        },
+
+        async update(req, res, next) {
+            try {
+                const subject = await subjectService.updateSubject(req.params.id, req.body, req.usuarioId);
+                return ok(req, res, { subject });
+            } catch (error) { return next(error); }
+        },
+
     };
 };

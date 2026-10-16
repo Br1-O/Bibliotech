@@ -17,11 +17,22 @@ document.addEventListener('bt:ready', () => {
     const professorSelect = document.getElementById('subjectProfessor');
     const professorForm = document.getElementById('professorForm');
     const subjectForm = document.getElementById('adminSubjectForm');
+    const subjectsGrid = document.getElementById('adminSubjectsGrid');
+    const subjectsPagination = document.getElementById('adminSubjectsPagination');
 
-    let cache = { users: [], subjects: [], logs: [] };
+    const subjectEditSelect = document.getElementById('subjectEditSelect');
+    const editTitulo = document.getElementById('editTitulo');
+    const editDesc = document.getElementById('editDesc');
+    const editProfesor = document.getElementById('editProfesor');
+    const editSubjectBtn = document.getElementById('editSubjectBtn');
+    const tagsList = document.getElementById('thematicTagsList');
+
+    const cache = { users: [], subjects: [], logs: [], tags: [] };
+    const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
+    let subjectPage = 1;
 
     async function loadAll() {
-        await Promise.all([loadUsers(), loadSubjects(), loadAudit()]);
+        await Promise.all([loadUsers(), loadSubjects(), loadAudit(), loadTags()]);
         updateStats();
     }
 
@@ -29,38 +40,131 @@ document.addEventListener('bt:ready', () => {
         try {
             const { users } = await apiService.get('/auth/users');
             cache.users = users;
-            render(usersTable, users.map(u => el('tr', {}, [
-                el('td', { text: u.nombre }),
-                el('td', { text: u.apellido }),
-                el('td', { text: u.email }),
-                el('td', {}, [el('span', { className: 'bt-badge bt-badge--info', text: LanguageManager.t(`roles.${u.roleNombre}`) })])
-            ])));
+            renderUsers();
             const professors = users.filter(u => u.roleNombre === 'Profesor');
             render(professorSelect, [
                 el('option', { value: '', text: LanguageManager.t('common.optional') }),
                 ...professors.map(p => el('option', { value: String(p.id), text: `${p.nombre} ${p.apellido}` }))
             ]);
+            renderEditProfessorOptions();
         } catch (error) { Toast.error(error.message); }
+    }
+
+    function renderUsers() {
+        if (!usersTable) return;
+        render(usersTable, cache.users.map(u => el('tr', {}, [
+            el('td', { text: u.nombre }),
+            el('td', { text: u.apellido }),
+            el('td', { text: u.email }),
+            el('td', {}, [el('span', { className: 'bt-badge bt-badge--info', text: LanguageManager.t(`roles.${u.roleNombre}`) })]),
+            el('td', {}, [
+                el('span', {
+                    className: `bt-badge bt-badge--${u.estado === 'Baneado' ? 'danger' : (u.estado === 'Inactivo' ? 'warning' : 'success')}`,
+                    text: u.estado || 'Activo'
+                }),
+                u.estado === 'Baneado'
+                    ? el('bt-button', { size: 'sm', variant: 'success', label: LanguageManager.t('auth.unban'), on: { click: () => unbanUser(u.id) } })
+                    : el('bt-button', { size: 'sm', variant: 'danger', label: LanguageManager.t('auth.ban'), on: { click: () => banUser(u.id) } }),
+                u.estado !== 'Inactivo' && u.roleNombre === 'Profesor'
+                    ? el('bt-button', { size: 'sm', variant: 'secondary', label: LanguageManager.t('common.delete'), on: { click: () => softDeleteUser(u.id) } })
+                    : null
+            ].filter(Boolean))
+        ])));
     }
 
     async function loadSubjects() {
         try {
             const { subjects } = await apiService.get('/subjects');
             cache.subjects = subjects;
-            const pending = subjects.filter(s => s.estadoAsociacion === 'Pendiente');
-            if (!pending.length) { render(requestsNode, Cards.empty(LanguageManager.t('admin.noRequests'))); return; }
-
-            render(requestsNode, pending.map(s => el('div', { className: 'bt-panel bt-row bt-between' }, [
-                el('div', {}, [
-                    el('strong', { text: s.nombre }),
-                    el('p', { className: 'bt-card__meta', text: `${LanguageManager.t('subjects.teacher')}: ${s.profesorNombre || '-'}` })
-                ]),
-                el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, [
-                    el('bt-button', { size: 'sm', variant: 'success', label: LanguageManager.t('admin.approve'), on: { click: () => resolveRequest(s, 'confirm-association') } }),
-                    el('bt-button', { size: 'sm', variant: 'danger', label: LanguageManager.t('admin.reject'), on: { click: () => resolveRequest(s, 'reject-association') } })
-                ])
-            ])));
+            renderSubjectCards();
+            renderSubjectEditOptions();
+            renderRequests();
+            updateStats();
         } catch (error) { Toast.error(error.message); }
+    }
+
+    function renderSubjectCards() {
+        if (!subjectsGrid) return;
+        const total = cache.subjects.length;
+        if (!total) {
+            render(subjectsGrid, Cards.empty(LanguageManager.t('subjects.noSubjects')));
+            Pagination.render(subjectsPagination, { total: 0, pageSize: SUBJECT_PAGE_SIZE });
+            return;
+        }
+        const totalPages = Pagination.totalPages(total, SUBJECT_PAGE_SIZE);
+        if (subjectPage > totalPages) subjectPage = totalPages;
+        const start = (subjectPage - 1) * SUBJECT_PAGE_SIZE;
+        const pageItems = cache.subjects.slice(start, start + SUBJECT_PAGE_SIZE);
+
+        render(subjectsGrid, pageItems.map(s => Cards.subject(s, {
+            hideViewMaterials: true,
+            editButton: el('bt-button', {
+                size: 'sm', variant: 'accent', label: LanguageManager.t('common.edit'),
+                on: { click: () => selectSubjectForEdit(s.id) }
+            })
+        })));
+
+        Pagination.render(subjectsPagination, {
+            page: subjectPage,
+            total,
+            pageSize: SUBJECT_PAGE_SIZE,
+            onChange: (page) => { subjectPage = page; renderSubjectCards(); }
+        });
+    }
+
+    function renderSubjectEditOptions() {
+        if (!subjectEditSelect) return;
+        const current = subjectEditSelect.value;
+        render(subjectEditSelect, cache.subjects.map(s =>
+            el('option', { value: String(s.id), text: s.nombre })));
+        const next = current && cache.subjects.some(s => String(s.id) === current)
+            ? current
+            : (cache.subjects[0] ? String(cache.subjects[0].id) : '');
+        subjectEditSelect.value = next;
+        if (next) loadSubjectEditFields(next);
+    }
+
+    function renderEditProfessorOptions() {
+        if (!editProfesor) return;
+        const current = editProfesor.value;
+        render(editProfesor, [
+            el('option', { value: '', text: LanguageManager.t('subject.noTeacher') }),
+            ...cache.users.filter(u => u.roleNombre === 'Profesor').map(p =>
+                el('option', { value: String(p.id), text: `${p.nombre} ${p.apellido}` }))
+        ]);
+        editProfesor.value = current;
+    }
+
+    function selectSubjectForEdit(id) {
+        if (subjectEditSelect) subjectEditSelect.value = String(id);
+        loadSubjectEditFields(id);
+        document.getElementById('subjectEditPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function loadSubjectEditFields(id) {
+        const s = cache.subjects.find(x => String(x.id) === String(id));
+        if (!s) return;
+        if (editTitulo) editTitulo.value = s.nombre || '';
+        if (editDesc) editDesc.value = s.descripcion || '';
+        renderEditProfessorOptions();
+        if (editProfesor) editProfesor.value = s.profesorId ? String(s.profesorId) : '';
+    }
+
+    function renderRequests() {
+        if (!requestsNode) return;
+        const pending = cache.subjects.filter(s => s.estadoAsociacion === 'Pendiente');
+        if (!pending.length) { render(requestsNode, Cards.empty(LanguageManager.t('admin.noRequests'))); return; }
+
+        render(requestsNode, pending.map(s => el('div', { className: 'bt-panel bt-row bt-between' }, [
+            el('div', {}, [
+                el('strong', { text: s.nombre }),
+                el('p', { className: 'bt-card__meta', text: `${LanguageManager.t('subjects.teacher')}: ${s.profesorNombre || '-'}` })
+            ]),
+            el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, [
+                el('bt-button', { size: 'sm', variant: 'success', label: LanguageManager.t('admin.approve'), on: { click: () => resolveRequest(s, 'confirm-association') } }),
+                el('bt-button', { size: 'sm', variant: 'danger', label: LanguageManager.t('admin.reject'), on: { click: () => resolveRequest(s, 'reject-association') } })
+            ])
+        ])));
     }
 
     async function loadAudit() {
@@ -69,8 +173,8 @@ document.addEventListener('bt:ready', () => {
             cache.logs = logs;
             render(auditTable, logs.slice(0, 25).map(l => el('tr', {}, [
                 el('td', { text: l.tipoOperacion }),
-                el('td', { text: l.usuarioId != null ? String(l.usuarioId) : '-' }),
-                el('td', { text: l.registroId != null ? String(l.registroId) : '-' }),
+                el('td', { text: l.usuarioNombre || (l.usuarioId != null ? String(l.usuarioId) : '-') }),
+                el('td', { text: l.registroNombre || (l.registroId != null ? String(l.registroId) : '-') }),
                 el('td', { text: l.timestamp ? new Date(l.timestamp).toLocaleString() : '' })
             ])));
         } catch (error) { Toast.error(error.message); }
@@ -87,7 +191,66 @@ document.addEventListener('bt:ready', () => {
         try {
             await apiService.post(`/subjects/${subject.id}/${action}`, action === 'confirm-association' ? { profesorId: subject.profesorId } : {});
             Toast.success(LanguageManager.t(action === 'confirm-association' ? 'messages.associationConfirmed' : 'messages.associationRejected'));
-            loadSubjects().then(updateStats);
+            loadSubjects();
+        } catch (error) { Toast.error(error.message); }
+    }
+
+    async function banUser(id) {
+        try {
+            await apiService.put(`/auth/users/${id}/ban`, {});
+            await loadUsers();
+        } catch (error) { Toast.error(error.message); }
+    }
+
+    async function unbanUser(id) {
+        try {
+            await apiService.put(`/auth/users/${id}/unban`, {});
+            await loadUsers();
+        } catch (error) { Toast.error(error.message); }
+    }
+
+    async function softDeleteUser(id) {
+        const confirmed = await Modal.confirm({
+            title: LanguageManager.t('common.delete'),
+            message: LanguageManager.t('messages.deleteConfirm'),
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+        try {
+            await apiService.del(`/auth/users/${id}`);
+            await loadUsers();
+        } catch (error) { Toast.error(error.message); }
+    }
+
+    async function loadTags() {
+        if (!tagsList) return;
+        try {
+            const { tags } = await apiService.get('/thematic-tags');
+            cache.tags = tags;
+            if (!tags.length) { render(tagsList, [el('p', { text: LanguageManager.t('admin.noTags') })]); return; }
+            render(tagsList, tags.map(t => el('div', { className: 'bt-row bt-between bt-panel' }, [
+                el('span', { text: `${t.nombre} (${t.categoria})` }),
+                el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, [
+                    el('bt-button', { size: 'sm', variant: 'danger', label: LanguageManager.t('common.delete'), on: { click: () => removeTag(t.id) } }),
+                    t.baneado
+                        ? el('span', { className: 'bt-badge bt-badge--danger', text: LanguageManager.t('teacher.ban') })
+                        : el('bt-button', { size: 'sm', variant: 'warning', label: LanguageManager.t('teacher.ban'), on: { click: () => banTag(t.id) } })
+                ])
+            ])));
+        } catch (error) { Toast.error(error.message); }
+    }
+
+    async function removeTag(id) {
+        try {
+            await apiService.del(`/thematic-tags/${id}`);
+            loadTags();
+        } catch (error) { Toast.error(error.message); }
+    }
+
+    async function banTag(id) {
+        try {
+            await apiService.put(`/thematic-tags/${id}/ban`, {});
+            loadTags();
         } catch (error) { Toast.error(error.message); }
     }
 
@@ -130,8 +293,25 @@ document.addEventListener('bt:ready', () => {
             });
             Toast.success(LanguageManager.t(result.message));
             subjectForm.reset();
-            loadSubjects().then(updateStats);
+            loadSubjects();
         } catch (error) { Toast.error(error.message); } finally { btn.setLoading(false); }
+    });
+
+    subjectEditSelect?.addEventListener('change', () => loadSubjectEditFields(subjectEditSelect.value));
+
+    editSubjectBtn?.addEventListener('click', async () => {
+        const id = subjectEditSelect?.value;
+        if (!id) return;
+        editSubjectBtn.setLoading(true);
+        try {
+            await apiService.put(`/subjects/${id}`, {
+                nombre: editTitulo.value,
+                descripcion: editDesc.value,
+                profesorId: editProfesor.value ? Number(editProfesor.value) : null
+            });
+            Toast.success(LanguageManager.t('messages.subjectUpdated'));
+            await loadSubjects();
+        } catch (error) { Toast.error(error.message); } finally { editSubjectBtn.setLoading(false); }
     });
 
     loadAll();

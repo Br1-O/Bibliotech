@@ -55,7 +55,9 @@
     "materialAssociated": "Material linked to the subject.",
     "materialApproved": "Material approved and published.",
     "materialCancelled": "Pending upload cancelled.",
+    "materialUpdated": "Material updated successfully.",
     "materialDeleted": "Material deleted.",
+    "materialRemovedFromSubject": "Material removed from the subject.",
     "materialDuplicateProfessor": "The material already exists. It was linked to your subject.",
     "materialDuplicateStudent": "The material already exists. A pending request was created.",
     "roleCreated": "Role created successfully."

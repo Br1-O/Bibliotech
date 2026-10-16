@@ -80,6 +80,19 @@ class MariaDBSubjectRepository extends SubjectRepositoryInterface {
         const [res] = await db.execute('DELETE FROM subjects WHERE id = ?', [id]);
         return res.affectedRows > 0;
     }
+    async update(id, updates = {}) {
+        const fields = [];
+        const params = [];
+        if (updates.nombre !== undefined) { fields.push('nombre = ?'); params.push(updates.nombre); }
+        if (updates.descripcion !== undefined) { fields.push('descripcion = ?'); params.push(updates.descripcion); }
+        if (updates.profesorId !== undefined) { fields.push('profesor_id = ?'); params.push(updates.profesorId); }
+        if (updates.estadoAsociacion !== undefined) { fields.push('estado_asociacion = ?'); params.push(updates.estadoAsociacion); }
+        if (!fields.length) return false;
+        params.push(id);
+        const [res] = await db.execute(`UPDATE subjects SET ${fields.join(', ')} WHERE id = ?`, params);
+        return res.affectedRows > 0;
+    }
+
 }
 
 module.exports = MariaDBSubjectRepository;

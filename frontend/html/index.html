@@ -40,16 +40,21 @@
 
             <p id="catalogResults" class="bt-text-muted"></p>
             <div id="materialsGrid" class="bt-grid"></div>
-            <div class="bt-text-center bt-mt-4">
-                <button id="catalogLoadMore" class="bt-btn bt-btn--secondary bt-hidden" type="button"
-                        data-i18n="filters.loadMore">Cargar mas</button>
-            </div>
+            <div id="catalogPagination"></div>
         </section>
 
         <section id="materias" class="bt-container bt-stack bt-mt-6">
-            <h2 data-i18n="subjects.title">Materias</h2>
-            <p class="bt-text-muted" data-i18n="subjects.subtitle">Explora las materias disponibles y suscribete.</p>
+            <div class="bt-row bt-between">
+                <div>
+                    <h2 data-i18n="subjects.title">Materias</h2>
+                    <p class="bt-text-muted" data-i18n="subjects.subtitle">Explora las materias disponibles y suscribete.</p>
+                </div>
+                <label id="subscribedToggleWrap" class="bt-hidden">
+                    <input type="checkbox" id="subscribedToggle"> <span data-i18n="subjects.onlySubscribed">Solo suscritas</span>
+                </label>
+            </div>
             <div id="subjectsGrid" class="bt-grid"></div>
+            <div id="subjectsPagination"></div>
         </section>
     </main>
 
@@ -63,6 +68,7 @@
     <script src="/js/components/modal.js"></script>
     <script src="/js/components/cards.js"></script>
     <script src="/js/components/navbar.js"></script>
+    <script src="/js/components/pagination.js"></script>
     <script src="/js/services/apiService.js"></script>
     <script src="/js/frontControllers/catalogFrontController.js"></script>
     <script src="/js/app.js"></script>

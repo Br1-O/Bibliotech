@@ -41,6 +41,7 @@ app.use('/api/subjects', require('./routes/subjectRoutes')(container));
 app.use('/api/materials', require('./routes/materialRoutes')(container));
 app.use('/api/subscriptions', require('./routes/subscriptionRoutes')(container));
 app.use('/api/audit', require('./routes/auditRoutes')(container));
+app.use('/api/thematic-tags', require('./routes/thematicTagsRoutes')(container));
 
 // --- Rutas de navegacion del frontend ---
 if (process.env.NODE_ENV === 'testing') {

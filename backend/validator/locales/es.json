@@ -55,7 +55,9 @@
     "materialAssociated": "Material asociado a la materia.",
     "materialApproved": "Material aprobado y publicado.",
     "materialCancelled": "Subida pendiente cancelada.",
+    "materialUpdated": "Material actualizado correctamente.",
     "materialDeleted": "Material eliminado.",
+    "materialRemovedFromSubject": "Material quitado de la materia.",
     "materialDuplicateProfessor": "El material ya existe. Se asocio a tu materia.",
     "materialDuplicateStudent": "El material ya existe. Se genero una solicitud pendiente.",
     "roleCreated": "Rol creado correctamente."

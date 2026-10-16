@@ -64,6 +64,27 @@ module.exports = (container) => {
                 const roles = await roleService.getAllRoles();
                 return ok(req, res, { roles });
             } catch (error) { return next(error); }
-        }
+        },
+        async banUser(req, res, next) {
+            try {
+                const result = await authService.banUser(req.params.id, req.usuarioId);
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
+        async unbanUser(req, res, next) {
+            try {
+                const result = await authService.unbanUser(req.params.id, req.usuarioId);
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
+        async softDeleteUser(req, res, next) {
+            try {
+                const result = await authService.softDeleteUser(req.params.id, req.usuarioId);
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
     };
 };

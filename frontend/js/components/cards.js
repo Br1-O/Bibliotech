@@ -29,6 +29,51 @@ const Cards = {
         return btn;
     },
 
+    /** Estrella para agregar/quitar el material de favoritos (toggle). */
+    favoriteButton(material, onToggle) {
+        const activeLabel = () => Number(material.esFavorito) === 1;
+        const label = () => LanguageManager.t(activeLabel() ? 'material.removeFavorite' : 'material.addFavorite');
+        const active = activeLabel();
+
+        const btn = el('button', {
+            className: `bt-fav-btn${active ? ' is-active' : ''}`,
+            text: active ? '★' : '☆',
+            attrs: {
+                type: 'button',
+                title: label(),
+                'aria-label': label(),
+                'aria-pressed': active ? 'true' : 'false'
+            }
+        });
+        btn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            btn.disabled = true;
+            try {
+                const result = await onToggle(material);
+                const nowActive = result && typeof result.favorited === 'boolean'
+                    ? result.favorited
+                    : !activeLabel();
+                material.esFavorito = nowActive ? 1 : 0;
+                btn.textContent = nowActive ? '★' : '☆';
+                btn.classList.toggle('is-active', nowActive);
+                btn.setAttribute('aria-pressed', nowActive ? 'true' : 'false');
+                btn.title = label();
+                btn.setAttribute('aria-label', label());
+            } finally {
+                btn.disabled = false;
+            }
+        });
+        return btn;
+    },
+
+    /** Alterna el material en la lista de favoritos del usuario autenticado. */
+    async toggleFavorite(material) {
+        const result = await apiService.post(`/materials/${material.id}/favorite`, {});
+        Toast.success(LanguageManager.t(result.favorited ? 'messages.favoriteAdded' : 'messages.favoriteRemoved'));
+        return result;
+    },
+
     material(material, options = {}) {
         const isFile = String(material.urlOrPath).startsWith('/uploads/');
         const link = material.urlOrPath;
@@ -46,6 +91,7 @@ const Cards = {
         ]);
 
         const actions = [
+            options.onToggleFavorite ? this.favoriteButton(material, options.onToggleFavorite) : null,
             isFile
                 ? el('a', { className: 'bt-btn bt-btn--secondary bt-btn--sm', text: LanguageManager.t('common.download'), attrs: { href: link, download: '', target: '_blank', rel: 'noopener' } })
                 : el('a', { className: 'bt-btn bt-btn--secondary bt-btn--sm', text: LanguageManager.t('common.open'), attrs: { href: link, target: '_blank', rel: 'noopener' } }),
@@ -54,8 +100,16 @@ const Cards = {
                 size: 'sm', variant: 'accent', label: LanguageManager.t('material.cancel'),
                 on: { click: () => options.onCancel(material) }
             }) : null,
+            options.onEdit ? el('bt-button', {
+                size: 'sm', variant: 'accent', label: LanguageManager.t('common.edit'),
+                on: { click: () => options.onEdit(material) }
+            }) : null,
             options.onDelete
-                ? el('bt-button', { variant: 'danger', size: 'sm', label: LanguageManager.t('common.delete'), on: { click: () => options.onDelete(material) } })
+                ? el('bt-button', {
+                    variant: 'danger', size: 'sm',
+                    label: LanguageManager.t(options.deleteLabel || 'common.delete'),
+                    on: { click: () => options.onDelete(material) }
+                })
                 : null
         ];
 
@@ -72,16 +126,20 @@ const Cards = {
         const teacher = subject.profesorNombre || LanguageManager.t('subject.noTeacher');
         const isTeacher = Boolean(subject.profesorNombre);
 
+        const actions = [];
+        if (!options.hideViewMaterials) {
+            actions.push(el('a', {
+                className: 'bt-btn bt-btn--secondary bt-btn--sm',
+                text: LanguageManager.t('subjects.viewMaterials'),
+                attrs: { href: `/materia/${subject.id}` }
+            }));
+        }
+        if (options.subscribeButton) actions.push(options.subscribeButton);
+        if (options.editButton) actions.push(options.editButton);
+
         const footer = el('div', { className: 'bt-card__footer bt-between bt-row' }, [
             el('span', { className: 'bt-card__meta', text: `${subject.totalMateriales ?? 0} ${LanguageManager.t('subjects.viewMaterials').toLowerCase()}` }),
-            el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, [
-                el('a', {
-                    className: 'bt-btn bt-btn--secondary bt-btn--sm',
-                    text: LanguageManager.t('subjects.viewMaterials'),
-                    attrs: { href: `/materia/${subject.id}` }
-                }),
-                options.subscribeButton || null
-            ])
+            el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, actions)
         ]);
 
         return el('div', { className: 'bt-card bt-card--interactive' }, [

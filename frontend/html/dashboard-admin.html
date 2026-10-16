@@ -90,11 +90,48 @@
                             <th data-i18n="auth.lastName">Apellido</th>
                             <th data-i18n="auth.email">Correo</th>
                             <th data-i18n="admin.roles">Rol</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="usersTable"></tbody>
                 </table>
             </div>
+        </section>
+
+
+        <section class="bt-stack">
+            <h2 data-i18n="admin.subjectManagement">Gestionar materias</h2>
+            <p class="bt-text-muted" data-i18n="admin.subjectManagementHint">Elige una materia para modificar su titulo, descripcion o profesor titular.</p>
+            <div id="adminSubjectsGrid" class="bt-grid"></div>
+            <div id="adminSubjectsPagination"></div>
+        </section>
+
+        <section class="bt-stack" id="subjectEditPanel">
+            <h2 data-i18n="admin.editSubject">Modificar materia</h2>
+            <div class="bt-panel bt-stack">
+                <div class="bt-field">
+                    <label class="bt-label" for="subjectEditSelect" data-i18n="admin.selectSubject">Materia a modificar</label>
+                    <select id="subjectEditSelect" class="bt-select" name="subjectId"></select>
+                </div>
+                <div class="bt-field">
+                    <label class="bt-label" for="editTitulo" data-i18n="subjects.name">Titulo</label>
+                    <input id="editTitulo" class="bt-input" type="text" name="titulo">
+                </div>
+                <div class="bt-field">
+                    <label class="bt-label" for="editDesc" data-i18n="subjects.description">Descripcion</label>
+                    <textarea id="editDesc" class="bt-textarea" name="descripcion" rows="3"></textarea>
+                </div>
+                <div class="bt-field">
+                    <label class="bt-label" for="editProfesor" data-i18n="subjects.teacher">Profesor</label>
+                    <select id="editProfesor" class="bt-select" name="profesorId"></select>
+                </div>
+                <bt-button id="editSubjectBtn" variant="success" label-i18n="common.save"></bt-button>
+            </div>
+        </section>
+
+        <section class="bt-stack">
+            <h2 data-i18n="admin.thematicTags">Etiquetas tematicas</h2>
+            <div id="thematicTagsList" class="bt-stack"></div>
         </section>
 
         <section class="bt-stack">
@@ -125,6 +162,7 @@
     <script src="/js/components/modal.js"></script>
     <script src="/js/components/cards.js"></script>
     <script src="/js/components/navbar.js"></script>
+    <script src="/js/components/pagination.js"></script>
     <script src="/js/services/apiService.js"></script>
     <script src="/js/frontControllers/adminDashboardFrontController.js"></script>
     <script src="/js/app.js"></script>

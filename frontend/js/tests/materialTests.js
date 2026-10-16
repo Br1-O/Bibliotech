@@ -164,3 +164,20 @@ testUtils.createTestButton('Test Profesor borra material de su materia', async (
     testUtils.log({ status: r.status, message: r.data && r.data.message });
     testUtils.assert(r.ok, 'Se esperaba el borrado exitoso');
 });
+
+// --- Edicion y desasociacion por materia (requisito nuevo) ---
+testUtils.createTestButton('Test Profesor edita titulo y descripcion de material', async () => {
+    const token = await testUtils.login(testUtils.accounts.profesor.email, testUtils.accounts.profesor.password);
+    const subida = await testUtils.request('/materials/upload', {
+        method: 'POST', token,
+        form: testUtils.pdfForm({ titulo: testUtils.uniq('Editar'), tipo: 'PDF', subjects: '1' }, testUtils.uniq('pdf-edit'))
+    });
+    const id = subida.data.material.id;
+    const nuevoTitulo = testUtils.uniq('Editado');
+    const r = await testUtils.request(`/materials/${id}`, {
+        method: 'PUT', token, body: { titulo: nuevoTitulo, descripcion: 'Descripcion editada' }
+    });
+    testUtils.log({ status: r.status, message: r.data && r.data.message });
+    testUtils.assert(r.ok, 'Se esperaba 200');
+    testUtils.assert(r.data.material && r.data.material.titulo === nuevoTitulo, 'El titulo no se actualizo');
+});

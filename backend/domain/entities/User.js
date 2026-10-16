@@ -14,7 +14,8 @@ class User {
         password,
         resetToken = null,
         tokenExpiration = null,
-        createdAt = null
+        createdAt = null,
+        estado = 'Activo'
     }) {
         this.id = id;
         this.roleId = roleId;
@@ -26,6 +27,7 @@ class User {
         this.resetToken = resetToken;
         this.tokenExpiration = tokenExpiration;
         this.createdAt = createdAt;
+        this.estado = estado || 'Activo';
     }
 
     get nombreCompleto() {
@@ -35,6 +37,10 @@ class User {
     isSuperadmin() { return this.roleNombre === 'Superadmin'; }
     isProfesor()   { return this.roleNombre === 'Profesor'; }
     isAlumno()     { return this.roleNombre === 'Alumno'; }
+
+    isActivo() { return this.estado === 'Activo'; }
+    isBaneado() { return this.estado === 'Baneado'; }
+    isInactivo() { return this.estado === 'Inactivo'; }
 
     /**
      * RD-03: el token de reseteo debe existir y no estar expirado.

@@ -31,7 +31,7 @@ module.exports = (container) => {
                     subjects: parseList(req.query.subjects).map(Number).filter(Boolean),
                     tags: parseList(req.query.tags)
                 };
-                const materials = await materialService.getGlobalContent(filters);
+                const materials = await materialService.getGlobalContent(filters, req.usuarioId);
                 return ok(req, res, { materials });
             } catch (error) { return next(error); }
         },
@@ -122,12 +122,38 @@ module.exports = (container) => {
             } catch (error) { return next(error); }
         },
 
+        async update(req, res, next) {
+            try {
+                const result = await materialService.update(req.params.id, {
+                    titulo: req.body.titulo,
+                    descripcion: req.body.descripcion
+                }, { usuarioId: req.usuarioId, rol: req.rol });
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
         async remove(req, res, next) {
             try {
+                const subjectId = req.params.subjectId
+                    ? Number(req.params.subjectId)
+                    : (req.query.subjectId ? Number(req.query.subjectId) : null);
                 const result = await materialService.delete(req.params.id, {
                     usuarioId: req.usuarioId, rol: req.rol
-                });
+                }, subjectId);
                 return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+        async toggleFavorite(req, res, next) {
+            try {
+                const result = await materialService.toggleFavorite(req.params.id, req.usuarioId);
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
+        async getFavorites(req, res, next) {
+            try {
+                const favorites = await materialService.getFavorites(req.usuarioId, req.query);
+                return ok(req, res, { favorites });
             } catch (error) { return next(error); }
         }
     };

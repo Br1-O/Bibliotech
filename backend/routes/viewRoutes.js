@@ -21,6 +21,7 @@ module.exports = () => {
     router.get('/alumno', page('dashboard-alumno.html'));
     router.get('/profesor', page('dashboard-profesor.html'));
     router.get('/admin', page('dashboard-admin.html'));
+    router.get('/favoritos', page('favorites.html'));
     router.get('/tests', page('tests.html'));
 
     // 404: redirige al catalogo (excepto recursos estaticos con extension).

@@ -30,6 +30,10 @@ if (!customElements.get('bt-navbar')) {
 
             if (authed) {
                 linksWrap.appendChild(link(authHelper.panelRoute(), 'nav.myPanel', active === 'panel'));
+                if (role === 'Alumno') {
+                    linksWrap.appendChild(link('/#suscritas', 'nav.mySubscriptions', active === 'subscribed'));
+                }
+                linksWrap.appendChild(link('/favoritos', 'nav.favorites', active === 'favorites'));
                 linksWrap.appendChild(el('a', {
                     className: 'bt-navbar__link', text: LanguageManager.t('nav.logout'),
                     attrs: { href: '#' },

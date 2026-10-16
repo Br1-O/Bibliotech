@@ -83,6 +83,17 @@ class SubjectService {
         if (!subject) throw new AppError('errors.notFound', { status: 404 });
         return subject;
     }
+
+    async updateSubject(subjectId, dto, usuarioId = null) {
+        const subject = await this.subjectRepository.findById(subjectId);
+        if (!subject) throw new AppError('errors.notFound', { status: 404 });
+        const updates = {};
+        if (dto.nombre !== undefined && dto.nombre !== null) updates.nombre = dto.nombre;
+        if (dto.descripcion !== undefined) updates.descripcion = dto.descripcion;
+        if (dto.profesorId !== undefined) updates.profesorId = dto.profesorId === '' ? null : dto.profesorId;
+        await this.subjectRepository.update(subjectId, updates);
+        return this.subjectRepository.findById(subjectId);
+    }
 }
 
 module.exports = SubjectService;

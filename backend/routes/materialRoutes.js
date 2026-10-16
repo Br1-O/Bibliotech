@@ -6,6 +6,7 @@
 const express = require('express');
 const { verifyToken, optionalAuth, requireRole } = require('../middleware/authMiddleware');
 const upload = require('../config/multerConfig');
+const { uploadRateLimit } = require('../middleware/uploadRateLimitMiddleware');
 
 module.exports = (container) => {
     const router = express.Router();
@@ -16,12 +17,17 @@ module.exports = (container) => {
     router.get('/pending', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), controller.pending);
     router.get('/pending-review', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.pendingReview);
 
-    router.post('/upload', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), upload, controller.upload);
+    router.post('/upload', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), uploadRateLimit(), upload, controller.upload);
     router.post('/:id/approve', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.approve);
     router.post('/:id/reject', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.reject);
     router.post('/:id/associate', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.associate);
     router.post('/:id/cancel', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), controller.cancel);
+    router.put('/:id', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.update);
+    router.delete('/:id/subjects/:subjectId', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.remove);
     router.delete('/:id', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.remove);
+
+    router.post('/:id/favorite', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR, Role.SUPERADMIN), controller.toggleFavorite);
+    router.get('/favorites/mine', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR, Role.SUPERADMIN), controller.getFavorites);
 
     return router;
 };

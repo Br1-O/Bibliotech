@@ -11,7 +11,7 @@ const Material = require('../../domain/entities/Material');
 const SELECT_MATERIAL = `
     SELECT m.id, m.autor_id AS autorId, CONCAT(u.nombre, ' ', u.apellido) AS autorNombre,
            m.titulo, m.tipo, m.url_or_path AS urlOrPath, m.file_hash AS fileHash,
-           m.descripcion, m.categories, m.estado, m.created_at AS createdAt,
+           m.descripcion, m.categories, m.estado, m.es_favorito AS esFavorito, m.contador_favoritos AS contadorFavoritos, m.created_at AS createdAt,
            (SELECT GROUP_CONCAT(s.nombre SEPARATOR ',')
               FROM material_subjects ms JOIN subjects s ON s.id = ms.subject_id
              WHERE ms.material_id = m.id AND ms.estado_aprobacion = 'Aprobado') AS materias,
@@ -82,6 +82,9 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
 
     async findAllGlobal(filters = {}) {
         const { clauses, params } = this.buildFilters(filters);
+        // Solo aparece en el catalogo global el material vigente en al menos
+        // una materia: si se lo quito de todas las materias pero sigue en
+        // favoritos, permanece accesible desde ahi y no en la busqueda general.
         const where = [`m.estado = 'Aprobado'`, ...clauses];
         const [rows] = await db.execute(
             `${SELECT_MATERIAL} WHERE ${where.join(' AND ')} ORDER BY m.created_at DESC`, params
@@ -117,7 +120,7 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         const [rows] = await db.execute(`
             SELECT m.id, m.autor_id AS autorId, CONCAT(u.nombre, ' ', u.apellido) AS autorNombre,
                    m.titulo, m.tipo, m.url_or_path AS urlOrPath, m.file_hash AS fileHash,
-                   m.descripcion, m.categories, m.estado, m.created_at AS createdAt,
+                   m.descripcion, m.categories, m.estado, m.es_favorito AS esFavorito, m.contador_favoritos AS contadorFavoritos, m.created_at AS createdAt,
                    ms.subject_id AS subjectId, s.nombre AS subjectNombre
             FROM material_subjects ms
             INNER JOIN materials m ON m.id = ms.material_id
@@ -190,9 +193,70 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         return res.affectedRows > 0;
     }
 
+    /** Actualiza los datos editables del material (titulo/descripcion). */
+    async update(materialId, changes = {}) {
+        const fields = [];
+        const params = [];
+        if (changes.titulo !== undefined) { fields.push('titulo = ?'); params.push(changes.titulo); }
+        if (changes.descripcion !== undefined) { fields.push('descripcion = ?'); params.push(changes.descripcion); }
+        if (!fields.length) return false;
+        params.push(materialId);
+        const [res] = await db.execute(`UPDATE materials SET ${fields.join(', ')} WHERE id = ?`, params);
+        return res.affectedRows > 0;
+    }
+
     async delete(materialId) {
         const [res] = await db.execute('DELETE FROM materials WHERE id = ?', [materialId]);
         return res.affectedRows > 0;
+    }
+    // Favorites methods
+    async toggleFavorite(materialId, userId) {
+        const [existing] = await db.execute(
+            'SELECT id FROM material_favorites WHERE material_id = ? AND usuario_id = ?',
+            [materialId, userId]
+        );
+        if (existing.length > 0) {
+            await db.execute('DELETE FROM material_favorites WHERE id = ?', [existing[0].id]);
+            await db.execute('UPDATE materials SET contador_favoritos = GREATEST(contador_favoritos - 1, 0) WHERE id = ?', [materialId]);
+            return { favorited: false };
+        } else {
+            await db.execute('INSERT INTO material_favorites (material_id, usuario_id) VALUES (?, ?)', [materialId, userId]);
+            await db.execute('UPDATE materials SET contador_favoritos = contador_favoritos + 1 WHERE id = ?', [materialId]);
+            return { favorited: true };
+        }
+    }
+
+    async findFavorites(userId, filters = {}) {
+        const limit = parseInt(filters.limit) || 10;
+        const offset = parseInt(filters.offset) || 0;
+        const built = this.buildFilters(filters, 'm');
+        const clauses = built.clauses;
+        const params = built.params;
+        const where = [`mf.usuario_id = ?`, "m.estado = 'Aprobado'", ...clauses];
+        const [rows] = await db.execute(
+            `${SELECT_MATERIAL} INNER JOIN material_favorites mf ON mf.material_id = m.id WHERE ${where.join(' AND ')} ORDER BY mf.created_at DESC LIMIT ? OFFSET ?`,
+            [userId, ...params, limit, offset]
+        );
+        return rows.map(row => {
+            const material = mapMaterial(row);
+            if (material) material.esFavorito = 1;
+            return material;
+        });
+    }
+
+    async findFavoriteIds(userId) {
+        if (!userId) return [];
+        const [rows] = await db.execute(
+            'SELECT material_id AS id FROM material_favorites WHERE usuario_id = ?', [userId]
+        );
+        return rows.map(r => Number(r.id));
+    }
+
+    async countFavorites(materialId) {
+        const [rows] = await db.execute(
+            'SELECT COUNT(*) AS total FROM material_favorites WHERE material_id = ?', [materialId]
+        );
+        return Number(rows[0].total) || 0;
     }
 }
 

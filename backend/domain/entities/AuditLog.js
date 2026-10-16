@@ -25,6 +25,8 @@ AuditLog.OPERACIONES = {
     SUBIDA_MATERIAL: 'Subida Material',
     ASOCIACION_MATERIAL: 'Asociacion Material',
     APROBACION_MATERIAL: 'Aprobacion Material',
+    MODIFICACION_MATERIAL: 'Modificacion Material',
+    DESASOCIACION_MATERIAL: 'Desasociacion Material',
     CANCELACION_MATERIAL: 'Cancelacion Material',
     BORRADO_MATERIAL: 'Borrado Material',
     SUSCRIPCION: 'Suscripcion Materia',

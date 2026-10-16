@@ -8,45 +8,98 @@ document.addEventListener('bt:ready', () => {
     if (!grid) return;
 
     const subjectsGrid = document.getElementById('subjectsGrid');
+    const subjectsPagination = document.getElementById('subjectsPagination');
     const searchInput = document.getElementById('catalogSearch');
     const subjectFilter = document.getElementById('catalogSubjectFilter');
     const tagFilter = document.getElementById('catalogTagFilter');
     const sortSelect = document.getElementById('catalogSort');
     const clearButton = document.getElementById('catalogClear');
-    const loadMoreButton = document.getElementById('catalogLoadMore');
+    const materialsPagination = document.getElementById('catalogPagination');
     const resultsLabel = document.getElementById('catalogResults');
 
-    const PAGE_SIZE = 6;
+    const PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
+    const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     let subscriptions = [];
     let allMaterials = [];
-    let visibleCount = PAGE_SIZE;
+    let materialPage = 1;
+    let subjectPage = 1;
     let debounce;
 
     const isAlumno = authHelper.isRole('Alumno');
+    const canFavorite = authHelper.isAuthenticated();
+    const subscribedToggle = document.getElementById('subscribedToggle');
+    const subscribedToggleWrap = document.getElementById('subscribedToggleWrap');
+    let allSubjectsCache = [];
+
+    if (isAlumno && subscribedToggleWrap) {
+        subscribedToggleWrap.classList.remove('bt-hidden');
+        subscribedToggle?.addEventListener('change', () => renderSubjectsList());
+    }
 
     async function loadSubjects() {
         try {
             const { subjects } = await apiService.get('/subjects');
-            renderSubjects(subjects, subjectsGrid, subjectFilter);
+            allSubjectsCache = subjects;
+            renderSubjectsList();
         } catch (error) {
             console.error(error);
         }
     }
 
-    function renderSubjects(subjects, gridNode, filterNode) {
-        if (!gridNode) return;
-        if (!subjects.length) { render(gridNode, Cards.empty(LanguageManager.t('subjects.noSubjects'))); return; }
+    function renderSubjectsList() {
+        subjectPage = 1;
+        renderSubjects();
+    }
 
-        render(gridNode, subjects.map(subject => Cards.subject(subject, {
+    function renderSubjects() {
+        let subjects = [...allSubjectsCache];
+        if (isAlumno) {
+            // subscribed first
+            subjects.sort((a, b) => {
+                const as = subscriptions.some(s => String(s.materia_id) === String(a.id));
+                const bs = subscriptions.some(s => String(s.materia_id) === String(b.id));
+                if (as !== bs) return as ? -1 : 1;
+                return 0;
+            });
+            if (subscribedToggle?.checked) {
+                subjects = subjects.filter(s => subscriptions.some(sub => String(sub.materia_id) === String(s.id)));
+            }
+        }
+        renderSubjectsGrid(subjects);
+    }
+
+    function renderSubjectsGrid(subjects) {
+        if (!subjectsGrid) return;
+        if (!subjects.length) {
+            render(subjectsGrid, Cards.empty(LanguageManager.t('subjects.noSubjects')));
+            Pagination.render(subjectsPagination, { total: 0, pageSize: SUBJECT_PAGE_SIZE });
+            return;
+        }
+
+        const totalPages = Pagination.totalPages(subjects.length, SUBJECT_PAGE_SIZE);
+        if (subjectPage > totalPages) subjectPage = totalPages;
+        const start = (subjectPage - 1) * SUBJECT_PAGE_SIZE;
+        const pageItems = subjects.slice(start, start + SUBJECT_PAGE_SIZE);
+
+        render(subjectsGrid, pageItems.map(subject => Cards.subject(subject, {
             subscribeButton: isAlumno ? buildSubscribeButton(subject) : null
         })));
 
-        if (filterNode) {
-            // Conserva la opcion "todas" y agrega las materias.
-            render(filterNode, [
+        Pagination.render(subjectsPagination, {
+            page: subjectPage,
+            total: subjects.length,
+            pageSize: SUBJECT_PAGE_SIZE,
+            onChange: (page) => { subjectPage = page; renderSubjects(); }
+        });
+
+        if (subjectFilter) {
+            // Conserva la opcion "todas" y agrega todas las materias.
+            const current = subjectFilter.value;
+            render(subjectFilter, [
                 el('option', { value: '', text: LanguageManager.t('catalog.allSubjects') }),
                 ...subjects.map(s => el('option', { value: String(s.id), text: s.nombre }))
             ]);
+            subjectFilter.value = current;
         }
     }
 
@@ -67,7 +120,7 @@ document.addEventListener('bt:ready', () => {
                     Toast.success(LanguageManager.t('messages.subscribed'));
                 }
                 await loadSubscriptions();
-                renderSubjects(await apiService.get('/subjects').then(r => r.subjects), subjectsGrid, subjectFilter);
+                renderSubjects();
             } catch (error) {
                 Toast.error(error.message);
             } finally {
@@ -94,7 +147,7 @@ document.addEventListener('bt:ready', () => {
                 tags: tagFilter?.value || ''
             });
             allMaterials = result.materials || [];
-            visibleCount = PAGE_SIZE;
+            materialPage = 1;
             applyAndRender();
         } catch (error) {
             render(grid, Cards.empty(error.message));
@@ -115,22 +168,37 @@ document.addEventListener('bt:ready', () => {
     }
 
     function applyAndRender() {
-        const total = allMaterials.length;
-        const shown = Math.min(visibleCount, total);
+        const sorted = sortMaterials(allMaterials);
+        const total = sorted.length;
+        const totalPages = Pagination.totalPages(total, PAGE_SIZE);
+        if (materialPage > totalPages) materialPage = totalPages;
+        const start = (materialPage - 1) * PAGE_SIZE;
+        const shown = sorted.slice(start, start + PAGE_SIZE);
 
         if (resultsLabel) {
             resultsLabel.textContent = total
-                ? LanguageManager.t('filters.showing', { shown, total })
+                ? LanguageManager.t('filters.showing', { shown: shown.length, total })
                 : LanguageManager.t('common.noResults');
         }
 
         if (!total) {
             render(grid, Cards.empty(LanguageManager.t('common.noResults')));
         } else {
-            render(grid, sortMaterials(allMaterials).slice(0, shown).map(m => Cards.material(m)));
+            render(grid, shown.map(materialCard));
         }
 
-        if (loadMoreButton) loadMoreButton.classList.toggle('bt-hidden', shown >= total || total === 0);
+        Pagination.render(materialsPagination, {
+            page: materialPage,
+            total,
+            pageSize: PAGE_SIZE,
+            onChange: (page) => { materialPage = page; applyAndRender(); }
+        });
+    }
+
+    function materialCard(material) {
+        return Cards.material(material, {
+            onToggleFavorite: canFavorite ? (m) => Cards.toggleFavorite(m) : null
+        });
     }
 
     // Filtros con debounce sobre el texto libre.
@@ -144,12 +212,7 @@ document.addEventListener('bt:ready', () => {
         debounce = setTimeout(loadMaterials, 300);
     });
 
-    sortSelect?.addEventListener('change', applyAndRender);
-
-    loadMoreButton?.addEventListener('click', () => {
-        visibleCount += PAGE_SIZE;
-        applyAndRender();
-    });
+    sortSelect?.addEventListener('change', () => { materialPage = 1; applyAndRender(); });
 
     clearButton?.addEventListener('click', () => {
         if (searchInput) searchInput.value = '';

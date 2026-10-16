@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bibliotech · Materia</title>
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+</head>
+<body>
+    <bt-navbar active="subjects"></bt-navbar>
+
+    <main class="bt-page">
+        <section class="bt-container bt-stack">
+            <div id="subjectDetail"></div>
+
+            <div class="bt-toolbar bt-row bt-mt-4">
+                <input id="subjectSearch" class="bt-input" type="search"
+                       data-i18n-placeholder="catalog.searchPlaceholder" placeholder="Buscar material...">
+                <select id="subjectSort" class="bt-select" data-i18n-title="filters.sort" title="Ordenar por">
+                    <option value="newest" data-i18n="filters.newest">Mas recientes</option>
+                    <option value="oldest" data-i18n="filters.oldest">Mas antiguos</option>
+                    <option value="title" data-i18n="filters.title">Titulo (A-Z)</option>
+                </select>
+                <button id="subjectClear" class="bt-btn bt-btn--ghost" type="button"
+                        data-i18n="filters.clear">Limpiar filtros</button>
+            </div>
+
+            <p id="subjectResults" class="bt-text-muted"></p>
+            <div id="subjectMaterials" class="bt-grid bt-mt-2"></div>
+            <div class="bt-text-center bt-mt-4">
+                <button id="subjectLoadMore" class="bt-btn bt-btn--secondary bt-hidden" type="button"
+                        data-i18n="filters.loadMore">Cargar mas</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="/js/utils/dom.js"></script>
+    <script src="/js/i18n/LanguageManager.js"></script>
+    <script src="/js/utils/authHelper.js"></script>
+    <script src="/js/utils/validator.js"></script>
+    <script src="/js/components/button.js"></script>
+    <script src="/js/components/loader.js"></script>
+    <script src="/js/components/toast.js"></script>
+    <script src="/js/components/modal.js"></script>
+    <script src="/js/components/cards.js"></script>
+    <script src="/js/components/navbar.js"></script>
+    <script src="/js/services/apiService.js"></script>
+    <script src="/js/frontControllers/subjectFrontController.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bibliotech · Panel del superadministrador</title>
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+</head>
+<body>
+    <bt-navbar active="panel"></bt-navbar>
+
+    <main id="adminDashboard" class="bt-page bt-container bt-stack">
+        <h1 data-i18n="admin.panelTitle">Panel del superadministrador</h1>
+
+        <div class="bt-stats">
+            <div class="bt-stat">
+                <span class="bt-stat__value" id="adminStatUsers">0</span>
+                <span class="bt-stat__label" data-i18n="admin.totalUsers">Usuarios</span>
+            </div>
+            <div class="bt-stat">
+                <span class="bt-stat__value" id="adminStatSubjects">0</span>
+                <span class="bt-stat__label" data-i18n="admin.totalSubjects">Materias</span>
+            </div>
+            <div class="bt-stat">
+                <span class="bt-stat__value" id="adminStatRequests">0</span>
+                <span class="bt-stat__label" data-i18n="admin.associationRequests">Solicitudes</span>
+            </div>
+        </div>
+
+        <section class="bt-columns">
+            <div class="bt-panel bt-stack">
+                <h2 data-i18n="admin.createTeacher">Crear profesor</h2>
+                <form id="professorForm" class="bt-stack" novalidate>
+                    <div class="bt-field">
+                        <label class="bt-label" for="pNombre" data-i18n="auth.firstName">Nombre</label>
+                        <input id="pNombre" class="bt-input" type="text" name="nombre">
+                    </div>
+                    <div class="bt-field">
+                        <label class="bt-label" for="pApellido" data-i18n="auth.lastName">Apellido</label>
+                        <input id="pApellido" class="bt-input" type="text" name="apellido">
+                    </div>
+                    <div class="bt-field">
+                        <label class="bt-label" for="pEmail" data-i18n="auth.email">Correo electronico</label>
+                        <input id="pEmail" class="bt-input" type="email" name="email">
+                    </div>
+                    <div class="bt-field">
+                        <label class="bt-label" for="pPassword" data-i18n="auth.password">Contrasena</label>
+                        <input id="pPassword" class="bt-input" type="password" name="password">
+                    </div>
+                    <bt-button type="submit" block label-i18n="admin.createTeacher"></bt-button>
+                </form>
+            </div>
+
+            <div class="bt-panel bt-stack">
+                <h2 data-i18n="admin.createSubject">Crear materia</h2>
+                <form id="adminSubjectForm" class="bt-stack" novalidate>
+                    <div class="bt-field">
+                        <label class="bt-label" for="sNombre" data-i18n="subjects.name">Nombre de la materia</label>
+                        <input id="sNombre" class="bt-input" type="text" name="nombre">
+                        <span class="bt-error-text" data-error-for="nombre"></span>
+                    </div>
+                    <div class="bt-field">
+                        <label class="bt-label" for="sDescripcion" data-i18n="subjects.description">Descripcion</label>
+                        <textarea id="sDescripcion" class="bt-textarea" name="descripcion" rows="3"></textarea>
+                    </div>
+                    <div class="bt-field">
+                        <label class="bt-label" for="subjectProfessor" data-i18n="subjects.teacher">Profesor titular</label>
+                        <select id="subjectProfessor" class="bt-select" name="profesorId"></select>
+                    </div>
+                    <bt-button type="submit" block label-i18n="admin.createSubject"></bt-button>
+                </form>
+            </div>
+        </section>
+
+        <section class="bt-stack">
+            <h2 data-i18n="admin.associationRequests">Solicitudes de asociacion</h2>
+            <div id="associationRequests" class="bt-stack"></div>
+        </section>
+
+        <section class="bt-stack">
+            <h2 data-i18n="admin.users">Usuarios</h2>
+            <div class="bt-table-wrap">
+                <table class="bt-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="auth.firstName">Nombre</th>
+                            <th data-i18n="auth.lastName">Apellido</th>
+                            <th data-i18n="auth.email">Correo</th>
+                            <th data-i18n="admin.roles">Rol</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="bt-stack">
+            <h2 data-i18n="admin.auditLog">Registro de auditoria</h2>
+            <div class="bt-table-wrap">
+                <table class="bt-table">
+                    <thead>
+                        <tr>
+                            <th>Operacion</th>
+                            <th>Usuario</th>
+                            <th>Registro</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditLog"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="/js/utils/dom.js"></script>
+    <script src="/js/i18n/LanguageManager.js"></script>
+    <script src="/js/utils/authHelper.js"></script>
+    <script src="/js/utils/validator.js"></script>
+    <script src="/js/components/button.js"></script>
+    <script src="/js/components/loader.js"></script>
+    <script src="/js/components/toast.js"></script>
+    <script src="/js/components/modal.js"></script>
+    <script src="/js/components/cards.js"></script>
+    <script src="/js/components/navbar.js"></script>
+    <script src="/js/services/apiService.js"></script>
+    <script src="/js/frontControllers/adminDashboardFrontController.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

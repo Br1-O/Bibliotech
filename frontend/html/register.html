@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bibliotech · Registro</title>
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+</head>
+<body>
+    <bt-navbar></bt-navbar>
+
+    <main class="bt-auth">
+        <div class="bt-auth__card bt-stack">
+            <div class="bt-auth__brand">
+                <h1 data-i18n="auth.registerTitle">Crea tu cuenta</h1>
+                <p class="bt-text-muted" data-i18n="auth.registerSubtitle">Registrate como alumno</p>
+            </div>
+
+            <form id="registerForm" class="bt-stack" novalidate>
+                <div class="bt-field">
+                    <label class="bt-label" for="regNombre" data-i18n="auth.firstName">Nombre</label>
+                    <input id="regNombre" class="bt-input" type="text" name="nombre" autocomplete="given-name">
+                    <span class="bt-error-text" data-error-for="nombre"></span>
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="regApellido" data-i18n="auth.lastName">Apellido</label>
+                    <input id="regApellido" class="bt-input" type="text" name="apellido" autocomplete="family-name">
+                    <span class="bt-error-text" data-error-for="apellido"></span>
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="regEmail" data-i18n="auth.email">Correo electronico</label>
+                    <input id="regEmail" class="bt-input" type="email" name="email" autocomplete="email">
+                    <span class="bt-error-text" data-error-for="email"></span>
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="regPassword" data-i18n="auth.password">Contrasena</label>
+                    <input id="regPassword" class="bt-input" type="password" name="password" autocomplete="new-password">
+                    <span class="bt-error-text" data-error-for="password"></span>
+                </div>
+
+                <bt-button type="submit" block label-i18n="auth.registerButton"></bt-button>
+            </form>
+
+            <p class="bt-auth__help">
+                <span data-i18n="auth.hasAccount">Ya tienes cuenta?</span>
+                <a href="/login" data-i18n="nav.login">Ingresar</a>
+            </p>
+        </div>
+    </main>
+
+    <script src="/js/utils/dom.js"></script>
+    <script src="/js/i18n/LanguageManager.js"></script>
+    <script src="/js/utils/authHelper.js"></script>
+    <script src="/js/utils/validator.js"></script>
+    <script src="/js/components/button.js"></script>
+    <script src="/js/components/loader.js"></script>
+    <script src="/js/components/toast.js"></script>
+    <script src="/js/components/modal.js"></script>
+    <script src="/js/components/cards.js"></script>
+    <script src="/js/components/navbar.js"></script>
+    <script src="/js/services/apiService.js"></script>
+    <script src="/js/frontControllers/authFrontController.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

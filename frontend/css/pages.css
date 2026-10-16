@@ -1,0 +1,128 @@
+/**
+* Project     : Bibliotech  |  Frontend
+* pages.css: composicion de pantallas concretas (catalogo, auth, paneles).
+*/
+
+/* ============================ Hero / catalogo ============================ */
+.bt-hero {
+    background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+    color: var(--text-inverse);
+    padding: var(--space-8) 0;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+}
+.bt-navbar + .bt-hero { margin-top: var(--space-5); }
+.bt-hero h1 { color: var(--text-inverse); }
+.bt-hero p { color: rgba(255, 255, 255, 0.82); max-width: 640px; }
+
+.bt-toolbar {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    align-items: flex-end;
+    padding: var(--space-4);
+    background: var(--glass-bg);
+    border: var(--border-width) solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+}
+.bt-toolbar .bt-field { margin-bottom: 0; flex: 1 1 200px; }
+.bt-toolbar > .bt-input,
+.bt-toolbar > .bt-select { flex: 1 1 170px; min-width: 150px; }
+.bt-toolbar > .bt-btn { flex: 0 0 auto; }
+
+/* ============================ Auth (login/registro) ============================ */
+.bt-auth {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: var(--space-5);
+    background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+}
+.bt-auth__card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface-1);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-6);
+}
+.bt-auth__brand {
+    text-align: center;
+    margin-bottom: var(--space-5);
+}
+.bt-auth__brand h1 { margin-bottom: var(--space-1); color: var(--brand-color-500); }
+.bt-auth__help {
+    display: flex;
+    justify-content: space-between;
+    margin-top: calc(-1 * var(--space-2));
+    margin-bottom: var(--space-4);
+    font-size: var(--font-size-sm);
+}
+
+/* ============================ Detalle de materia ============================ */
+.bt-headline {
+    background: var(--glass-bg);
+    border: var(--border-width) solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    box-shadow: var(--shadow-sm);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+}
+.bt-headline__actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+/* ============================ Dashboard ============================ */
+.bt-panel {
+    background: var(--glass-bg);
+    border: var(--border-width) solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    box-shadow: var(--shadow-sm);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+}
+.bt-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-4);
+}
+.bt-stat {
+    background: var(--glass-bg);
+    border: var(--border-width) solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    box-shadow: var(--shadow-xs);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+}
+.bt-stat__value { font-size: var(--font-size-2xl); font-weight: 700; color: var(--brand-color-500); }
+.bt-stat__label { color: var(--text-muted); font-size: var(--font-size-sm); }
+
+.bt-columns {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: 2fr 1fr;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .bt-columns { grid-template-columns: 1fr; }
+}
+
+/* ============================ Suite de pruebas ============================ */
+.bt-test__console {
+    min-height: 320px;
+    max-height: 70vh;
+    overflow: auto;
+    font-family: var(--font-family-mono, monospace);
+}
+.bt-test__log {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: var(--font-size-xs);
+    color: var(--color-success);
+}
+.bt-test__log.is-error { color: var(--color-danger); }
+.bt-test-btn { text-align: left; }

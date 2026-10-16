@@ -1,0 +1,30 @@
+{
+  "name": "bibliotech-backend",
+  "version": "1.0.0",
+  "description": "Sistema de Gestion de Material Educativo y Aulas Virtuales - Arquitectura Hexagonal",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node ../frontend/js/tests/runNode.js"
+  },
+  "keywords": [
+    "bibliotech",
+    "hexagonal",
+    "repository-pattern",
+    "observer",
+    "i18n"
+  ],
+  "author": "Bruno O. Ortuno",
+  "license": "GPL-3.0",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "mysql2": "^3.22.0"
+  }
+}

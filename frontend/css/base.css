@@ -1,0 +1,122 @@
+/**
+* Project     : Bibliotech  |  Frontend - Sistema de diseno
+* base.css: reset, tipografia, layout y utilidades.
+*/
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--bg-color);
+    background-image:
+        radial-gradient(circle at 12% -10%, rgba(48, 73, 125, 0.12), transparent 45%),
+        radial-gradient(circle at 90% 110%, rgba(242, 167, 27, 0.08), transparent 42%),
+        linear-gradient(var(--bg-overlay), var(--bg-overlay)),
+        var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: var(--bg-attachment);
+    color: var(--text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-base);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5 {
+    font-family: var(--font-family-heading);
+    color: var(--text-primary);
+    line-height: 1.25;
+    margin: 0 0 var(--space-3);
+}
+
+h1 { font-size: var(--font-size-2xl); }
+h2 { font-size: var(--font-size-xl); }
+h3 { font-size: var(--font-size-lg); }
+
+p { margin: 0 0 var(--space-3); }
+
+a {
+    color: var(--brand-color-500);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+a:hover { color: var(--brand-color-600); }
+
+img { max-width: 100%; display: block; }
+
+/* --- Layout --- */
+.bt-container {
+    width: 100%;
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 0 var(--space-4);
+}
+
+.bt-page {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-8);
+}
+
+.bt-stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.bt-row { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.bt-between { justify-content: space-between; }
+.bt-grid {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+/* Superficie de cristal reutilizable (glassmorphism). */
+.bt-glass {
+    background: var(--glass-bg);
+    border: var(--border-width) solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+}
+
+/* Bloque de contenido con respiracion interna consistente. */
+.bt-section { padding: var(--space-5); }
+
+/* --- Utilidades --- */
+.bt-text-muted { color: var(--text-muted); }
+.bt-text-center { text-align: center; }
+.bt-mt-2 { margin-top: var(--space-2); }
+.bt-mt-4 { margin-top: var(--space-4); }
+.bt-mt-6 { margin-top: var(--space-6); }
+.bt-mb-4 { margin-bottom: var(--space-4); }
+.bt-hidden { display: none !important; }
+
+.bt-sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* --- Accesibilidad --- */
+:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-sm);
+}
+
+@media (max-width: 640px) {
+    :root { --font-size-2xl: 1.6rem; --font-size-xl: 1.3rem; }
+    .bt-page { padding-top: var(--space-4); }
+}

@@ -1,0 +1,25 @@
+/**
+* Project     : Bibliotech  |  Capa: Dominio - Puerto de Salida
+* Contrato del repositorio de Material educativo.
+*/
+const RepositoryInterface = require('./RepositoryInterface');
+
+class MaterialRepositoryInterface extends RepositoryInterface {
+    async save(material)                                     { return this._notImplemented('save'); }
+    async findById(id)                                       { return this._notImplemented('findById'); }
+    async findByHash(hash)                                   { return this._notImplemented('findByHash'); }
+    async findAllGlobal(filters)                             { return this._notImplemented('findAllGlobal'); }
+    async findBySubject(subjectId, filters)                  { return this._notImplemented('findBySubject'); }
+    async findPendingByAuthor(authorId)                      { return this._notImplemented('findPendingByAuthor'); }
+    async findPendingForProfessor(profesorId)                { return this._notImplemented('findPendingForProfessor'); }
+    async countPendingByAuthor(authorId)                     { return this._notImplemented('countPendingByAuthor'); }
+    async associateToSubject(materialId, subjectId, estado)  { return this._notImplemented('associateToSubject'); }
+    async updateAssociationState(materialId, subjectId, estado) { return this._notImplemented('updateAssociationState'); }
+    async updateEstado(materialId, estado)                   { return this._notImplemented('updateEstado'); }
+    async deleteAssociation(materialId, subjectId)           { return this._notImplemented('deleteAssociation'); }
+    async countAssociations(materialId)                      { return this._notImplemented('countAssociations'); }
+    async cancelPendingUpload(materialId)                    { return this._notImplemented('cancelPendingUpload'); }
+    async delete(materialId)                                 { return this._notImplemented('delete'); }
+}
+
+module.exports = MaterialRepositoryInterface;

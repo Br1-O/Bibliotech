@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bibliotech · Suite de pruebas</title>
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+</head>
+<body>
+    <header class="bt-hero">
+        <div class="bt-container">
+            <h1>Laboratorio de pruebas de la API</h1>
+            <p>Ejecuta pruebas de humo contra <code>/api</code> cubriendo RF-01 a RF-05, RNF-06 y seguridad. Requiere la base de datos inicializada (<code>backend/config/init.sql</code>).</p>
+        </div>
+    </header>
+
+    <main class="bt-page bt-container bt-columns bt-stack">
+        <section class="bt-stack">
+            <div class="bt-row bt-between">
+                <h2>Ejecutar pruebas</h2>
+                <button id="runAll" class="bt-btn bt-btn--accent bt-btn--sm" type="button">Ejecutar todas</button>
+            </div>
+            <div id="test-container" class="bt-stack"></div>
+        </section>
+
+        <section class="bt-stack">
+            <h2>Resultado de la API</h2>
+            <div id="api-console" class="bt-panel bt-test__console">Esperando ejecución...</div>
+        </section>
+    </main>
+
+    <script src="/js/tests/testUtils.js"></script>
+    <script src="/js/tests/authTests.js"></script>
+    <script src="/js/tests/subjectTests.js"></script>
+    <script src="/js/tests/materialTests.js"></script>
+    <script src="/js/tests/subscriptionTests.js"></script>
+    <script src="/js/tests/adminTests.js"></script>
+    <script src="/js/tests/sqlTests.js"></script>
+    <script>
+        document.getElementById('runAll').addEventListener('click', async () => {
+            const results = await testUtils.runAll();
+            const ok = results.filter(r => r.ok).length;
+            testUtils.log({
+                resumen: ok + '/' + results.length + ' pruebas OK',
+                fallos: results.filter(r => !r.ok)
+            }, ok !== results.length);
+        });
+    </script>
+</body>
+</html>

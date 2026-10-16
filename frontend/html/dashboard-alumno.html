@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bibliotech · Panel del alumno</title>
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+</head>
+<body>
+    <bt-navbar active="panel"></bt-navbar>
+
+    <main id="studentDashboard" class="bt-page bt-container bt-stack">
+        <h1 data-i18n="student.panelTitle">Mi panel de alumno</h1>
+
+        <div class="bt-stats">
+            <div class="bt-stat">
+                <span class="bt-stat__value" id="pendingCount">0</span>
+                <span class="bt-stat__label" data-i18n="student.pendingCount">Pendientes</span>
+            </div>
+            <div class="bt-stat">
+                <span class="bt-stat__value" id="subscriptionCount">0</span>
+                <span class="bt-stat__label" data-i18n="student.mySubscriptions">Mis suscripciones</span>
+            </div>
+        </div>
+        <p id="pendingLimit" class="bt-text-muted"></p>
+        <p class="bt-text-muted" data-i18n="student.pendingHint"></p>
+
+        <section class="bt-panel bt-stack">
+            <h2 data-i18n="material.uploadTitle">Compartir material</h2>
+            <form id="materialForm" class="bt-stack" novalidate>
+                <div class="bt-field">
+                    <label class="bt-label" for="matTitulo" data-i18n="material.title">Titulo</label>
+                    <input id="matTitulo" class="bt-input" type="text" name="titulo">
+                    <span class="bt-error-text" data-error-for="titulo"></span>
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="matTipo" data-i18n="material.type">Tipo</label>
+                    <select id="matTipo" class="bt-select" name="tipo">
+                        <option value="PDF" data-i18n="material.types.PDF">PDF</option>
+                        <option value="Word" data-i18n="material.types.Word">Word</option>
+                        <option value="Presentacion" data-i18n="material.types.Presentacion">Presentacion</option>
+                        <option value="Link_Drive" data-i18n="material.types.Link_Drive">Enlace de Drive</option>
+                        <option value="Youtube" data-i18n="material.types.Youtube">Video de YouTube</option>
+                    </select>
+                </div>
+
+                <div class="bt-field" data-mode="file">
+                    <label class="bt-label" for="matArchivo" data-i18n="material.file">Archivo</label>
+                    <input id="matArchivo" class="bt-input" type="file" name="archivo">
+                </div>
+
+                <div class="bt-field bt-hidden" data-mode="link">
+                    <label class="bt-label" for="matUrl" data-i18n="material.link">Enlace</label>
+                    <input id="matUrl" class="bt-input" type="url" name="urlOrPath"
+                           data-i18n-placeholder="material.linkPlaceholder" placeholder="https://...">
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="matDesc" data-i18n="material.description">Descripcion</label>
+                    <textarea id="matDesc" class="bt-textarea" name="descripcion" rows="3"
+                              data-i18n-placeholder="material.descriptionPlaceholder" placeholder="Breve descripcion del material"></textarea>
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="matSubjects" data-i18n="material.subjects">Materias de destino</label>
+                    <select id="materialSubjects" class="bt-select" multiple size="4"></select>
+                    <span class="bt-error-text" data-error-for="subjects"></span>
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="matTags" data-i18n="material.tags">Etiquetas tematicas</label>
+                    <input id="matTags" class="bt-input" type="text" name="categories"
+                           data-i18n-placeholder="material.tagsPlaceholder" placeholder="matematica, algebra">
+                </div>
+
+                <bt-button type="submit" block label-i18n="material.suggest"></bt-button>
+            </form>
+            <p class="bt-text-muted" data-i18n="student.pendingHint"></p>
+        </section>
+
+        <section class="bt-stack">
+            <h2 data-i18n="student.myPending">Mis materiales pendientes</h2>
+            <p id="pendingLimitInfo" class="bt-text-muted"></p>
+            <div id="pendingList" class="bt-grid"></div>
+        </section>
+
+        <section class="bt-stack">
+            <h2 data-i18n="student.mySubscriptions">Mis suscripciones</h2>
+            <div id="subscriptionsList" class="bt-stack"></div>
+        </section>
+    </main>
+
+    <script src="/js/utils/dom.js"></script>
+    <script src="/js/i18n/LanguageManager.js"></script>
+    <script src="/js/utils/authHelper.js"></script>
+    <script src="/js/utils/validator.js"></script>
+    <script src="/js/components/button.js"></script>
+    <script src="/js/components/loader.js"></script>
+    <script src="/js/components/toast.js"></script>
+    <script src="/js/components/modal.js"></script>
+    <script src="/js/components/cards.js"></script>
+    <script src="/js/components/navbar.js"></script>
+    <script src="/js/services/apiService.js"></script>
+    <script src="/js/frontControllers/studentDashboardFrontController.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

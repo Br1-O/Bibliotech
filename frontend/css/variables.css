@@ -1,0 +1,173 @@
+/* =====================================================================
+   Bibliotech - Sistema de diseno: VARIABLES
+   =====================================================================
+   Toda la apariencia del sitio se controla desde aqui. Para re-tematizar
+   la plataforma (skin) basta con cambiar estos valores, sin tocar el
+   marcado ni la logica. Los nombres son semanticos: describen el rol de
+   cada valor, no el color literal.
+
+   Paleta elegida:
+     - Deep Focus Blue     #253C6D  (azul principal, ancla la interfaz)
+     - Secondary Blue      #30497D  (azul de aula, profundidad profesional)
+     - Muted Steel  Accent #455B8A  (azul-gris acero, toque tecnologico)
+     - Highlight Orange    #F2A71B  (acento de energia / llamadas de atencion)
+
+   Para poner una imagen de fondo: descomenta y ajusta --bg-image y sube
+   la opacidad de --bg-overlay para que el texto siga siendo legible.
+   ===================================================================== */
+
+:root {
+    /* ---------- Marca / acento ---------------------------------------- */
+    --brand-primary:        #253C6D; /* Deep Focus Blue */
+    --brand-primary-hover:  #1b2d54;
+    --brand-primary-soft:   #e6ebf5;
+    --brand-secondary:      #30497D;
+    --brand-accent:         #F2A71B;
+    --brand-accent-dark:    #C9860B;
+
+    /* Escala de marca usada por los componentes. */
+    --brand-color-500: #253C6D;
+    --brand-color-600: #1B2D54;
+    --brand-color-100: #E6EBF5;
+
+    /* --- Fondo de la aplicacion (imagen + velo + color por defecto) --- */
+    --bg-color:    #E9EDF6;                       /* color por defecto si no hay imagen */
+    --bg-image:    none;                          /* ej: url('/img/campus.jpg') */
+    --bg-overlay:  rgba(37, 60, 109, 0.06);       /* velo de sombra sobre la imagen */
+    --bg-attachment: fixed;
+
+    /* --- Superficies --- */
+    --surface-bg: #E9EDF6;
+    --surface-1: #FFFFFF;
+    --surface-2: #F3F5FA;
+    --surface-3: #E4E9F3;
+    --surface-inverse: #1B2440;
+
+    /* --- Glass (cristal) --- */
+    --glass-bg:        rgba(255, 255, 255, 0.72);
+    --glass-bg-strong: rgba(255, 255, 255, 0.88);
+    --glass-border:    rgba(255, 255, 255, 0.55);
+    --glass-blur:      14px;
+    --glass-highlight: rgba(255, 255, 255, 0.45);
+
+    /* --- Texto --- */
+    --text-primary: #1B2440;
+    --text-secondary: #4C5673;
+    --text-muted: #7A839C;
+    --text-inverse: #FFFFFF;
+    --text-on-brand: #FFFFFF;
+
+    /* --- Bordes --- */
+    --border-color: #D8DEEB;
+    --border-strong: #BCC5DA;
+    --border-focus: var(--brand-color-500);
+    --border-width: 1px;
+
+    /* --- Insignias (badges) --- */
+    --badge-teacher-bg:    #253C6D;
+    --badge-teacher-color: #FFFFFF;
+    --badge-subject-bg:    #E6EBF5;
+    --badge-subject-color: #30497D;
+
+    /* --- Feedback --- */
+    --color-success: #1F9D68;
+    --color-success-soft: #E3F6ED;
+    --color-warning: #C9860B;
+    --color-warning-soft: #FDF1DA;
+    --color-danger: #D64550;
+    --color-danger-soft: #FDE6E8;
+    --color-info: #30497D;
+    --color-info-soft: #E6EBF5;
+
+    /* --- Espaciado (escala) --- */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+    --space-8: 64px;
+
+    /* --- Radios --- */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+
+    /* --- Sombras --- */
+    --shadow-xs: 0 1px 2px rgba(15, 23, 45, 0.06);
+    --shadow-sm: 0 2px 8px rgba(15, 23, 45, 0.08);
+    --shadow-md: 0 8px 24px rgba(15, 23, 45, 0.14);
+    --shadow-lg: 0 16px 48px rgba(15, 23, 45, 0.20);
+
+    /* --- Tipografia --- */
+    --font-family-base: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-family-heading: 'Segoe UI Semibold', 'Segoe UI', Roboto, Arial, sans-serif;
+    --font-family-mono: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-md: 1rem;
+    --font-size-lg: 1.25rem;
+    --font-size-xl: 1.5rem;
+    --font-size-2xl: 2rem;
+    --line-height-base: 1.55;
+
+    /* --- Layout --- */
+    --container-max: 1200px;
+    --navbar-height: 64px;
+
+    /* --- Interaccion / comportamiento (facil de ajustar) --- */
+    --transition-fast: 120ms ease;
+    --transition-base: 200ms ease;
+    --transition-slow: 350ms ease;
+    --button-radius: var(--radius-md);
+    --button-padding-y: 10px;
+    --button-padding-x: 18px;
+    --focus-ring: 0 0 0 3px rgba(37, 60, 109, 0.28);
+    --hover-lift: translateY(-3px);
+    --hover-shadow: var(--shadow-md);
+
+    /* --- Capas (z-index) --- */
+    --z-navbar: 100;
+    --z-dropdown: 200;
+    --z-loader: 900;
+    --z-modal: 1000;
+    --z-toast: 1100;
+
+    /* --- Navbar --- */
+    --navbar-bg: var(--brand-primary);
+}
+
+/* Tema oscuro: se activa con <html data-theme="dark"> */
+[data-theme="dark"] {
+    --bg-color: #0E1526;
+    --bg-overlay: rgba(0, 0, 0, 0.45);
+
+    --surface-inverse: #0B1120;
+    --surface-1: #16203A;
+    --text-primary: #EEF1F8;
+    --text-secondary: #BCC4DB;
+    --text-muted: #8791AB;
+    --border-color: #2A3450;
+    --border-strong: #3A4667;
+
+    --surface-2: #1B2440;
+    --surface-3: #232E4E;
+
+    --brand-color-500: #6D82D6;
+    --brand-color-600: #5568C0;
+    --brand-color-100: #262F52;
+
+    --glass-bg:        rgba(27, 36, 64, 0.72);
+    --glass-bg-strong: rgba(27, 36, 64, 0.88);
+    --glass-border:    rgba(255, 255, 255, 0.12);
+
+    --badge-subject-bg:    #262F52;
+    --badge-subject-color: #C7D0EC;
+
+    --color-success-soft: #12301F;
+    --color-warning-soft: #33280F;
+    --color-danger-soft: #3A1519;
+    --color-info-soft: #13293B;
+}

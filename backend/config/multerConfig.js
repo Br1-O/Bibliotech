@@ -35,10 +35,11 @@ if (process.env.FILES_MODE === 'cloud') {
         cloudinary: cloudinary,
         params: async (req, file) => {
             const ext = path.extname(file.originalname).toLowerCase();
+            const resourceType = ext === '.pdf' ? 'raw' : 'auto';
             const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
             return {
                 folder: 'bibliotech',
-                resource_type: 'auto',
+                resource_type: resourceType,
                 access_mode: 'public',
                 type: 'upload',
                 public_id: `${uniqueSuffix}`

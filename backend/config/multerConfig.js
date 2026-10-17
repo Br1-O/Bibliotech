@@ -39,6 +39,8 @@ if (process.env.FILES_MODE === 'cloud') {
             return {
                 folder: 'bibliotech',
                 resource_type: 'auto',
+                access_mode: 'public',
+                type: 'upload',
                 public_id: `${uniqueSuffix}`
             };
         }

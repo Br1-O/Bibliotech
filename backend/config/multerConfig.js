@@ -19,35 +19,37 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 let storage;
 let upload;
 
-if (FILES_MODE === 'cloud') {
+// Evaluamos directamente process.env dentro de la lógica para evitar problemas de timing al requerir el módulo
+if (process.env.FILES_MODE === 'cloud') {
     const cloudinary = require('cloudinary').v2;
     const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
+    // Verificamos que las credenciales existan para evitar fallos silenciosos
     cloudinary.config({
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
         api_key: process.env.CLOUDINARY_API_KEY,
         api_secret: process.env.CLOUDINARY_API_SECRET
     });
 
-    storage = new CloudinaryStorage({
-        cloudinary,
-        params: (req, file) => {
+    const storage = new CloudinaryStorage({
+        cloudinary: cloudinary,
+        params: async (req, file) => {
             const ext = path.extname(file.originalname).toLowerCase();
-            const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+            const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
             return {
                 folder: 'bibliotech',
                 resource_type: 'auto',
-                public_id: filename.replace(ext, '')
+                public_id: `${uniqueSuffix}`
             };
         }
     });
 
     upload = multer({
-        storage,
+        storage: storage,
         limits: { fileSize: MAX_FILE_SIZE }
     });
 } else {
-    storage = multer.diskStorage({
+    const storage = multer.diskStorage({
         destination: (req, file, cb) => cb(null, 'uploads/'),
         filename: (req, file, cb) => {
             const ext = path.extname(file.originalname).toLowerCase();
@@ -55,7 +57,6 @@ if (FILES_MODE === 'cloud') {
         }
     });
 
-    // Tipos de documento soportados por la plataforma.
     const ALLOWED_MIME = [
         'application/pdf',
         'application/msword',
@@ -72,9 +73,8 @@ if (FILES_MODE === 'cloud') {
     upload = multer({
         storage,
         fileFilter,
-        limits: { fileSize: MAX_FILE_SIZE } // 100 MB
+        limits: { fileSize: MAX_FILE_SIZE }
     });
 }
 
-// El campo del formulario se llama 'archivo'. Es opcional (puede ser un enlace).
 module.exports = upload.single('archivo');

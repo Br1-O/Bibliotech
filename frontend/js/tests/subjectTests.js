@@ -8,14 +8,14 @@ testUtils.createTestButton('Test Materias (GET /subjects, publico)', async () =>
     const r = await testUtils.request('/subjects');
     testUtils.log({ status: r.status, total: r.data && r.data.subjects.length });
     testUtils.assert(r.ok && r.data.subjects.length >= 3, 'Se esperaban al menos 3 materias semilla');
-    testUtils.assert(r.data.subjects.some(s => s.nombre === 'Programacion I'), 'Falta la materia semilla');
+    testUtils.assert(r.data.subjects.some(s => s.nombre === 'Inglés I'), 'Falta la materia semilla');
 });
 
 // --- Detalle de materia ---
 testUtils.createTestButton('Test Materia (GET /subjects/1)', async () => {
     const r = await testUtils.request('/subjects/1');
     testUtils.log({ status: r.status, subject: r.data && r.data.subject });
-    testUtils.assert(r.ok && r.data.subject.nombre === 'Programacion I', 'Materia 1 inesperada');
+    testUtils.assert(r.ok && r.data.subject.nombre === 'Inglés I', 'Materia 1 inesperada');
 });
 
 // --- Materia inexistente ---

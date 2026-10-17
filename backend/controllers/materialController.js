@@ -43,10 +43,19 @@ module.exports = (container) => {
                 let tipo = req.body.tipo;
 
                 if (req.file) {
-                    fileHash = hashHelper.hashFile(req.file.path);
-                    urlOrPath = `/uploads/${req.file.filename}`;
+                    const mode = process.env.FILES_MODE || 'local';
+                    if (mode === 'cloud') {
+                        // multer-storage-cloudinary sets req.file.path as secure_url, filename as public_id
+                        urlOrPath = req.file.path;
+                        fileHash = hashHelper.hashString(urlOrPath);
+                    } else {
+                        console.log("local")
+                        fileHash = hashHelper.hashFile(req.file.path);
+                        urlOrPath = `/uploads/${req.file.filename}`;
+                    }
                     if (!tipo) {
-                        tipo = TIPO_POR_EXT[path.extname(req.file.originalname).toLowerCase()] || 'PDF';
+                        const ext = path.extname(req.file.originalname).toLowerCase();
+                        tipo = TIPO_POR_EXT[ext] || 'PDF';
                     }
                 } else {
                     urlOrPath = req.body.urlOrPath;
@@ -70,7 +79,8 @@ module.exports = (container) => {
                 return ok(req, res, result, 201);
             } catch (error) {
                 // Evita dejar archivos huerfanos si la operacion de negocio falla.
-                if (urlOrPath && urlOrPath.startsWith('/uploads/')) fileHelper.deleteFile(urlOrPath);
+                const mode = process.env.FILES_MODE || 'local';
+                if (urlOrPath && urlOrPath.startsWith('/uploads/') && mode !== 'cloud') fileHelper.deleteFile(urlOrPath);
                 return next(error);
             }
         },

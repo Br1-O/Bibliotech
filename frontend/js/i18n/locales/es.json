@@ -71,7 +71,7 @@
     "noAccount": "Aun no tienes cuenta?",
     "hasAccount": "Ya tienes cuenta?",
     "backToLogin": "Volver al inicio de sesion",
-    "demoHint": "Cuentas de prueba: admin@bibliotech.edu / profesor@bibliotech.edu / alumno@bibliotech.edu (contrasena segun rol + 123)",
+    "demoHint": "Cuenta de prueba: alumno@bibliotech.edu (Alumno123)",
     "ban": "Banear usuario",
     "unban": "Desbanear usuario"
   },

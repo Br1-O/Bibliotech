@@ -71,7 +71,7 @@
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
     "backToLogin": "Back to sign in",
-    "demoHint": "Test accounts: admin@bibliotech.edu / profesor@bibliotech.edu / alumno@bibliotech.edu (password per role + 123)",
+    "demoHint": "Test account: alumno@bibliotech.edu (Alumno123)",
     "ban": "Ban user",
     "unban": "Unban user"
   },

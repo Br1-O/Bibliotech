@@ -155,8 +155,33 @@ INSERT INTO users (role_id, nombre, apellido, email, password, estado) VALUES
     (3, 'Ana',    'Alumna',         'alumno@bibliotech.edu',   '$2b$10$lZodM9mteQ7QdaOBdyggGuPREI1zFu4nt2212xC/ZmXnjn5BI0Fmq', 'Activo');
 
 INSERT INTO subjects (nombre, descripcion, profesor_id, estado_asociacion) VALUES
-    ('Programacion I', 'Introduccion a la algoritmia y estructuras basicas.', 2, 'Activa'),
-    ('Bases de Datos', 'Modelado relacional, SQL y normalizacion.',            2, 'Activa'),
-    ('Matematica Discreta', 'Logica, conjuntos, relaciones y grafos.',       NULL, 'Activa');
+    -- Primer Año
+    ('Inglés I', 'Comprensión lectora y vocabulario técnico inicial en inglés.', NULL, 'Activa'),
+    ('Ciencia, Tecnología y Sociedad', 'Impacto social y ético de la tecnología y la ciencia.', NULL, 'Activa'),
+    ('Análisis Matemático I', 'Funciones, límites, derivadas e introducción al cálculo integral.', NULL, 'Activa'),
+    ('Álgebra', 'Vectores, matrices, sistemas de ecuaciones lineales y espacios vectoriales.', NULL, 'Activa'),
+    ('Algoritmos y Estructuras de Datos I', 'Fundamentos de lógica, algoritmia y estructuras de datos elementales.', NULL, 'Activa'),
+    ('Sistemas y Organizaciones', 'Teoría general de sistemas, estructuras y procesos organizacionales.', NULL, 'Activa'),
+    ('Arquitectura de Computadores', 'Organización de hardware, componentes internos, memoria y procesadores.', NULL, 'Activa'),
+    ('Prácticas Profesionalizantes I', 'Primer acercamiento al entorno profesional y análisis de necesidades.', NULL, 'Activa'),
+
+    -- Segundo Año
+    ('Inglés II', 'Redacción de documentación técnica e interacción profesional en inglés.', NULL, 'Activa'),
+    ('Análisis Matemático II', 'Cálculo multivariable, series y ecuaciones diferenciales aplicadas.', NULL, 'Activa'),
+    ('Estadística', 'Estadística descriptiva, probabilidad y distribuciones para análisis de datos.', NULL, 'Activa'),
+    ('Ingeniería de Software I', 'Ciclo de vida del software, relevamiento, requerimientos y modelado UML.', NULL, 'Activa'),
+    ('Algoritmos y Estructuras de Datos II', 'Estructuras de datos avanzadas, complejidad algorítmica y POO.', NULL, 'Activa'),
+    ('Sistemas Operativos', 'Gestión de procesos, memoria, archivos y administración de sistemas.', NULL, 'Activa'),
+    ('Bases de Datos', 'Modelado relacional, SQL, normalización y gestión de datos.', NULL, 'Activa'),
+    ('Prácticas Profesionalizantes II', 'Diseño y desarrollo de proyectos orientados a requerimientos reales.', NULL, 'Activa'),
+
+    -- Tercer Año
+    ('Inglés III', 'Comunicación fluida y presentación de proyectos en inglés técnico.', NULL, 'Activa'),
+    ('Aspectos Legales de la Profesión', 'Legislación informática, propiedad intelectual, marcas, patentes y delictiva digital.', NULL, 'Activa'),
+    ('Seminario de Actualización', 'Exploración de nuevas tecnologías, metodologías ágiles y tendencias.', NULL, 'Activa'),
+    ('Redes y Comunicaciones', 'Modelos OSI/TCP-IP, protocolos, enrutamiento, topologías y seguridad en redes.', NULL, 'Activa'),
+    ('Ingeniería de Software II', 'Arquitectura de software, patrones de diseño, testing y calidad.', NULL, 'Activa'),
+    ('Algoritmos y Estructuras de Datos III', 'Programación concurrente, patrones avanzados y frameworks de desarrollo.', NULL, 'Activa'),
+    ('Prácticas Profesionalizantes III', 'Proyecto integrador final aplicado a un entorno o cliente real.', NULL, 'Activa');
 
 SET foreign_key_checks = 1;

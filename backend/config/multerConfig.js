@@ -42,7 +42,7 @@ if (process.env.FILES_MODE === 'cloud') {
                 resource_type: resourceType,
                 access_mode: 'public',
                 type: 'upload',
-                public_id: `${uniqueSuffix}`
+                public_id: resourceType === 'raw' ? `${uniqueSuffix}${ext}` : `${uniqueSuffix}`            
             };
         }
     });

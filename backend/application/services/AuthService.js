@@ -115,35 +115,37 @@ class AuthService {
      * permitir el flujo completo en el entorno academico.
      */
     async requestPasswordReset(email) {
-        const user = await this.userRepository.findByEmail(email);
-        // Respuesta uniforme para no filtrar la existencia del correo.
-        const generic = { message: 'messages.resetRequested' };
-        if (!user) return generic;
+        // const user = await this.userRepository.findByEmail(email);
+        // // Respuesta uniforme para no filtrar la existencia del correo.
+        // const generic = { message: 'messages.resetRequested' };
+        // if (!user) return generic;
 
-        const token = hashHelper.randomToken();
-        const expiration = new Date(Date.now() + RESET_MINUTES * 60 * 1000);
-        await this.userRepository.setResetToken(email, token, expiration);
-        await this.auditLogService.record(AuditLog.OPERACIONES.SOLICITUD_RESETEO, user.id, user.id);
+        // const token = hashHelper.randomToken();
+        // const expiration = new Date(Date.now() + RESET_MINUTES * 60 * 1000);
+        // await this.userRepository.setResetToken(email, token, expiration);
+        // await this.auditLogService.record(AuditLog.OPERACIONES.SOLICITUD_RESETEO, user.id, user.id);
 
-        // En produccion se enviaria por correo; aqui se retorna para la demo.
-        return { ...generic, token, expiresInMinutes: RESET_MINUTES };
+        // // En produccion se enviaria por correo; aqui se retorna para la demo.
+        // return { ...generic, token, expiresInMinutes: RESET_MINUTES };
+        return 1
     }
 
     async resetPassword(token, newPassword) {
-        const validator = new ValidationHandler(this.languageManager)
-            .with(new Required('token')).with(new Password('password'));
-        if (!validator.validateThis({ token, password: newPassword })) {
-            throw new ValidationError(validator.getErrors());
-        }
+        // const validator = new ValidationHandler(this.languageManager)
+        //     .with(new Required('token')).with(new Password('password'));
+        // if (!validator.validateThis({ token, password: newPassword })) {
+        //     throw new ValidationError(validator.getErrors());
+        // }
 
-        const user = await this.userRepository.findByResetToken(token);
-        if (!user) throw new AppError('errors.invalidToken', { status: 400 });
-        if (!user.canResetPassword()) throw new AppError('errors.invalidToken', { status: 400 });
+        // const user = await this.userRepository.findByResetToken(token);
+        // if (!user) throw new AppError('errors.invalidToken', { status: 400 });
+        // if (!user.canResetPassword()) throw new AppError('errors.invalidToken', { status: 400 });
 
-        const hashed = await bcrypt.hash(newPassword, 10);
-        await this.userRepository.updatePassword(user.id, hashed);
-        await this.auditLogService.record(AuditLog.OPERACIONES.CAMBIO_CLAVE, user.id, user.id);
-        return { message: 'messages.passwordChanged' };
+        // const hashed = await bcrypt.hash(newPassword, 10);
+        // await this.userRepository.updatePassword(user.id, hashed);
+        // await this.auditLogService.record(AuditLog.OPERACIONES.CAMBIO_CLAVE, user.id, user.id);
+        // return { message: 'messages.passwordChanged' };
+        return 1
     }
 
 

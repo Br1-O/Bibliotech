@@ -105,10 +105,35 @@
     "searchPlaceholder": "Buscar por titulo, autor o etiqueta...",
     "filterBySubject": "Materia",
     "filterByTag": "Etiqueta tematica",
+    "filterByType": "Tipo de material",
+    "filterByCareer": "Carrera",
     "allSubjects": "Todas las materias",
+    "materialsTitle": "Material educativo",
     "showing": "Mostrando {count} materiales",
     "viewDetail": "Ver detalle",
-    "by": "por"
+    "by": "por",
+    "filterByYear": "Anio"
+  },
+  "careers": {
+    "title": "Carreras",
+    "subtitle": "Elige una carrera y un anio para explorar sus materias.",
+    "allCareers": "Todas las carreras",
+    "allYears": "Todos los anios",
+    "seeAllSubjects": "Ver todas las materias",
+    "summary": "{subjects} materias · {years} anios",
+    "none": "Todavia no hay carreras creadas."
+  },
+  "myUploads": {
+    "title": "Mis subidas",
+    "hint": "Material subido por ti, con busqueda, filtros y edicion.",
+    "hintStudent": "Consulta todo el material que compartiste y su estado.",
+    "empty": "Todavia no subiste material."
+  },
+  "author": {
+    "materials": "Materiales publicados",
+    "email": "Correo de contacto: {email}",
+    "noMaterials": "Este autor todavia no tiene materiales publicados.",
+    "backToCatalog": "Volver al catalogo"
   },
   "favorites": {
     "title": "Mis favoritos",
@@ -125,7 +150,9 @@
     "title": "Titulo (A-Z)",
     "clear": "Limpiar filtros",
     "showing": "Mostrando {shown} de {total}",
-    "loadMore": "Cargar mas"
+    "loadMore": "Cargar mas",
+    "allTypes": "Todos los tipos",
+    "allStates": "Todos los estados"
   },
   "pagination": {
     "label": "Paginacion de resultados",
@@ -155,7 +182,11 @@
     "mySubscriptionsSubtitle": "Accede rapido al material de las materias que sigues.",
     "noSubscribed": "Todavia no te suscribiste a ninguna materia.",
     "explore": "Explorar materias",
-    "materialCount": "{count} materiales"
+    "materialCount": "{count} materiales",
+    "onlyMine": "Solo mis materias",
+    "pageTitle": "Carreras y materias",
+    "pageSubtitle": "Explora las carreras, sus anios y las materias disponibles.",
+    "teachers": "Profesores"
   },
   "subject": {
     "materialsOf": "Material de",
@@ -173,8 +204,9 @@
     "title": "Titulo",
     "type": "Tipo",
     "file": "Archivo",
+    "cover": "Imagen de portada",
     "link": "Enlace",
-    "linkPlaceholder": "https://drive.google.com/... o https://youtube.com/...",
+    "linkPlaceholder": "https://drive.google.com/... , https://youtube.com/... o https://github.com/...",
     "description": "Descripcion",
     "descriptionPlaceholder": "Breve descripcion del material (opcional)",
     "uploadedOn": "Subido el {date}",
@@ -209,23 +241,43 @@
     "watchOnYoutube": "Ver en YouTube",
     "associateConfirm": "Agregar material",
     "edit": "Editar material",
-    "editHint": "Modifica el titulo o la descripcion del material en tu materia.",
+    "editHint": "Modifica cualquier dato del material y sus etiquetas.",
+    "editAuthor": "Autor",
+    "editState": "Estado",
+    "editCurrentSource": "Archivo o enlace actual",
+    "editNoSource": "Sin archivo ni enlace disponible.",
+    "editReplaceFile": "Archivo (reemplazar si es necesario)",
+    "editReplaceCover": "Reemplazar portada (opcional)",
+    "editRemoveCover": "Quitar portada actual",
+    "editNoCover": "Sin portada personalizada",
+    "editFileRequired": "Selecciona un archivo nuevo para este tipo de material.",
+    "editLinkRequired": "Ingresa un enlace valido para este tipo de material.",
     "removeFromSubject": "Quitar de la materia",
     "removeConfirm": "Se quitara el material de esta materia. Si no pertenece a otra materia ni figura en favoritos, se eliminara definitivamente. Continuar?",
     "addFavorite": "Agregar a favoritos",
     "removeFavorite": "Quitar de favoritos",
+    "deleteGlobal": "Eliminar material del catalogo",
+    "deleteGlobalConfirm": "Se eliminara definitivamente \"{title}\" del catalogo y de todas sus materias. Continuar?",
     "types": {
       "PDF": "PDF",
+      "EPUB": "EPUB",
       "Word": "Word",
       "Presentacion": "Presentacion",
       "Link_Drive": "Enlace de Drive",
-      "Youtube": "Video de YouTube"
+      "Youtube": "Video de YouTube",
+      "Repositorio": "Repositorio GitHub"
     },
     "states": {
       "Aprobado": "Aprobado",
       "Pendiente": "Pendiente",
-      "Cancelado": "Cancelado"
-    }
+      "Cancelado": "Cancelado",
+      "Rechazado": "Rechazado"
+    },
+    "associations": "Asociaciones",
+    "associatedCareers": "Carreras",
+    "associatedSubjects": "Materias",
+    "noAssociations": "Este material aun no esta asociado a carreras ni materias.",
+    "noDescription": "Sin descripcion disponible."
   },
   "student": {
     "panelTitle": "Mi panel de alumno",
@@ -268,7 +320,31 @@
     "editSubject": "Modificar materia",
     "selectSubject": "Materia a modificar",
     "noTags": "No hay etiquetas.",
-    "thematicTags": "Etiquetas tematicas"
+    "thematicTags": "Etiquetas tematicas",
+    "batchUpload": "Carga masiva de material",
+    "batchUploadHint": "Sube hasta 100 archivos o enlaces sin materia. Quedaran disponibles para que los profesores los asignen.",
+    "batchFiles": "Archivos",
+    "batchLinks": "Enlaces (uno por linea)",
+    "batchLinksPlaceholder": "Titulo | https://github.com/usuario/repositorio",
+    "batchUploadAction": "SUBIR LOTE",
+    "batchLimit": "La carga masiva admite como maximo 100 archivos o enlaces.",
+    "careersTitle": "Carreras y anios",
+    "careersHint": "Crea carreras y anios, y modifica sus nombres o colores.",
+    "careerName": "Nombre de la carrera",
+    "createCareer": "Crear carrera",
+    "careerYear": "Carrera y anio",
+    "noCareerYear": "Sin agrupar",
+    "yearName": "Nombre del anio",
+    "createYear": "Agregar anio",
+    "searchUsers": "Buscar usuarios...",
+    "allRoles": "Todos los roles",
+    "allStates": "Todos los estados",
+    "searchTags": "Buscar etiquetas...",
+    "allTags": "Todas las etiquetas",
+    "activeTags": "Activas",
+    "bannedTags": "Baneadas",
+    "batchTitle": "Titulo del material",
+    "batchCover": "Portada (opcional)"
   },
   "errors": {
     "notFound": "Recurso no encontrado.",
@@ -312,7 +388,12 @@
     "favoriteAdded": "Agregado a favoritos.",
     "favoriteRemoved": "Quitado de favoritos.",
     "verificationResent": "Si la cuenta esta pendiente, enviamos un nuevo enlace de activacion.",
-    "accountVerified": "Cuenta activada correctamente. Ya puedes iniciar sesion."
+    "accountVerified": "Cuenta activada correctamente. Ya puedes iniciar sesion.",
+    "careerCreated": "Carrera creada correctamente.",
+    "careerUpdated": "Carrera actualizada correctamente.",
+    "yearCreated": "Anio creado correctamente.",
+    "yearUpdated": "Anio actualizado correctamente.",
+    "batchUploaded": "Carga masiva completada. Creados: {created}. Omitidos por duplicado: {skipped}."
   },
   "theme": {
     "toDark": "Activar tema oscuro",
@@ -329,7 +410,9 @@
       "Usuario": "Usuario",
       "Rol": "Rol",
       "Materia": "Materia",
-      "Material": "Material"
+      "Material": "Material",
+      "Carrera": "Carrera",
+      "Anio": "Anio"
     },
     "operations": {
       "Alta Usuario": "Alta de usuario",
@@ -341,6 +424,10 @@
       "Alta Rol": "Alta de rol",
       "Solicitud Materia": "Solicitud de materia",
       "Alta Materia": "Alta de materia",
+      "Alta Carrera": "Alta de carrera",
+      "Modificacion Carrera": "Modificacion de carrera",
+      "Alta Anio": "Alta de anio",
+      "Modificacion Anio": "Modificacion de anio",
       "Asociacion Materia": "Asociacion de materia",
       "Modificacion Materia": "Modificacion de materia",
       "Subida Material": "Subida de material",

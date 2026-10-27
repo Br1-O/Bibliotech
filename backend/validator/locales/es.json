@@ -35,12 +35,16 @@
     "numeric": "{field} debe ser numerico.",
     "in": "{field} debe ser uno de: {values}.",
     "match": "{field} no coincide.",
-    "fileType": "El tipo de archivo no es valido. Se permiten PDF, Word y Presentaciones.",
-    "fileSize": "El archivo supera el tamano maximo permitido (50 MB).",
+    "fileType": "El tipo de archivo no es valido para el tipo elegido. Se permiten PDF, EPUB, Word, PPT/PPTX/ODP.",
+    "fileSize": "El archivo supera el tamano maximo permitido (100 MB).",
+    "invalidLink": "El enlace no es valido para el tipo {type}. Verifica el sitio y la URL.",
+    "coverType": "La portada debe ser una imagen valida (JPG, PNG, WEBP o GIF) de hasta 5 MB.",
+    "batchLimit": "La carga masiva admite como maximo {max} archivos o enlaces.",
     "pendingLimit": "No puedes tener mas de {max} materiales pendientes de aprobacion.",
     "emailTaken": "El correo electronico ya se encuentra registrado.",
     "roleTaken": "El rol ya se encuentra registrado.",
-    "invalidData": "Los datos enviados no son validos."
+    "invalidData": "Los datos enviados no son validos.",
+    "duplicateMaterial": "Ya existe otro material con el mismo archivo o enlace."
   },
   "messages": {
     "registerSuccess": "Cuenta creada. Revisa tu correo y abre el enlace de activacion antes de iniciar sesion.",
@@ -67,7 +71,12 @@
     "materialRemovedFromSubject": "Material quitado de la materia.",
     "materialDuplicateProfessor": "El material ya existe. Se asocio a tu materia.",
     "materialDuplicateStudent": "El material ya existe. Se genero una solicitud pendiente.",
-    "roleCreated": "Rol creado correctamente."
+    "roleCreated": "Rol creado correctamente.",
+    "careerCreated": "Carrera creada correctamente.",
+    "careerUpdated": "Carrera actualizada correctamente.",
+    "yearCreated": "Anio creado correctamente.",
+    "yearUpdated": "Anio actualizado correctamente.",
+    "batchUploaded": "Carga masiva completada. Creados: {created}. Omitidos por duplicado: {skipped}."
   },
   "roles": {
     "Superadmin": "Superadministrador",

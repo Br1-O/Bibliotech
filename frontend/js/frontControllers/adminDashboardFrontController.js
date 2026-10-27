@@ -1,7 +1,7 @@
 /**
 * Project     : Bibliotech  |  Frontend - Controlador
-* adminFrontController: panel del superadministrador. Usuarios, profesores,
-* materias, solicitudes de asociacion y auditoria (RF-02, RF-06, RD-06).
+* adminFrontController: panel del superadministrador. Usuarios, carreras,
+* materias, carga masiva, etiquetas y auditoria.
 */
 
 document.addEventListener('bt:ready', () => {
@@ -12,32 +12,112 @@ document.addEventListener('bt:ready', () => {
     if (!authHelper.isRole('Superadmin')) { window.location.href = authHelper.panelRoute(); return; }
 
     const usersTable = document.getElementById('usersTable');
+    const usersPagination = document.getElementById('usersPagination');
     const auditTable = document.getElementById('auditLog');
     const auditPagination = document.getElementById('auditPagination');
     const requestsNode = document.getElementById('associationRequests');
-    const professorSelect = document.getElementById('subjectProfessor');
+    const subjectProfessors = document.getElementById('subjectProfessors');
     const professorForm = document.getElementById('professorForm');
     const subjectForm = document.getElementById('adminSubjectForm');
+    const subjectCareerYear = document.getElementById('subjectCareerYear');
     const subjectsGrid = document.getElementById('adminSubjectsGrid');
     const subjectsPagination = document.getElementById('adminSubjectsPagination');
 
     const subjectEditSelect = document.getElementById('subjectEditSelect');
     const editTitulo = document.getElementById('editTitulo');
     const editDesc = document.getElementById('editDesc');
-    const editProfesor = document.getElementById('editProfesor');
+    const editProfessors = document.getElementById('editProfessors');
+    const editCareerYear = document.getElementById('editCareerYear');
     const editSubjectBtn = document.getElementById('editSubjectBtn');
     const tagsList = document.getElementById('thematicTagsList');
+    const tagsPagination = document.getElementById('tagsPagination');
+    const careersAdminList = document.getElementById('careersAdminList');
+    const careerForm = document.getElementById('careerForm');
+    const batchForm = document.getElementById('batchMaterialForm');
+    const batchFilesInput = document.getElementById('batchFiles');
+    const batchFilesMeta = document.getElementById('batchFilesMeta');
 
-    const cache = { users: [], subjects: [], logs: [], tags: [] };
+    const userSearch = document.getElementById('adminUserSearch');
+    const userRole = document.getElementById('adminUserRole');
+    const userStatus = document.getElementById('adminUserStatus');
+    const userClear = document.getElementById('adminUserClear');
+    const tagSearch = document.getElementById('adminTagSearch');
+    const tagStatus = document.getElementById('adminTagStatus');
+    const tagClear = document.getElementById('adminTagClear');
+
+    const cache = { users: [], subjects: [], careers: [], logs: [], tags: [] };
     const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     const AUDIT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
+    const ADMIN_PAGE_SIZE = 10;
     let subjectPage = 1;
     let auditPage = 1;
+    let userPage = 1;
+    let tagPage = 1;
+    let userDebounce;
+    let tagDebounce;
+    let batchFileEntries = [];
 
-    const tr = (key) => LanguageManager.tr(key);
+    const tr = (key, params = {}) => LanguageManager.tr(key, params);
+
+    function batchTitleFromFilename(filename) {
+        const name = String(filename || 'Material');
+        const dot = name.lastIndexOf('.');
+        return (dot > 0 ? name.slice(0, dot) : name).slice(0, 150) || 'Material';
+    }
+
+    function renderBatchFilesMeta() {
+        if (!batchFilesMeta) return;
+        if (!batchFileEntries.length) {
+            render(batchFilesMeta, []);
+            return;
+        }
+        render(batchFilesMeta, batchFileEntries.map((entry, index) => {
+            const titleInput = el('input', {
+                className: 'bt-input',
+                attrs: { type: 'text', maxlength: '150', 'aria-label': LanguageManager.t('material.title') },
+                value: entry.titulo
+            });
+            titleInput.addEventListener('input', () => { entry.titulo = titleInput.value; });
+
+            const coverInput = el('input', {
+                className: 'bt-input',
+                attrs: {
+                    type: 'file',
+                    accept: 'image/png,image/jpeg,image/webp,image/gif',
+                    'aria-label': LanguageManager.t('material.cover')
+                }
+            });
+            coverInput.addEventListener('change', () => { entry.cover = coverInput.files?.[0] || null; });
+
+            return el('div', { className: 'bt-batch-file' }, [
+                el('span', {
+                    className: 'bt-batch-file__name',
+                    text: `${index + 1}. ${entry.file.name}`
+                }),
+                el('div', { className: 'bt-field' }, [
+                    el('label', { className: 'bt-label', text: LanguageManager.t('admin.batchTitle') }),
+                    titleInput
+                ]),
+                el('div', { className: 'bt-field' }, [
+                    el('label', { className: 'bt-label', text: LanguageManager.t('admin.batchCover') }),
+                    coverInput
+                ])
+            ]);
+        }));
+    }
+
+    batchFilesInput?.addEventListener('change', () => {
+        batchFileEntries = Array.from(batchFilesInput.files || []).map(file => ({
+            file,
+            titulo: batchTitleFromFilename(file.name),
+            cover: null
+        }));
+        renderBatchFilesMeta();
+    });
 
     async function loadAll() {
-        await Promise.all([loadUsers(), loadSubjects(), loadAudit(), loadTags()]);
+        await Promise.all([loadUsers(), loadCareers(), loadAudit(), loadTags()]);
+        await loadSubjects();
         updateStats();
     }
 
@@ -59,18 +139,32 @@ document.addEventListener('bt:ready', () => {
             const { users } = await apiService.get('/auth/users');
             cache.users = users;
             renderUsers();
-            const professors = users.filter(u => u.roleNombre === 'Profesor');
-            render(professorSelect, [
-                el('option', { value: '', text: LanguageManager.t('common.optional') }),
-                ...professors.map(p => el('option', { value: String(p.id), text: `${p.nombre} ${p.apellido}` }))
-            ]);
-            renderEditProfessorOptions();
+            renderProfessorOptions(subjectProfessors, selectedProfessorIds(subjectProfessors));
+            renderProfessorOptions(editProfessors, selectedProfessorIds(editProfessors));
         } catch (error) { Toast.error(error.message); }
+    }
+
+    function filteredUsers() {
+        const query = (userSearch?.value || '').trim().toLowerCase();
+        return cache.users.filter(user => {
+            if (userRole?.value && user.roleNombre !== userRole.value) return false;
+            if (userStatus?.value && user.estado !== userStatus.value) return false;
+            if (!query) return true;
+            return [user.nombre, user.apellido, user.email]
+                .some(value => String(value || '').toLowerCase().includes(query));
+        });
     }
 
     function renderUsers() {
         if (!usersTable) return;
-        render(usersTable, cache.users.map(u => {
+        const users = filteredUsers();
+        const total = users.length;
+        const totalPages = Pagination.totalPages(total, ADMIN_PAGE_SIZE);
+        if (userPage > totalPages) userPage = totalPages;
+        const start = (userPage - 1) * ADMIN_PAGE_SIZE;
+        const pageItems = users.slice(start, start + ADMIN_PAGE_SIZE);
+
+        render(usersTable, pageItems.map(u => {
             const actions = [];
             if (u.estado === 'Baneado') {
                 actions.push(el('bt-button', {
@@ -99,6 +193,138 @@ document.addEventListener('bt:ready', () => {
                 })]),
                 el('td', {}, [statusBadge(u.estado || 'Activo')]),
                 el('td', {}, actions)
+            ]);
+        }));
+
+        Pagination.render(usersPagination, {
+            page: userPage,
+            total,
+            pageSize: ADMIN_PAGE_SIZE,
+            onChange: (page) => { userPage = page; renderUsers(); }
+        });
+    }
+
+    async function loadCareers() {
+        try {
+            const { careers } = await apiService.get('/careers');
+            cache.careers = careers || [];
+            renderCareerAdmin();
+            renderCareerYearOptions();
+        } catch (error) { Toast.error(error.message); }
+    }
+
+    function renderCareerYearOptions() {
+        [subjectCareerYear, editCareerYear].forEach(select => {
+            if (!select) return;
+            const current = select.value;
+            const options = [el('option', { value: '', text: LanguageManager.t('admin.noCareerYear') })];
+            cache.careers.forEach(career => {
+                (career.years || []).forEach(year => {
+                    options.push(el('option', {
+                        value: String(year.id),
+                        text: `${career.nombre} · ${year.nombre}`
+                    }));
+                });
+            });
+            render(select, options);
+            if ([...select.options].some(option => option.value === current)) select.value = current;
+        });
+    }
+
+    function renderCareerAdmin() {
+        if (!careersAdminList) return;
+        if (!cache.careers.length) {
+            render(careersAdminList, Cards.empty(LanguageManager.t('careers.none')));
+            return;
+        }
+
+        render(careersAdminList, cache.careers.map(career => {
+            const name = el('input', { className: 'bt-input', value: career.nombre || '' });
+            const color = el('input', {
+                className: 'bt-input bt-input--color',
+                attrs: { type: 'color' },
+                value: career.color || '#6f5bd3'
+            });
+            const save = el('bt-button', {
+                size: 'sm', variant: 'secondary', label: LanguageManager.t('common.save')
+            });
+            save.addEventListener('click', async () => {
+                try {
+                    await apiService.put(`/careers/${career.id}`, {
+                        nombre: name.value.trim(),
+                        color: color.value
+                    });
+                    Toast.success(LanguageManager.t('messages.careerUpdated'));
+                    await Promise.all([loadCareers(), loadSubjects()]);
+                } catch (error) { Toast.error(error.message); }
+            });
+
+            const years = (career.years || []).map(year => {
+                const yearName = el('input', { className: 'bt-input', value: year.nombre || '' });
+                const yearOrder = el('input', {
+                    className: 'bt-input bt-input--number',
+                    attrs: { type: 'number', min: '0', step: '1' },
+                    value: String(year.orden ?? 0)
+                });
+                const yearSave = el('bt-button', {
+                    size: 'sm', variant: 'secondary', label: LanguageManager.t('common.save')
+                });
+                yearSave.addEventListener('click', async () => {
+                    try {
+                        await apiService.put(`/careers/years/${year.id}`, {
+                            nombre: yearName.value.trim(),
+                            orden: Number(yearOrder.value)
+                        });
+                        Toast.success(LanguageManager.t('messages.yearUpdated'));
+                        await Promise.all([loadCareers(), loadSubjects()]);
+                    } catch (error) { Toast.error(error.message); }
+                });
+                return el('div', { className: 'bt-row bt-wrap bt-admin-year' }, [
+                    yearName,
+                    yearOrder,
+                    yearSave
+                ]);
+            });
+
+            const newYearName = el('input', {
+                className: 'bt-input',
+                attrs: { placeholder: LanguageManager.t('admin.yearName') }
+            });
+            const newYearOrder = el('input', {
+                className: 'bt-input bt-input--number',
+                attrs: { type: 'number', min: '0', step: '1', value: String((career.years || []).length + 1) }
+            });
+            const addYear = el('bt-button', {
+                size: 'sm', label: LanguageManager.t('admin.createYear')
+            });
+            addYear.addEventListener('click', async () => {
+                if (!newYearName.value.trim()) {
+                    Toast.error(LanguageManager.t('validation.required', { field: LanguageManager.t('admin.yearName') }));
+                    return;
+                }
+                try {
+                    await apiService.post(`/careers/${career.id}/years`, {
+                        nombre: newYearName.value.trim(),
+                        orden: Number(newYearOrder.value) || 0
+                    });
+                    Toast.success(LanguageManager.t('messages.yearCreated'));
+                    newYearName.value = '';
+                    await Promise.all([loadCareers(), loadSubjects()]);
+                } catch (error) { Toast.error(error.message); }
+            });
+
+            return el('div', {
+                className: 'bt-panel bt-stack bt-career-admin',
+                attrs: { style: `--career-color:${career.color || '#6f5bd3'}` }
+            }, [
+                el('div', { className: 'bt-row bt-wrap' }, [
+                    el('span', { className: 'bt-career-card__dot' }),
+                    name,
+                    color,
+                    save
+                ]),
+                el('div', { className: 'bt-stack' }, years),
+                el('div', { className: 'bt-row bt-wrap' }, [newYearName, newYearOrder, addYear])
             ]);
         }));
     }
@@ -155,15 +381,36 @@ document.addEventListener('bt:ready', () => {
         if (next) loadSubjectEditFields(next);
     }
 
-    function renderEditProfessorOptions() {
-        if (!editProfesor) return;
-        const current = editProfesor.value;
-        render(editProfesor, [
-            el('option', { value: '', text: LanguageManager.t('subject.noTeacher') }),
-            ...cache.users.filter(u => u.roleNombre === 'Profesor').map(p =>
-                el('option', { value: String(p.id), text: `${p.nombre} ${p.apellido}` }))
-        ]);
-        editProfesor.value = current;
+    function selectedProfessorIds(container) {
+        if (!container) return [];
+        return [...container.querySelectorAll('input[type="checkbox"]:checked')]
+            .map(input => Number(input.value)).filter(Boolean);
+    }
+
+    function renderProfessorOptions(container, selectedIds = []) {
+        if (!container) return;
+        const selected = new Set((selectedIds || []).map(Number));
+        const professors = cache.users.filter(u => u.roleNombre === 'Profesor');
+        if (!professors.length) {
+            render(container, [el('p', { className: 'bt-card__meta', text: LanguageManager.t('subject.noTeacher') })]);
+            return;
+        }
+        render(container, professors.map(professor => {
+            const input = el('input', {
+                attrs: { type: 'checkbox', value: String(professor.id) }
+            });
+            input.checked = selected.has(Number(professor.id));
+            return el('label', { className: 'bt-check' }, [
+                input,
+                el('span', { text: `${professor.nombre} ${professor.apellido}` })
+            ]);
+        }));
+    }
+
+    function subjectProfessorLabel(subject) {
+        const names = (subject.profesores || []).map(professor =>
+            professor.nombreCompleto || `${professor.nombre || ''} ${professor.apellido || ''}`.trim());
+        return names.length ? names.join(', ') : (subject.profesorNombre || '-');
     }
 
     function selectSubjectForEdit(id) {
@@ -178,8 +425,10 @@ document.addEventListener('bt:ready', () => {
         Validator.clear(document.getElementById('subjectEditPanel'));
         if (editTitulo) editTitulo.value = s.nombre || '';
         if (editDesc) editDesc.value = s.descripcion || '';
-        renderEditProfessorOptions();
-        if (editProfesor) editProfesor.value = s.profesorId ? String(s.profesorId) : '';
+        const assigned = (s.profesores || []).map(professor => professor.id);
+        if (!assigned.length && s.profesorId) assigned.push(s.profesorId);
+        renderProfessorOptions(editProfessors, assigned);
+        if (editCareerYear) editCareerYear.value = s.careerYearId ? String(s.careerYearId) : '';
     }
 
     function renderRequests() {
@@ -190,7 +439,7 @@ document.addEventListener('bt:ready', () => {
         render(requestsNode, pending.map(s => el('div', { className: 'bt-panel bt-row bt-between' }, [
             el('div', {}, [
                 el('strong', { text: s.nombre }),
-                el('p', { className: 'bt-card__meta', text: `${LanguageManager.t('subjects.teacher')}: ${s.profesorNombre || '-'}` })
+                el('p', { className: 'bt-card__meta', text: `${LanguageManager.t('subjects.teachers')}: ${subjectProfessorLabel(s)}` })
             ]),
             el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, [
                 el('bt-button', { size: 'sm', variant: 'success', label: LanguageManager.t('admin.approve'), on: { click: () => resolveRequest(s, 'confirm-association') } }),
@@ -307,8 +556,33 @@ document.addEventListener('bt:ready', () => {
         try {
             const { tags } = await apiService.get('/thematic-tags');
             cache.tags = tags;
-            if (!tags.length) { render(tagsList, [el('p', { text: LanguageManager.t('admin.noTags') })]); return; }
-            render(tagsList, tags.map(t => el('div', { className: 'bt-row bt-between bt-panel' }, [
+            renderTags();
+        } catch (error) { Toast.error(error.message); }
+    }
+
+    function filteredTags() {
+        const query = (tagSearch?.value || '').trim().toLowerCase();
+        return cache.tags.filter(tag => {
+            if (tagStatus?.value === 'banned' && !Number(tag.baneado)) return false;
+            if (tagStatus?.value === 'active' && Number(tag.baneado)) return false;
+            if (!query) return true;
+            return String(tag.nombre || '').toLowerCase().includes(query)
+                || String(tag.categoria || '').toLowerCase().includes(query);
+        });
+    }
+
+    function renderTags() {
+        const tags = filteredTags();
+        const total = tags.length;
+        const totalPages = Pagination.totalPages(total, ADMIN_PAGE_SIZE);
+        if (tagPage > totalPages) tagPage = totalPages;
+        const start = (tagPage - 1) * ADMIN_PAGE_SIZE;
+        const pageItems = tags.slice(start, start + ADMIN_PAGE_SIZE);
+
+        if (!total) {
+            render(tagsList, [el('p', { text: LanguageManager.t('admin.noTags') })]);
+        } else {
+            render(tagsList, pageItems.map(t => el('div', { className: 'bt-row bt-between bt-panel' }, [
                 el('span', { text: `${t.nombre} (${t.categoria})` }),
                 el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, [
                     el('bt-button', { size: 'sm', variant: 'danger', label: LanguageManager.t('common.delete'), on: { click: () => removeTag(t.id) } }),
@@ -317,7 +591,14 @@ document.addEventListener('bt:ready', () => {
                         : el('bt-button', { size: 'sm', variant: 'warning', label: LanguageManager.t('teacher.ban'), on: { click: () => banTag(t.id) } })
                 ])
             ])));
-        } catch (error) { Toast.error(error.message); }
+        }
+
+        Pagination.render(tagsPagination, {
+            page: tagPage,
+            total,
+            pageSize: ADMIN_PAGE_SIZE,
+            onChange: (page) => { tagPage = page; renderTags(); }
+        });
     }
 
     async function removeTag(id) {
@@ -383,10 +664,12 @@ document.addEventListener('bt:ready', () => {
             const result = await apiService.post('/subjects', {
                 nombre: data.nombre,
                 descripcion: data.descripcion || null,
-                profesorId: data.profesorId ? Number(data.profesorId) : null
+                profesorIds: selectedProfessorIds(subjectProfessors),
+                careerYearId: data.careerYearId ? Number(data.careerYearId) : null
             });
             Toast.success(tr(result.message));
             subjectForm.reset();
+            renderProfessorOptions(subjectProfessors, []);
             await Promise.all([loadSubjects(), loadAudit()]);
         } catch (error) {
             if (!Validator.applyServerErrors(subjectForm, error)) Toast.error(error.message);
@@ -413,13 +696,103 @@ document.addEventListener('bt:ready', () => {
             await apiService.put(`/subjects/${id}`, {
                 nombre: editTitulo.value,
                 descripcion: editDesc.value,
-                profesorId: editProfesor.value ? Number(editProfesor.value) : null
+                profesorIds: selectedProfessorIds(editProfessors),
+                careerYearId: editCareerYear?.value ? Number(editCareerYear.value) : null
             });
             Toast.success(LanguageManager.t('messages.subjectUpdated'));
             await Promise.all([loadSubjects(), loadAudit()]);
         } catch (error) {
             if (!Validator.applyServerErrors(panel, error)) Toast.error(error.message);
         } finally { editSubjectBtn.setLoading(false); }
+    });
+
+    careerForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = document.getElementById('careerNombre');
+        const color = document.getElementById('careerColor');
+        if (!name?.value.trim()) {
+            Toast.error(LanguageManager.t('validation.required', { field: LanguageManager.t('admin.careerName') }));
+            return;
+        }
+        const btn = careerForm.querySelector('bt-button');
+        try {
+            btn?.setLoading(true);
+            const result = await apiService.post('/careers', {
+                nombre: name.value.trim(),
+                color: color?.value || '#6f5bd3'
+            });
+            Toast.success(tr(result.message));
+            name.value = '';
+            await loadCareers();
+        } catch (error) {
+            Toast.error(error.message);
+        } finally { btn?.setLoading(false); }
+    });
+
+    batchForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const linksInput = document.getElementById('batchLinks');
+        const tagsInput = document.getElementById('batchTags');
+        const fileCount = batchFileEntries.length;
+        const links = (linksInput?.value || '').split(/\r?\n/).filter(line => line.trim());
+        if (!fileCount && !links.length) {
+            Toast.error(LanguageManager.t('validation.required', { field: LanguageManager.t('admin.batchFiles') }));
+            return;
+        }
+        if (fileCount + links.length > 100) {
+            Toast.error(LanguageManager.t('admin.batchLimit'));
+            return;
+        }
+
+        const payload = new FormData();
+        const metadata = [];
+        batchFileEntries.forEach((entry, index) => {
+            payload.append(`archivo_${index}`, entry.file);
+            if (entry.cover) payload.append(`portada_${index}`, entry.cover);
+            metadata.push({ titulo: entry.titulo.trim() || batchTitleFromFilename(entry.file.name) });
+        });
+        payload.append('metadata', JSON.stringify(metadata));
+        payload.append('links', linksInput?.value || '');
+        payload.append('categories', tagsInput?.value || '');
+
+        const btn = batchForm.querySelector('bt-button');
+        try {
+            btn?.setLoading(true);
+            const result = await apiService.upload('/materials/batch', payload);
+            Toast.success(tr(result.message, { created: result.created, skipped: result.skipped }));
+            batchForm.reset();
+            batchFileEntries = [];
+            renderBatchFilesMeta();
+            await Promise.all([loadSubjects(), loadAudit()]);
+        } catch (error) {
+            Toast.error(error.message);
+        } finally { btn?.setLoading(false); }
+    });
+
+    userSearch?.addEventListener('input', () => {
+        clearTimeout(userDebounce);
+        userDebounce = setTimeout(() => { userPage = 1; renderUsers(); }, 250);
+    });
+    userRole?.addEventListener('change', () => { userPage = 1; renderUsers(); });
+    userStatus?.addEventListener('change', () => { userPage = 1; renderUsers(); });
+    userClear?.addEventListener('click', () => {
+        if (userSearch) userSearch.value = '';
+        if (userRole) userRole.value = '';
+        if (userStatus) userStatus.value = '';
+        userPage = 1;
+        renderUsers();
+    });
+
+    tagSearch?.addEventListener('input', () => {
+        clearTimeout(tagDebounce);
+        tagDebounce = setTimeout(() => { tagPage = 1; renderTags(); }, 250);
+    });
+    tagStatus?.addEventListener('change', () => { tagPage = 1; renderTags(); });
+    tagClear?.addEventListener('click', () => {
+        if (tagSearch) tagSearch.value = '';
+        if (tagStatus) tagStatus.value = '';
+        tagPage = 1;
+        renderTags();
     });
 
     loadAll();

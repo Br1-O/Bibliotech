@@ -18,8 +18,10 @@ const FILES = [
     'authTests.js',
     'subjectTests.js',
     'materialTests.js',
+    'careerTests.js',
     'subscriptionTests.js',
     'notificationTests.js',
+    'refinementTests.js',
     'adminTests.js',
     'sqlTests.js'
 ];

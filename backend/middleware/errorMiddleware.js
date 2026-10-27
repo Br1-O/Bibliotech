@@ -33,6 +33,9 @@ function errorMiddleware(err, req, res, next) {
     if (err && err.message === 'VALIDATION_FILE_TYPE') {
         return res.status(400).json({ message: t('validation.fileType') });
     }
+    if (err && err.message === 'VALIDATION_COVER_TYPE') {
+        return res.status(400).json({ message: t('validation.coverType') });
+    }
 
     console.error(err);
     return res.status(500).json({ message: t('errors.serverError') });

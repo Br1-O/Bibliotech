@@ -11,7 +11,13 @@ module.exports = (container) => {
     return {
         async list(req, res, next) {
             try {
-                const subjects = await subjectService.getAllSubjects();
+                const filters = {
+                    q: req.query.q || '',
+                    careerId: req.query.careerId ? Number(req.query.careerId) : null,
+                    yearId: req.query.yearId ? Number(req.query.yearId) : null,
+                    profesorId: req.query.profesorId ? Number(req.query.profesorId) : null
+                };
+                const subjects = await subjectService.getAllSubjects(filters);
                 return ok(req, res, { subjects });
             } catch (error) { return next(error); }
         },
@@ -54,7 +60,8 @@ module.exports = (container) => {
         async materials(req, res, next) {
             try {
                 const filters = {
-                    q: req.query.q,
+                    q: req.query.q || '',
+                    tipo: req.query.tipo || null,
                     tags: req.query.tags ? [].concat(req.query.tags) : []
                 };
                 const result = await materialService.getBySubject(req.params.id, filters, req.usuarioId);

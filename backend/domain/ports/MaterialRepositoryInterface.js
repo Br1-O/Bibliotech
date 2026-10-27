@@ -10,6 +10,7 @@ class MaterialRepositoryInterface extends RepositoryInterface {
     async findByHash(hash)                                   { return this._notImplemented('findByHash'); }
     async findAllGlobal(filters)                             { return this._notImplemented('findAllGlobal'); }
     async findBySubject(subjectId, filters)                  { return this._notImplemented('findBySubject'); }
+    async findByAuthor(authorId, filters)                    { return this._notImplemented('findByAuthor'); }
     async findPendingByAuthor(authorId)                      { return this._notImplemented('findPendingByAuthor'); }
     async findPendingForProfessor(profesorId)                { return this._notImplemented('findPendingForProfessor'); }
     async countPendingByAuthor(authorId)                     { return this._notImplemented('countPendingByAuthor'); }
@@ -19,6 +20,7 @@ class MaterialRepositoryInterface extends RepositoryInterface {
     async deleteAssociation(materialId, subjectId)           { return this._notImplemented('deleteAssociation'); }
     async countAssociations(materialId)                      { return this._notImplemented('countAssociations'); }
     async cancelPendingUpload(materialId)                    { return this._notImplemented('cancelPendingUpload'); }
+    async rejectPendingUpload(materialId)                    { return this._notImplemented('rejectPendingUpload'); }
     async update(materialId, changes)                        { return this._notImplemented('update'); }
     async delete(materialId)                                 { return this._notImplemented('delete'); }
     async toggleFavorite(materialId, userId)                 { return this._notImplemented('toggleFavorite'); }

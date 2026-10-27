@@ -14,27 +14,29 @@ document.addEventListener('bt:ready', () => {
     const paginationNode = document.getElementById('subjectPagination');
     const resultsLabel = document.getElementById('subjectResults');
     const grid = document.getElementById('subjectMaterials');
-    const editPanel = document.getElementById('materialEditPanel');
-    const editForm = document.getElementById('materialEditForm');
-    const editTitulo = document.getElementById('materialEditTitulo');
-    const editDesc = document.getElementById('materialEditDesc');
-    const editCancel = document.getElementById('materialEditCancel');
-
     const PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     let allMaterials = [];
     let currentPage = 1;
     let debounce;
     let canManage = false;
-    let editingMaterial = null;
     const canFavorite = authHelper.isAuthenticated();
     const me = authHelper.getUser() || {};
+    const isAdmin = authHelper.isRole('Superadmin');
+
+    function canEditMaterial(material) {
+        if (!authHelper.isRole('Profesor', 'Superadmin') || Cards.isInactive(material)) return false;
+        if (Number(material.autorId) === Number(me.id)) return true;
+        if (material.autorRol !== 'Alumno') return false;
+        return isAdmin || canManage;
+    }
 
     async function load() {
         Loader.skeletons(document.getElementById('subjectMaterials'), 3);
         try {
             const { subject } = await apiService.get(`/subjects/${subjectId}`);
             canManage = authHelper.isRole('Superadmin')
-                || (authHelper.isRole('Profesor') && Number(subject.profesorId) === Number(me.id));
+                || (authHelper.isRole('Profesor') && Cards.isSubjectProfessor(subject, me.id));
+            container.dataset.profesorId = subject.profesorId || '';
             renderHeadline(subject);
             await loadMaterials();
         } catch (error) {
@@ -43,20 +45,32 @@ document.addEventListener('bt:ready', () => {
     }
 
     function renderHeadline(subject) {
-        const teacher = subject.profesorNombre || LanguageManager.t('subject.noTeacher');
+        const professors = Array.isArray(subject.profesores) && subject.profesores.length
+            ? subject.profesores
+            : (subject.profesorNombre
+                ? [{ id: subject.profesorId, nombreCompleto: subject.profesorNombre }]
+                : []);
         const isAlumno = authHelper.isRole('Alumno');
 
         const actions = el('div', { className: 'bt-headline__actions' });
         if (isAlumno) actions.appendChild(buildSubscribeButton(subject));
 
+        const teacherRow = professors.length
+            ? el('div', { className: 'bt-headline__teachers' }, [
+                el('span', { className: 'bt-badge bt-badge--teacher', text: LanguageManager.t('subjects.teachers') }),
+                ...professors.map(professor => el('a', {
+                    className: 'bt-teacher-link',
+                    text: professor.nombreCompleto || `${professor.nombre || ''} ${professor.apellido || ''}`.trim(),
+                    attrs: { href: `/autor/${professor.id}` }
+                }))
+            ])
+            : el('span', { className: 'bt-badge bt-badge--info', text: LanguageManager.t('subject.noTeacher') });
+
         const headline = el('div', { className: 'bt-headline bt-stack' }, [
             el('h1', { text: subject.nombre }),
             el('p', { className: 'bt-text-muted', text: subject.descripcion || '' }),
-            el('div', { className: 'bt-row bt-between' }, [
-                el('span', {
-                    className: `bt-badge ${subject.profesorNombre ? 'bt-badge--teacher' : 'bt-badge--subject'}`,
-                    text: `${LanguageManager.t('subject.teacher')}: ${teacher}`
-                }),
+            el('div', { className: 'bt-row bt-between bt-wrap', style: { gap: 'var(--space-3)' } }, [
+                teacherRow,
                 actions
             ])
         ]);
@@ -91,51 +105,13 @@ document.addEventListener('bt:ready', () => {
         return btn;
     }
 
-    /** Abre el panel de edicion con los datos del material seleccionado. */
+    /** Abre el editor modal; evita el estado bloqueado del panel anterior. */
     function openEditPanel(material) {
-        if (!editPanel || !editForm) return;
-        editingMaterial = material;
-        if (editTitulo) editTitulo.value = material.titulo || '';
-        if (editDesc) editDesc.value = material.descripcion || '';
-        editPanel.classList.remove('bt-hidden');
-        editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        editTitulo?.focus();
-    }
-
-    function closeEditPanel() {
-        editingMaterial = null;
-        editPanel?.classList.add('bt-hidden');
-    }
-
-    editForm?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        if (!editingMaterial) return;
-        Validator.clear(editForm);
-        const valid = Validator.on(editForm)
-            .required('titulo', LanguageManager.t('material.title'))
-            .minLength('titulo', 3, LanguageManager.t('material.title'))
-            .validateThis()
-            .show();
-        if (!valid) return;
-
-        const btn = editForm.querySelector('bt-button');
-        try {
-            btn?.setLoading(true);
-            const result = await apiService.put(`/materials/${editingMaterial.id}`, {
-                titulo: editTitulo?.value || '',
-                descripcion: editDesc?.value || ''
-            });
-            Toast.success(LanguageManager.tr(result.message));
-            closeEditPanel();
+        if (!material || typeof MaterialEditor === 'undefined') return;
+        MaterialEditor.open(material, async () => {
             await loadMaterials();
-        } catch (error) {
-            if (!Validator.applyServerErrors(editForm, error)) Toast.error(error.message);
-        } finally {
-            btn?.setLoading(false);
-        }
-    });
-
-    editCancel?.addEventListener('click', closeEditPanel);
+        });
+    }
 
     /** Quita el material de esta materia (y lo elimina si queda huerfano). */
     async function removeFromSubject(material) {
@@ -148,7 +124,6 @@ document.addEventListener('bt:ready', () => {
         try {
             const result = await apiService.del(`/materials/${material.id}/subjects/${subjectId}`);
             Toast.success(LanguageManager.tr(result.message));
-            if (editingMaterial && editingMaterial.id === material.id) closeEditPanel();
             await loadMaterials();
         } catch (error) {
             Toast.error(error.message);
@@ -197,7 +172,7 @@ document.addEventListener('bt:ready', () => {
         } else {
             render(grid, shown.map(m => Cards.material(m, {
                 onToggleFavorite: canFavorite ? (material) => Cards.toggleFavorite(material) : null,
-                onEdit: canManage ? openEditPanel : null,
+                onEdit: canEditMaterial(m) ? openEditPanel : null,
                 onDelete: canManage ? removeFromSubject : null,
                 deleteLabel: 'material.removeFromSubject'
             })));

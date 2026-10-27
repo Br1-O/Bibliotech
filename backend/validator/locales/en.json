@@ -35,12 +35,16 @@
     "numeric": "{field} must be numeric.",
     "in": "{field} must be one of: {values}.",
     "match": "{field} does not match.",
-    "fileType": "Invalid file type. PDF, Word and Presentations are allowed.",
-    "fileSize": "The file exceeds the maximum allowed size (50 MB).",
+    "fileType": "The file type is invalid for the selected type. PDF, EPUB, Word and PPT/PPTX/ODP are allowed.",
+    "fileSize": "The file exceeds the maximum allowed size (100 MB).",
+    "invalidLink": "The link is not valid for type {type}. Check the site and the URL.",
+    "coverType": "The cover must be a valid image (JPG, PNG, WEBP or GIF) up to 5 MB.",
+    "batchLimit": "Batch upload allows at most {max} files or links.",
     "pendingLimit": "You cannot have more than {max} materials pending approval.",
     "emailTaken": "The email address is already registered.",
     "roleTaken": "The role is already registered.",
-    "invalidData": "The submitted data is invalid."
+    "invalidData": "The submitted data is invalid.",
+    "duplicateMaterial": "Another material already uses the same file or link."
   },
   "messages": {
     "registerSuccess": "Account created. Check your email and open the activation link before signing in.",
@@ -67,7 +71,12 @@
     "materialRemovedFromSubject": "Material removed from the subject.",
     "materialDuplicateProfessor": "The material already exists. It was linked to your subject.",
     "materialDuplicateStudent": "The material already exists. A pending request was created.",
-    "roleCreated": "Role created successfully."
+    "roleCreated": "Role created successfully.",
+    "careerCreated": "Career created successfully.",
+    "careerUpdated": "Career updated successfully.",
+    "yearCreated": "Year created successfully.",
+    "yearUpdated": "Year updated successfully.",
+    "batchUploaded": "Batch upload completed. Created: {created}. Skipped duplicates: {skipped}."
   },
   "roles": {
     "Superadmin": "Superadmin",

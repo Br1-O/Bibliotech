@@ -38,27 +38,6 @@
             <div id="subjectMaterials" class="bt-grid bt-mt-2"></div>
             <div id="subjectPagination"></div>
 
-            <section id="materialEditPanel" class="bt-panel bt-stack bt-mt-4 bt-hidden">
-                <h2 data-i18n="material.edit">Editar material</h2>
-                <p class="bt-text-muted" data-i18n="material.editHint">Modifica el titulo o la descripcion del material.</p>
-                <form id="materialEditForm" class="bt-stack">
-                    <div class="bt-field">
-                        <label class="bt-label" for="materialEditTitulo" data-i18n="material.title">Titulo</label>
-                        <input id="materialEditTitulo" class="bt-input" type="text" name="titulo" maxlength="150" required>
-                        <span class="bt-error-text" data-error-for="titulo"></span>
-                    </div>
-                    <div class="bt-field">
-                        <label class="bt-label" for="materialEditDesc" data-i18n="material.description">Descripcion</label>
-                        <textarea id="materialEditDesc" class="bt-textarea" name="descripcion" rows="3"></textarea>
-                        <span class="bt-error-text" data-error-for="descripcion"></span>
-                    </div>
-                    <div class="bt-row" style="gap: var(--space-2)">
-                        <bt-button type="submit" variant="primary" label-i18n="common.save"></bt-button>
-                        <button id="materialEditCancel" class="bt-btn bt-btn--ghost" type="button"
-                                data-i18n="common.cancel">Cancelar</button>
-                    </div>
-                </form>
-            </section>
         </section>
     </main>
 
@@ -74,6 +53,8 @@
     <script src="/js/components/modal.js"></script>
     <script src="/js/components/materialViewer.js"></script>
     <script src="/js/components/cards.js"></script>
+    <script src="/js/components/tagInput.js"></script>
+    <script src="/js/components/materialEditor.js"></script>
     <script src="/js/components/navbar.js"></script>
     <script src="/js/components/pagination.js"></script>
     <script src="/js/services/apiService.js"></script>

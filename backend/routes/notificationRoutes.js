@@ -13,6 +13,7 @@ module.exports = (container) => {
     router.use(verifyToken);
 
     router.get('/', controller.list);
+    router.post('/read-all', controller.readAll);
     router.post('/:id/read', controller.read);
 
     return router;

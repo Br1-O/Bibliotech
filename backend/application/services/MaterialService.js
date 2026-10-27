@@ -16,8 +16,10 @@ const Required = require('../../validator/rules/Required');
 const Length = require('../../validator/rules/Length');
 const In = require('../../validator/rules/In');
 const fileHelper = require('../../utils/fileHelper');
+const mediaValidator = require('../../utils/mediaValidator');
 
 const PENDING_LIMIT = 3;
+const BATCH_LIMIT = 100;
 
 class MaterialService {
     constructor(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService = null, fileStorage = fileHelper, notificationRepository = null) {
@@ -31,22 +33,52 @@ class MaterialService {
         this.notificationRepository = notificationRepository;
     }
 
-    /** Materias (de las que contiene el material) cuyo titular es el profesor. */
+    /** Materias (de las que contiene el material) asignadas al profesor. */
     async ownedSubjectIds(material, ctx) {
         const owned = [];
-        for (const subjectId of material.materiasIds || []) {
+        const subjectIds = material.materiasTodosIds?.length
+            ? material.materiasTodosIds
+            : (material.materiasIds || []);
+        for (const subjectId of subjectIds) {
             const subject = await this.subjectRepository.findById(subjectId);
-            if (subject && subject.profesorId === ctx.usuarioId) owned.push(subjectId);
+            if (subject && subject.hasProfessor(ctx.usuarioId)) owned.push(subjectId);
         }
         return owned;
     }
 
-    /** Verifica que el usuario pueda gestionar el material (profesor titular o Superadmin). */
+    /** Elimina los archivos fisicos de un material que ya no debe conservarlos. */
+    async deleteStoredFiles(material) {
+        const paths = [material?.urlOrPath, material?.portada].filter(Boolean);
+        for (const value of paths) {
+            try { await this.fileStorage.deleteStorageFile(value); }
+            catch (error) { console.error('No se pudo borrar el archivo del material:', error.message); }
+        }
+    }
+
+    /**
+     * Verifica que el usuario pueda gestionar el material.
+     * El autor siempre puede editarlo. Un profesor tambien puede editar las
+     * sugerencias de alumnos de sus materias y el Superadmin las de cualquier
+     * alumno. Nadie edita material ajeno de profesores o administradores.
+     */
     async assertCanManage(material, ctx) {
+        if (Number(material.autorId) === Number(ctx.usuarioId)) return;
+        if (material.autorRol !== 'Alumno') {
+            throw new AppError('errors.forbidden', { status: 403 });
+        }
         if (ctx.rol === 'Superadmin') return;
         if (ctx.rol !== 'Profesor') throw new AppError('errors.forbidden', { status: 403 });
+
         const owned = await this.ownedSubjectIds(material, ctx);
         if (!owned.length) throw new AppError('errors.forbidden', { status: 403 });
+    }
+
+    /** Valida enlaces externos segun su tipo (YouTube, Drive, GitHub). */
+    assertLinkValidity(tipo, urlOrPath) {
+        if (!mediaValidator.isLinkType(tipo)) return;
+        if (!mediaValidator.isValidLink(tipo, urlOrPath)) {
+            throw new AppError('validation.invalidLink', { status: 422, params: { type: tipo } });
+        }
     }
 
     toArray(value) {
@@ -69,7 +101,7 @@ class MaterialService {
         const subjects = [];
         for (const subjectId of subjectIds) {
             const subject = await this.subjectRepository.findById(subjectId);
-            if (!subject || Number(subject.profesorId) !== Number(ctx.usuarioId)) {
+            if (!subject || !subject.hasProfessor(ctx.usuarioId)) {
                 throw new AppError('errors.forbidden', { status: 403 });
             }
             subjects.push(subject);
@@ -117,6 +149,7 @@ class MaterialService {
      */
     async uploadOrSuggestMaterial(dto, ctx) {
         this.validate(dto);
+        this.assertLinkValidity(dto.tipo, dto.urlOrPath);
         const subjects = this.toArray(dto.subjects).map(Number).filter(Boolean);
         if (!subjects.length) throw new AppError('validation.required', { status: 422, params: { field: 'Materia' } });
 
@@ -155,6 +188,7 @@ class MaterialService {
             titulo: dto.titulo,
             tipo: dto.tipo,
             urlOrPath: dto.urlOrPath,
+            portada: dto.portada || null,
             fileHash: hash,
             descripcion: dto.descripcion || null,
             categories: this.toArray(dto.categories),
@@ -220,7 +254,7 @@ class MaterialService {
     async approveMaterial(materialId, subjectId, ctx) {
         const subject = await this.subjectRepository.findById(subjectId);
         if (!subject) throw new AppError('errors.notFound', { status: 404 });
-        if (ctx.rol !== 'Superadmin' && subject.profesorId !== ctx.usuarioId) {
+        if (ctx.rol !== 'Superadmin' && !subject.hasProfessor(ctx.usuarioId)) {
             throw new AppError('errors.forbidden', { status: 403 });
         }
 
@@ -237,20 +271,26 @@ class MaterialService {
         return this.materialRepository.findPendingForProfessor(profesorId);
     }
 
-    /** Rechazo de material sugerido: se elimina la asociacion a la materia. */
+    /** Rechazo de material sugerido: elimina la asociacion y libera el archivo. */
     async rejectMaterial(materialId, subjectId, ctx) {
         const subject = await this.subjectRepository.findById(subjectId);
         if (!subject) throw new AppError('errors.notFound', { status: 404 });
-        if (ctx.rol !== 'Superadmin' && subject.profesorId !== ctx.usuarioId) {
+        if (ctx.rol !== 'Superadmin' && !subject.hasProfessor(ctx.usuarioId)) {
             throw new AppError('errors.forbidden', { status: 403 });
         }
+        const material = await this.materialRepository.findById(materialId);
+        if (!material) throw new AppError('errors.notFound', { status: 404 });
 
         await this.materialRepository.deleteAssociation(materialId, subjectId);
         const remaining = await this.materialRepository.countAssociations(materialId);
-        if (remaining === 0) await this.materialRepository.cancelPendingUpload(materialId);
+        let rejected = false;
+        if (remaining === 0 && material.estado === 'Pendiente') {
+            rejected = await this.materialRepository.rejectPendingUpload(materialId);
+            if (rejected) await this.deleteStoredFiles(material);
+        }
 
         await this.auditLogService.record(AuditLog.OPERACIONES.CANCELACION_MATERIAL, ctx.usuarioId, materialId);
-        return { message: 'messages.associationRejected' };
+        return { message: 'messages.associationRejected', rejected };
     }
 
     async getPendingMaterials(usuarioId) {
@@ -266,13 +306,15 @@ class MaterialService {
         }
         const ok = await this.materialRepository.cancelPendingUpload(materialId);
         if (!ok) throw new AppError('errors.forbidden', { status: 409 });
+        await this.deleteStoredFiles(material);
         await this.auditLogService.record(AuditLog.OPERACIONES.CANCELACION_MATERIAL, ctx.usuarioId, materialId);
         return { message: 'messages.materialCancelled' };
     }
 
     /**
-     * Un profesor (titular de alguna materia donde vive el material) o el
-     * Superadmin modifica el titulo y/o la descripcion del material.
+     * Edita todos los datos del material. El autor siempre puede hacerlo; los
+     * profesores pueden editar sugerencias de alumnos de sus materias y el
+     * Superadmin, las de cualquier alumno. El resto queda denegado.
      */
     async update(materialId, dto, ctx) {
         const material = await this.materialRepository.findById(materialId);
@@ -286,7 +328,66 @@ class MaterialService {
         if (dto.descripcion !== undefined) {
             changes.descripcion = (dto.descripcion === null ? '' : String(dto.descripcion)).trim() || null;
         }
-        if (changes.titulo === undefined && changes.descripcion === undefined) {
+        if (dto.categories !== undefined) {
+            const categories = this.toArray(dto.categories)
+                .map(category => String(category).trim())
+                .filter(Boolean);
+            changes.categories = categories.filter((category, index) =>
+                categories.findIndex(item => item.toLowerCase() === category.toLowerCase()) === index);
+        }
+        if (dto.tipo !== undefined && dto.tipo !== null) {
+            changes.tipo = String(dto.tipo).trim();
+            if (!Material.TIPOS.includes(changes.tipo)) {
+                throw new AppError('validation.invalidData', { status: 422 });
+            }
+        }
+        if (dto.portada !== undefined) changes.portada = dto.portada || null;
+
+        const nextTipo = changes.tipo || material.tipo;
+        const nextIsFile = mediaValidator.isFileType(nextTipo);
+        const nextIsLink = mediaValidator.isLinkType(nextTipo);
+        const currentIsFile = mediaValidator.isFileType(material.tipo);
+        const currentIsLink = mediaValidator.isLinkType(material.tipo);
+        const hasNewFile = dto.fileHash !== undefined && dto.fileHash !== null;
+        const hasUrl = dto.urlOrPath !== undefined;
+        const typeChanged = Boolean(changes.tipo && changes.tipo !== material.tipo);
+
+        if (!nextIsFile && !nextIsLink) {
+            throw new AppError('validation.invalidData', { status: 422 });
+        }
+        if (hasNewFile && !nextIsFile) {
+            throw new AppError('validation.invalidData', { status: 422 });
+        }
+        if (nextIsFile) {
+            if ((!currentIsFile || typeChanged) && !hasNewFile) {
+                throw new AppError('validation.fileType', { status: 422 });
+            }
+            if (hasNewFile) {
+                changes.urlOrPath = String(dto.urlOrPath || '').trim();
+                changes.fileHash = dto.fileHash;
+                if (!changes.urlOrPath) throw new AppError('validation.invalidData', { status: 422 });
+            }
+        } else {
+            if (hasNewFile) throw new AppError('validation.invalidData', { status: 422 });
+            const url = hasUrl ? String(dto.urlOrPath || '').trim() : (currentIsLink ? material.urlOrPath : '');
+            if (!url) {
+                throw new AppError('validation.invalidLink', { status: 422, params: { type: nextTipo } });
+            }
+            if (hasUrl || typeChanged) {
+                this.assertLinkValidity(nextTipo, url);
+                changes.urlOrPath = url;
+                changes.fileHash = hashHelper.hashString(url);
+            }
+        }
+
+        if (changes.fileHash && changes.fileHash !== material.fileHash) {
+            const duplicate = await this.materialRepository.findByHash(changes.fileHash);
+            if (duplicate && Number(duplicate.id) !== Number(material.id)) {
+                throw new AppError('validation.duplicateMaterial', { status: 409 });
+            }
+        }
+
+        if (!Object.keys(changes).length) {
             throw new AppError('validation.invalidData', { status: 422 });
         }
 
@@ -298,6 +399,21 @@ class MaterialService {
         }
 
         await this.materialRepository.update(materialId, changes);
+        if (changes.categories !== undefined) {
+            for (const tag of changes.categories) {
+                try { await this.thematicTagService?.create({ nombre: tag, categoria: 'general' }, ctx.usuarioId); }
+                catch (error) { /* La etiqueta puede existir o estar baneada. */ }
+            }
+        }
+        if (changes.urlOrPath !== undefined && material.urlOrPath && material.urlOrPath !== changes.urlOrPath) {
+            try { await this.fileStorage.deleteStorageFile(material.urlOrPath); }
+            catch (error) { console.error('No se pudo borrar el archivo anterior:', error.message); }
+        }
+        if (changes.portada !== undefined && material.portada && material.portada !== changes.portada) {
+            try { await this.fileStorage.deleteStorageFile(material.portada); }
+            catch (error) { console.error('No se pudo borrar la portada anterior:', error.message); }
+        }
+
         await this.auditLogService.record(AuditLog.OPERACIONES.MODIFICACION_MATERIAL, ctx.usuarioId, materialId);
         const updated = await this.materialRepository.findById(materialId);
         return { message: 'messages.materialUpdated', material: updated };
@@ -319,7 +435,7 @@ class MaterialService {
         if (subjectId) {
             const subject = await this.subjectRepository.findById(subjectId);
             if (!subject) throw new AppError('errors.notFound', { status: 404 });
-            if (ctx.rol !== 'Superadmin' && subject.profesorId !== ctx.usuarioId) {
+            if (ctx.rol !== 'Superadmin' && !subject.hasProfessor(ctx.usuarioId)) {
                 throw new AppError('errors.forbidden', { status: 403 });
             }
             await this.materialRepository.deleteAssociation(materialId, subjectId);
@@ -331,22 +447,71 @@ class MaterialService {
             await this.auditLogService.record(AuditLog.OPERACIONES.BORRADO_MATERIAL, ctx.usuarioId, materialId);
             await this.materialRepository.delete(materialId);
             await this.fileStorage.deleteStorageFile(material.urlOrPath);
-            return { message: 'messages.materialDeleted', deleted: true };
-        }
-
-        if (ctx.rol === 'Profesor') {
-            let owns = false;
-            for (const sid of material.materiasIds || []) {
-                const subj = await this.subjectRepository.findById(sid);
-                if (subj && subj.profesorId === ctx.usuarioId) { owns = true; break; }
-            }
-            if (!owns) throw new AppError('errors.forbidden', { status: 403 });
-            await this.auditLogService.record(AuditLog.OPERACIONES.BORRADO_MATERIAL, ctx.usuarioId, materialId);
-            await this.materialRepository.delete(materialId);
+            if (material.portada) await this.fileStorage.deleteStorageFile(material.portada);
             return { message: 'messages.materialDeleted', deleted: true };
         }
 
         throw new AppError('errors.forbidden', { status: 403 });
+    }
+
+    /**
+     * Carga masiva exclusiva del administrador. Los materiales quedan
+     * aprobados y sin materias, disponibles para que los profesores los asignen.
+     */
+    async uploadBatch(items, ctx) {
+        const list = Array.isArray(items) ? items : [];
+        if (!list.length) throw new AppError('validation.required', { status: 422, params: { field: 'Material' } });
+        if (list.length > BATCH_LIMIT) {
+            throw new AppError('validation.batchLimit', { status: 422, params: { max: BATCH_LIMIT } });
+        }
+
+        let created = 0;
+        let skipped = 0;
+        const materials = [];
+
+        for (const item of list) {
+            this.validate(item);
+            this.assertLinkValidity(item.tipo, item.urlOrPath);
+            const hash = item.fileHash || hashHelper.hashString(item.urlOrPath);
+            const existing = await this.materialRepository.findByHash(hash);
+            if (existing) {
+                await this.deleteStoredFiles({ urlOrPath: item.urlOrPath, portada: item.portada });
+                skipped += 1;
+                continue;
+            }
+
+            const material = await this.materialRepository.save({
+                autorId: ctx.usuarioId,
+                titulo: item.titulo,
+                tipo: item.tipo,
+                urlOrPath: item.urlOrPath,
+                portada: item.portada || null,
+                fileHash: hash,
+                descripcion: item.descripcion || null,
+                categories: this.toArray(item.categories),
+                estado: 'Aprobado'
+            });
+            if (this.thematicTagService) {
+                for (const tag of this.toArray(item.categories)) {
+                    try { await this.thematicTagService.create({ nombre: tag, categoria: 'general' }, ctx.usuarioId); } catch (e) { /* ignore */ }
+                }
+            }
+            await this.auditLogService.record(AuditLog.OPERACIONES.SUBIDA_MATERIAL, ctx.usuarioId, material.id);
+            materials.push(material);
+            created += 1;
+        }
+
+        return { message: 'messages.batchUploaded', created, skipped, materials };
+    }
+
+    /** Subidas propias del usuario autenticado. */
+    async getMyUploads(usuarioId, filters = {}) {
+        return this.materialRepository.findByAuthor(usuarioId, filters);
+    }
+
+    /** Perfil publico del autor: materiales aprobados de un usuario. */
+    async getByAuthor(authorId, filters = {}) {
+        return this.materialRepository.findByAuthor(authorId, filters);
     }
 
     async getGlobalContent(filters, usuarioId = null) {

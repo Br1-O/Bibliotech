@@ -5,7 +5,7 @@
 * Date        : 2026
 *
 * Configuracion de Multer para el almacenamiento fisico del material educativo.
-* Los enlaces externos (Drive / YouTube) no usan este middleware.
+* Los enlaces externos (Drive / YouTube / GitHub) no usan este middleware.
 * Soporte para FILES_MODE local | cloud (Cloudinary) para despliegue en Vercel.
 */
 require('dotenv').config();
@@ -17,16 +17,25 @@ const { PassThrough } = require('stream');
 
 const FILES_MODE = process.env.FILES_MODE || 'local';
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+
+const DOCUMENT_MIME = [
+    'application/pdf',
+    'application/epub+zip',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.oasis.opendocument.presentation',
+    'application/octet-stream'
+];
 
 let storage;
-let upload;
 
-// Evaluamos directamente process.env dentro de la lógica para evitar problemas de timing al requerir el módulo
 if (process.env.FILES_MODE === 'cloud') {
     const cloudinary = require('cloudinary').v2;
     const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-    // Verificamos que las credenciales existan para evitar fallos silenciosos
     cloudinary.config({
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
         api_key: process.env.CLOUDINARY_API_KEY,
@@ -51,53 +60,59 @@ if (process.env.FILES_MODE === 'cloud') {
         }
     }
 
-    const storage = new HashingCloudinaryStorage({
+    storage = new HashingCloudinaryStorage({
         cloudinary: cloudinary,
         params: async (req, file) => {
             const ext = path.extname(file.originalname).toLowerCase();
-            const resourceType = ext === '.pdf' ? 'raw' : 'auto';
+            const isCover = file.fieldname === 'portada';
+            const resourceType = isCover ? 'image' : (['.pdf', '.epub'].includes(ext) ? 'raw' : 'auto');
             const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
             return {
                 folder: 'bibliotech',
                 resource_type: resourceType,
                 access_mode: 'public',
                 type: 'upload',
-                public_id: resourceType === 'raw' ? `${uniqueSuffix}${ext}` : `${uniqueSuffix}`            
+                public_id: resourceType === 'raw' ? `${uniqueSuffix}${ext}` : `${uniqueSuffix}`
             };
         }
     });
-
-    upload = multer({
-        storage: storage,
-        limits: { fileSize: MAX_FILE_SIZE }
-    });
 } else {
-    const storage = multer.diskStorage({
-        destination: (req, file, cb) => cb(null, 'uploads/'),
+    const fs = require('fs');
+    if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    storage = multer.diskStorage({
+        destination: (req, file, cb) => cb(null, UPLOAD_DIR),
         filename: (req, file, cb) => {
             const ext = path.extname(file.originalname).toLowerCase();
             cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
         }
     });
-
-    const ALLOWED_MIME = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-    ];
-
-    const fileFilter = (req, file, cb) => {
-        if (ALLOWED_MIME.includes(file.mimetype)) return cb(null, true);
-        cb(new Error('VALIDATION_FILE_TYPE'), false);
-    };
-
-    upload = multer({
-        storage,
-        fileFilter,
-        limits: { fileSize: MAX_FILE_SIZE }
-    });
 }
 
-module.exports = upload.single('archivo');
+const fileFilter = (req, file, cb) => {
+    if (!/^(archivos?|portadas?)(_\d+)?$/.test(String(file.fieldname || ''))) {
+        return cb(new Error('VALIDATION_FILE_TYPE'), false);
+    }
+    const mime = String(file.mimetype || '').toLowerCase();
+    if (/^portadas?(_\d+)?$/.test(String(file.fieldname || ''))) {
+        return mime.startsWith('image/') ? cb(null, true) : cb(new Error('VALIDATION_COVER_TYPE'), false);
+    }
+    if (DOCUMENT_MIME.includes(mime)) return cb(null, true);
+    return cb(new Error('VALIDATION_FILE_TYPE'), false);
+};
+
+const uploader = multer({
+    storage,
+    fileFilter,
+    limits: { fileSize: MAX_FILE_SIZE, files: 220 }
+});
+
+const materialUpload = uploader.fields([
+    { name: 'archivo', maxCount: 1 },
+    { name: 'portada', maxCount: 1 }
+]);
+
+// La carga masiva admite nombres dinamicos archivo_0/portada_0 para
+// conservar la relacion entre cada archivo, su titulo y su portada.
+const batchUpload = uploader.any();
+
+module.exports = { materialUpload, batchUpload, MAX_FILE_SIZE };

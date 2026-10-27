@@ -43,6 +43,8 @@ class MariaDBAuditLogRepository extends AuditLogRepositoryInterface {
         const materialOps = sqlList(operationsFor('Material'));
         const materiaOps = sqlList(operationsFor('Materia'));
         const rolOps = sqlList(operationsFor('Rol'));
+        const carreraOps = sqlList(operationsFor('Carrera'));
+        const anioOps = sqlList(operationsFor('Anio'));
 
         const [rows] = await db.execute(`
             SELECT l.*, u.email AS usuarioEmail,
@@ -52,6 +54,8 @@ class MariaDBAuditLogRepository extends AuditLogRepositoryInterface {
                        WHEN l.tipo_operacion IN (${materialOps}) THEN 'Material'
                        WHEN l.tipo_operacion IN (${materiaOps}) THEN 'Materia'
                        WHEN l.tipo_operacion IN (${rolOps}) THEN 'Rol'
+                       WHEN l.tipo_operacion IN (${carreraOps}) THEN 'Carrera'
+                       WHEN l.tipo_operacion IN (${anioOps}) THEN 'Anio'
                        ELSE NULL
                    END AS registroTipo,
                    CASE
@@ -60,6 +64,8 @@ class MariaDBAuditLogRepository extends AuditLogRepositoryInterface {
                        WHEN l.tipo_operacion IN (${materialOps}) THEN m.titulo
                        WHEN l.tipo_operacion IN (${materiaOps}) THEN s.nombre
                        WHEN l.tipo_operacion IN (${rolOps}) THEN r.nombre
+                       WHEN l.tipo_operacion IN (${carreraOps}) THEN c.nombre
+                       WHEN l.tipo_operacion IN (${anioOps}) THEN cy.nombre
                        ELSE NULL
                    END AS registroNombre
             FROM audit_logs l
@@ -68,6 +74,8 @@ class MariaDBAuditLogRepository extends AuditLogRepositoryInterface {
             LEFT JOIN materials m ON m.id = l.registro_id
             LEFT JOIN subjects s ON s.id = l.registro_id
             LEFT JOIN roles r ON r.id = l.registro_id
+            LEFT JOIN careers c ON c.id = l.registro_id
+            LEFT JOIN career_years cy ON cy.id = l.registro_id
             ORDER BY l.timestamp DESC, l.id DESC`);
         return rows.map(map);
     }

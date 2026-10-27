@@ -41,7 +41,7 @@ class SubscriptionService {
     async banStudent(alumnoId, materiaId, ctx) {
         const subject = await this.subjectRepository.findById(materiaId);
         if (!subject) throw new AppError('errors.notFound', { status: 404 });
-        if (ctx.rol !== 'Superadmin' && subject.profesorId !== ctx.usuarioId) {
+        if (ctx.rol !== 'Superadmin' && !subject.hasProfessor(ctx.usuarioId)) {
             throw new AppError('errors.forbidden', { status: 403 });
         }
 

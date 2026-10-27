@@ -9,7 +9,7 @@
 *   -> Puertos de salida (repositorios) -> Adaptadores de infraestructura.
 */
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
@@ -37,6 +37,7 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 // --- Rutas de la API (adaptadores de entrada) ---
 app.use('/api/auth', require('./routes/authRoutes')(container));
+app.use('/api/careers', require('./routes/careerRoutes')(container));
 app.use('/api/subjects', require('./routes/subjectRoutes')(container));
 app.use('/api/materials', require('./routes/materialRoutes')(container));
 app.use('/api/subscriptions', require('./routes/subscriptionRoutes')(container));

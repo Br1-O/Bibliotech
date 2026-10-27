@@ -11,7 +11,10 @@ const fileHelper = {
     /** Elimina un archivo fisico dado su ruta relativa (ej: /uploads/x.pdf). */
     deleteFile(relativePath) {
         if (!relativePath) return false;
-        const absolutePath = path.join(process.cwd(), relativePath);
+        const uploadDir = path.resolve(__dirname, '..', 'uploads');
+        const relative = String(relativePath).replace(/^\/?uploads[\\/]/i, '').replace(/^[/\\]+/, '');
+        const absolutePath = path.resolve(uploadDir, relative);
+        if (absolutePath !== uploadDir && !absolutePath.startsWith(uploadDir + path.sep)) return false;
         try {
             if (fs.existsSync(absolutePath)) {
                 fs.unlinkSync(absolutePath);
@@ -30,11 +33,11 @@ const fileHelper = {
      */
     async deleteStorageFile(urlOrPath) {
         if (!urlOrPath || typeof urlOrPath !== 'string') return false;
-        // Enlaces externos: no hay archivo propio que eliminar.
-        if (!urlOrPath.startsWith('/uploads/')) return false;
-
         const mode = process.env.FILES_MODE || 'local';
+
         if (mode === 'cloud') {
+            const isCloudinary = urlOrPath.includes('res.cloudinary.com');
+            if (!isCloudinary) return false;
             try {
                 const cloudinary = require('cloudinary').v2;
                 cloudinary.config({
@@ -42,11 +45,16 @@ const fileHelper = {
                     api_key: process.env.CLOUDINARY_API_KEY,
                     api_secret: process.env.CLOUDINARY_API_SECRET
                 });
-                const publicId = urlOrPath.replace(/^\/uploads\//, '');
-                // El recurso pudo subirse como imagen (PDF) o como raw (documento).
+                const match = urlOrPath.match(/\/upload\/(?:v\d+\/)?(.+)$/);
+                if (!match) return false;
+                const fullId = decodeURIComponent(match[1]);
+                const publicId = fullId.replace(/\.[a-z0-9]+$/i, '');
+                // El recurso pudo subirse como imagen o como raw (documento).
                 for (const resourceType of ['image', 'raw']) {
-                    const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
-                    if (result && (result.result === 'ok' || result.result === 'not found')) return true;
+                    for (const id of [fullId, publicId]) {
+                        const result = await cloudinary.uploader.destroy(id, { resource_type: resourceType });
+                        if (result && result.result === 'ok') return true;
+                    }
                 }
                 return false;
             } catch (err) {
@@ -54,6 +62,7 @@ const fileHelper = {
                 return false;
             }
         }
+        if (!urlOrPath.startsWith('/uploads/')) return false;
         return this.deleteFile(urlOrPath);
     }
 };

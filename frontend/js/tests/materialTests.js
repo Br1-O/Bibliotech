@@ -158,9 +158,12 @@ testUtils.createTestButton('Test Profesor borra material de su materia', async (
         form: testUtils.pdfForm({ titulo: testUtils.uniq('Para Borrar'), tipo: 'PDF', subjects: String(subjectId) }, testUtils.uniq('pdf-borrar'))
     });
 
-    const r = await testUtils.request(`/materials/${subida.data.material.id}`, { method: 'DELETE', token });
+    const global = await testUtils.request(`/materials/${subida.data.material.id}`, { method: 'DELETE', token });
+    testUtils.assert(global.status === 403, 'El profesor no debe borrar el material del catalogo global');
+
+    const r = await testUtils.request(`/materials/${subida.data.material.id}/subjects/${subjectId}`, { method: 'DELETE', token });
     testUtils.log({ status: r.status, message: r.data && r.data.message });
-    testUtils.assert(r.ok, 'Se esperaba el borrado exitoso');
+    testUtils.assert(r.ok && r.data.deleted === false, 'Se esperaba la desasociacion exitosa');
 });
 
 // --- Edicion y desasociacion por materia (requisito nuevo) ---

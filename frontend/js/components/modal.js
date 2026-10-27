@@ -11,7 +11,7 @@ const Modal = (() => {
     function ensure() {
         if (root) return root;
         const title = el('h3', { className: 'bt-modal__title' });
-        const body = el('p', { className: 'bt-modal__body' });
+        const body = el('div', { className: 'bt-modal__body' });
         const cancelBtn = el('bt-button', { variant: 'ghost' });
         const confirmBtn = el('bt-button', { variant: 'primary' });
 
@@ -42,10 +42,17 @@ const Modal = (() => {
         if (resolveFn) { resolveFn(result); resolveFn = null; }
     }
 
-    function open({ title, message, confirmText, cancelText, hideCancel = false, variant = 'primary' }) {
+    function open({ title, message, content = null, confirmText, cancelText, hideCancel = false, variant = 'primary', rich = false }) {
         const node = ensure();
+        const body = node.querySelector('.bt-modal__body');
+        node.classList.toggle('bt-modal--rich', Boolean(rich || content));
         node.querySelector('.bt-modal__title').textContent = title || '';
-        node.querySelector('.bt-modal__body').textContent = message || '';
+        body.classList.toggle('bt-modal__body--rich', Boolean(rich || content));
+        if (content) body.replaceChildren(...[
+            message ? el('p', { className: 'bt-modal__message', text: message }) : null,
+            content
+        ].filter(Boolean));
+        else body.textContent = message || '';
 
         const [cancelBtn, confirmBtn] = node.querySelectorAll('bt-button');
         cancelBtn.setAttribute('label', cancelText || LanguageManager.t('common.cancel'));
@@ -59,6 +66,14 @@ const Modal = (() => {
 
     return {
         confirm: (opts) => open(opts),
-        alert: (title, message) => open({ title, message, hideCancel: true })
+        alert: (title, message) => open({ title, message, hideCancel: true }),
+        info: ({ title, description, content }) => open({
+            title,
+            message: description,
+            content,
+            hideCancel: true,
+            confirmText: LanguageManager.t('common.close'),
+            rich: true
+        })
     };
 })();

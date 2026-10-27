@@ -11,6 +11,8 @@
 
 const mysql = require('mysql2');
 
+const useSsl = String(process.env.DB_SSL || '').toLowerCase() === 'true';
+
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -21,9 +23,7 @@ const pool = mysql.createPool({
     connectionLimit: 10,
     queueLimit: 0,
     charset: 'utf8mb4',
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {})
 });
 
 module.exports = pool.promise();

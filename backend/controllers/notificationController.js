@@ -21,6 +21,13 @@ module.exports = (container) => {
                 const result = await notificationService.markRead(Number(req.params.id), req.usuarioId);
                 return ok(req, res, result);
             } catch (error) { return next(error); }
+        },
+
+        async readAll(req, res, next) {
+            try {
+                const result = await notificationService.markAllRead(req.usuarioId);
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
         }
     };
 };

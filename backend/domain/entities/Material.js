@@ -8,9 +8,11 @@ class Material {
         id = null,
         autorId,
         autorNombre = null,
+        autorRol = null,
         titulo,
         tipo,
         urlOrPath,
+        portada = null,
         fileHash,
         descripcion = null,
         categories = [],
@@ -22,9 +24,11 @@ class Material {
         this.id = id;
         this.autorId = autorId;
         this.autorNombre = autorNombre;
+        this.autorRol = autorRol;
         this.titulo = titulo;
         this.tipo = tipo;
         this.urlOrPath = urlOrPath;
+        this.portada = portada;
         this.fileHash = fileHash;
         this.descripcion = descripcion;
         this.categories = Array.isArray(categories) ? categories : this.parseCategories(categories);
@@ -34,7 +38,7 @@ class Material {
         this.contadorFavoritos = contadorFavoritos || 0;
     }
 
-    static TIPOS = ['PDF', 'Word', 'Presentacion', 'Link_Drive', 'Youtube'];
+    static TIPOS = ['PDF', 'EPUB', 'Word', 'Presentacion', 'Link_Drive', 'Youtube', 'Repositorio'];
 
     parseCategories(raw) {
         if (!raw) return [];

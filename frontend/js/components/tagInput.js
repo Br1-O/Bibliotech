@@ -216,8 +216,21 @@ if (!window.BTTagInput) {
             syncValue(false);
         }
 
+        function setTags(raw, notify = true) {
+            const values = Array.isArray(raw) ? raw : String(raw || '').split(',');
+            tags.length = 0;
+            values.map(value => String(value).trim()).filter(Boolean).forEach(value => {
+                const canonical = existingTags.find(tag => tag.toLowerCase() === value.toLowerCase()) || value;
+                if (!tags.some(tag => tag.toLowerCase() === canonical.toLowerCase())) tags.push(canonical);
+            });
+            inputEl.value = '';
+            renderSuggestions('');
+            renderBadges(notify);
+        }
+
         const control = {
             getTags: () => [...tags],
+            setTags,
             clear,
             focus: () => inputEl.focus()
         };

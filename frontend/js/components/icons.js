@@ -69,6 +69,13 @@ const Icons = (() => {
         ]),
         heart: icon([{ d: 'M20.8 5.8a5.1 5.1 0 0 0-7.2 0L12 7.4l-1.6-1.6a5.1 5.1 0 0 0-7.2 7.2L12 21l8.8-8a5.1 5.1 0 0 0 0-7.2Z' }]),
         download: icon([{ d: 'M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14' }], { size: 18 }),
+        trash: icon([
+            { d: 'M4 7h16M9 7V5h6v2M6.5 7l.8 13h9.4l.8-13M10 11v5M14 11v5' }
+        ], { size: 18 }),
+        layers: icon([
+            { d: 'M12 3 3 8l9 5 9-5-9-5Z' },
+            { d: 'm3 12 9 5 9-5M3 16l9 5 9-5' }
+        ], { size: 18 }),
         external: icon([{ d: 'M14 5h5v5M19 5l-8 8M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4' }], { size: 18 }),
         play: icon([{ d: 'M8 5.5v13l10-6.5-10-6.5Z', fill: 'currentColor' }], { size: 18 })
     };

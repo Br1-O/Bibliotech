@@ -46,31 +46,67 @@ CREATE TABLE users (
 );
 
 -- ---------------------------------------------------------------------
--- 3. Materias / Categorias de agrupacion
+-- 3. Agrupaciones academicas: carreras (grupo principal) y anios (grupo secundario)
+-- ---------------------------------------------------------------------
+CREATE TABLE careers (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    nombre       VARCHAR(100) NOT NULL UNIQUE,
+    color        VARCHAR(7)   NOT NULL DEFAULT '#6f5bd3',
+    created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE career_years (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    career_id    INT          NOT NULL,
+    nombre       VARCHAR(100) NOT NULL,
+    orden        INT          NOT NULL DEFAULT 0,
+    created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_career_year (career_id, nombre),
+    CONSTRAINT fk_years_career FOREIGN KEY (career_id) REFERENCES careers(id) ON DELETE CASCADE
+);
+
+-- ---------------------------------------------------------------------
+-- 4. Materias / Categorias de agrupacion
 -- ---------------------------------------------------------------------
 CREATE TABLE subjects (
     id                 INT AUTO_INCREMENT PRIMARY KEY,
     nombre             VARCHAR(100) NOT NULL,
     descripcion        VARCHAR(500),
     profesor_id        INT          NULL,
+    career_year_id     INT          NULL,
     estado_asociacion  ENUM('Activa','Pendiente') NOT NULL DEFAULT 'Activa',
     created_at         TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_subjects_profesor FOREIGN KEY (profesor_id) REFERENCES users(id) ON DELETE SET NULL
+    CONSTRAINT fk_subjects_profesor FOREIGN KEY (profesor_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_subjects_year FOREIGN KEY (career_year_id) REFERENCES career_years(id) ON DELETE SET NULL
 );
 
 -- ---------------------------------------------------------------------
--- 4. Material educativo (RD-05: hash unico)
+-- 5. Asignacion multiple de profesores a materias
+-- ---------------------------------------------------------------------
+CREATE TABLE subject_professors (
+    subject_id   INT NOT NULL,
+    profesor_id  INT NOT NULL,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (subject_id, profesor_id),
+    INDEX idx_subject_professors_profesor (profesor_id),
+    CONSTRAINT fk_sp_subject  FOREIGN KEY (subject_id)  REFERENCES subjects(id) ON DELETE CASCADE,
+    CONSTRAINT fk_sp_profesor FOREIGN KEY (profesor_id) REFERENCES users(id)    ON DELETE CASCADE
+);
+
+-- ---------------------------------------------------------------------
+-- 6. Material educativo (RD-05: hash unico)
 -- ---------------------------------------------------------------------
 CREATE TABLE materials (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     autor_id     INT          NOT NULL,
     titulo       VARCHAR(150) NOT NULL,
-    tipo         ENUM('PDF','Word','Presentacion','Link_Drive','Youtube') NOT NULL,
-    url_or_path  VARCHAR(500) NOT NULL,
-    file_hash    VARCHAR(128) NOT NULL UNIQUE,
+    tipo         ENUM('PDF','EPUB','Word','Presentacion','Link_Drive','Youtube','Repositorio') NOT NULL,
+    url_or_path  VARCHAR(500) NULL,
+    portada      VARCHAR(500) NULL,
+    file_hash    VARCHAR(128) NULL UNIQUE,
     categories   TEXT,
     descripcion  TEXT,
-    estado       ENUM('Aprobado','Pendiente','Cancelado') NOT NULL DEFAULT 'Pendiente',
+    estado       ENUM('Aprobado','Pendiente','Cancelado','Rechazado') NOT NULL DEFAULT 'Pendiente',
     es_favorito  TINYINT(1) NOT NULL DEFAULT 0,
     contador_favoritos INT NOT NULL DEFAULT 0,
     created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
@@ -90,7 +126,7 @@ CREATE TABLE material_subjects (
 );
 
 -- ---------------------------------------------------------------------
--- 6. Suscripciones (patron Observer)
+-- 7. Suscripciones (patron Observer)
 -- ---------------------------------------------------------------------
 CREATE TABLE subscriptions (
     id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -104,7 +140,7 @@ CREATE TABLE subscriptions (
 );
 
 -- ---------------------------------------------------------------------
--- 7. Registro de auditoria (RD-06: trazabilidad inalterable)
+-- 8. Registro de auditoria (RD-06: trazabilidad inalterable)
 -- ---------------------------------------------------------------------
 CREATE TABLE audit_logs (
     id              INT AUTO_INCREMENT PRIMARY KEY,
@@ -116,7 +152,7 @@ CREATE TABLE audit_logs (
 );
 
 -- ---------------------------------------------------------------------
--- 8. Etiquetas tematicas (Thematic Tags)
+-- 9. Etiquetas tematicas (Thematic Tags)
 -- ---------------------------------------------------------------------
 CREATE TABLE thematic_tags (
     id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -130,7 +166,7 @@ CREATE TABLE thematic_tags (
 );
 
 -- ---------------------------------------------------------------------
--- 9. Favoritos de materiales
+-- 10. Favoritos de materiales
 -- ---------------------------------------------------------------------
 CREATE TABLE material_favorites (
     id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -143,7 +179,7 @@ CREATE TABLE material_favorites (
 );
 
 -- ---------------------------------------------------------------------
--- 10. Notificaciones de material nuevo en materias suscritas
+-- 11. Notificaciones de material nuevo en materias suscritas
 -- ---------------------------------------------------------------------
 CREATE TABLE notifications (
     id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -169,38 +205,46 @@ INSERT INTO roles (nombre, descripcion) VALUES
 
 -- Contrasenas: Admin123 / Profesor123 / Alumno123
 INSERT INTO users (role_id, nombre, apellido, email, password, estado) VALUES
-    (1, 'Sofia',  'Administradora', 'admin@bibliotech.edu',    '$2b$10$7kqsOVra.LklVWruf3wMdO9hHwRgvZFELZZYoSk.hHvERrfNpmsR2', 'Activo'),
-    (2, 'Pablo',  'Profesor',       'profesor@bibliotech.edu', '$2b$10$T.QhGCCqKoV4rcWhKfiYw.70NrJFYOCjgtK7W7YWuxV7SOqob38/i', 'Activo'),
-    (3, 'Ana',    'Alumna',         'alumno@bibliotech.edu',   '$2b$10$lZodM9mteQ7QdaOBdyggGuPREI1zFu4nt2212xC/ZmXnjn5BI0Fmq', 'Activo');
+    (1, 'Sofia',  'Administradora', 'admin@bibliotech.edu',    '$2b$10$K86PmMZ9hs3PZ46Z/3geuevZIvtujVlvZFrT/dmTlfrIA/FOYEkVy', 'Activo'),
+    (2, 'Pablo',  'Profesor',       'profesor@bibliotech.edu', '$2b$10$xunEA37D5bALA.0GWqheqetYcp3qfnyeyMRG5ib1wZ4Xu3fIBBzPm', 'Activo'),
+    (3, 'Ana',    'Alumna',         'alumno@bibliotech.edu',   '$2b$10$RGjIbhSb.tb8C.Gypi5gKO.6ymujG.GrAXzUAetkj.bQTDbnAnsDG', 'Activo');
 
-INSERT INTO subjects (nombre, descripcion, profesor_id, estado_asociacion) VALUES
-    -- Primer Año
-    ('Inglés I', 'Comprensión lectora y vocabulario técnico inicial en inglés.', NULL, 'Activa'),
-    ('Ciencia, Tecnología y Sociedad', 'Impacto social y ético de la tecnología y la ciencia.', NULL, 'Activa'),
-    ('Análisis Matemático I', 'Funciones, límites, derivadas e introducción al cálculo integral.', NULL, 'Activa'),
-    ('Álgebra', 'Vectores, matrices, sistemas de ecuaciones lineales y espacios vectoriales.', NULL, 'Activa'),
-    ('Algoritmos y Estructuras de Datos I', 'Fundamentos de lógica, algoritmia y estructuras de datos elementales.', NULL, 'Activa'),
-    ('Sistemas y Organizaciones', 'Teoría general de sistemas, estructuras y procesos organizacionales.', NULL, 'Activa'),
-    ('Arquitectura de Computadores', 'Organización de hardware, componentes internos, memoria y procesadores.', NULL, 'Activa'),
-    ('Prácticas Profesionalizantes I', 'Primer acercamiento al entorno profesional y análisis de necesidades.', NULL, 'Activa'),
+INSERT INTO careers (nombre, color) VALUES
+    ('Analista de Sistemas', '#6f5bd3');
 
-    -- Segundo Año
-    ('Inglés II', 'Redacción de documentación técnica e interacción profesional en inglés.', NULL, 'Activa'),
-    ('Análisis Matemático II', 'Cálculo multivariable, series y ecuaciones diferenciales aplicadas.', NULL, 'Activa'),
-    ('Estadística', 'Estadística descriptiva, probabilidad y distribuciones para análisis de datos.', NULL, 'Activa'),
-    ('Ingeniería de Software I', 'Ciclo de vida del software, relevamiento, requerimientos y modelado UML.', NULL, 'Activa'),
-    ('Algoritmos y Estructuras de Datos II', 'Estructuras de datos avanzadas, complejidad algorítmica y POO.', NULL, 'Activa'),
-    ('Sistemas Operativos', 'Gestión de procesos, memoria, archivos y administración de sistemas.', NULL, 'Activa'),
-    ('Bases de Datos', 'Modelado relacional, SQL, normalización y gestión de datos.', NULL, 'Activa'),
-    ('Prácticas Profesionalizantes II', 'Diseño y desarrollo de proyectos orientados a requerimientos reales.', NULL, 'Activa'),
+INSERT INTO career_years (career_id, nombre, orden) VALUES
+    (1, 'Primer Año', 1),
+    (1, 'Segundo Año', 2),
+    (1, 'Tercer Año', 3);
 
-    -- Tercer Año
-    ('Inglés III', 'Comunicación fluida y presentación de proyectos en inglés técnico.', NULL, 'Activa'),
-    ('Aspectos Legales de la Profesión', 'Legislación informática, propiedad intelectual, marcas, patentes y delictiva digital.', NULL, 'Activa'),
-    ('Seminario de Actualización', 'Exploración de nuevas tecnologías, metodologías ágiles y tendencias.', NULL, 'Activa'),
-    ('Redes y Comunicaciones', 'Modelos OSI/TCP-IP, protocolos, enrutamiento, topologías y seguridad en redes.', NULL, 'Activa'),
-    ('Ingeniería de Software II', 'Arquitectura de software, patrones de diseño, testing y calidad.', NULL, 'Activa'),
-    ('Algoritmos y Estructuras de Datos III', 'Programación concurrente, patrones avanzados y frameworks de desarrollo.', NULL, 'Activa'),
-    ('Prácticas Profesionalizantes III', 'Proyecto integrador final aplicado a un entorno o cliente real.', NULL, 'Activa');
+INSERT INTO subjects (nombre, descripcion, profesor_id, career_year_id, estado_asociacion) VALUES
+    -- Primer Año (career_year_id = 1)
+    ('Inglés I', 'Comprensión lectora y vocabulario técnico inicial en inglés.', NULL, 1, 'Activa'),
+    ('Ciencia, Tecnología y Sociedad', 'Impacto social y ético de la tecnología y la ciencia.', NULL, 1, 'Activa'),
+    ('Análisis Matemático I', 'Funciones, límites, derivadas e introducción al cálculo integral.', NULL, 1, 'Activa'),
+    ('Álgebra', 'Vectores, matrices, sistemas de ecuaciones lineales y espacios vectoriales.', NULL, 1, 'Activa'),
+    ('Algoritmos y Estructuras de Datos I', 'Fundamentos de lógica, algoritmia y estructuras de datos elementales.', NULL, 1, 'Activa'),
+    ('Sistemas y Organizaciones', 'Teoría general de sistemas, estructuras y procesos organizacionales.', NULL, 1, 'Activa'),
+    ('Arquitectura de Computadores', 'Organización de hardware, componentes internos, memoria y procesadores.', NULL, 1, 'Activa'),
+    ('Prácticas Profesionalizantes I', 'Primer acercamiento al entorno profesional y análisis de necesidades.', NULL, 1, 'Activa'),
+
+    -- Segundo Año (career_year_id = 2)
+    ('Inglés II', 'Redacción de documentación técnica e interacción profesional en inglés.', NULL, 2, 'Activa'),
+    ('Análisis Matemático II', 'Cálculo multivariable, series y ecuaciones diferenciales aplicadas.', NULL, 2, 'Activa'),
+    ('Estadística', 'Estadística descriptiva, probabilidad y distribuciones para análisis de datos.', NULL, 2, 'Activa'),
+    ('Ingeniería de Software I', 'Ciclo de vida del software, relevamiento, requerimientos y modelado UML.', NULL, 2, 'Activa'),
+    ('Algoritmos y Estructuras de Datos II', 'Estructuras de datos avanzadas, complejidad algorítmica y POO.', NULL, 2, 'Activa'),
+    ('Sistemas Operativos', 'Gestión de procesos, memoria, archivos y administración de sistemas.', NULL, 2, 'Activa'),
+    ('Bases de Datos', 'Modelado relacional, SQL, normalización y gestión de datos.', NULL, 2, 'Activa'),
+    ('Prácticas Profesionalizantes II', 'Diseño y desarrollo de proyectos orientados a requerimientos reales.', NULL, 2, 'Activa'),
+
+    -- Tercer Año (career_year_id = 3)
+    ('Inglés III', 'Comunicación fluida y presentación de proyectos en inglés técnico.', NULL, 3, 'Activa'),
+    ('Aspectos Legales de la Profesión', 'Legislación informática, propiedad intelectual, marcas, patentes y delictiva digital.', NULL, 3, 'Activa'),
+    ('Seminario de Actualización', 'Exploración de nuevas tecnologías, metodologías ágiles y tendencias.', NULL, 3, 'Activa'),
+    ('Redes y Comunicaciones', 'Modelos OSI/TCP-IP, protocolos, enrutamiento, topologías y seguridad en redes.', NULL, 3, 'Activa'),
+    ('Ingeniería de Software II', 'Arquitectura de software, patrones de diseño, testing y calidad.', NULL, 3, 'Activa'),
+    ('Algoritmos y Estructuras de Datos III', 'Programación concurrente, patrones avanzados y frameworks de desarrollo.', NULL, 3, 'Activa'),
+    ('Prácticas Profesionalizantes III', 'Proyecto integrador final aplicado a un entorno o cliente real.', NULL, 3, 'Activa');
 
 SET foreign_key_checks = 1;

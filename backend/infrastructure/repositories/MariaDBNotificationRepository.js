@@ -59,6 +59,16 @@ class MariaDBNotificationRepository extends NotificationRepositoryInterface {
         );
         return result.affectedRows > 0;
     }
+
+    async markAllRead(userId) {
+        const [result] = await db.query(
+            `UPDATE notifications
+             SET read_at = CURRENT_TIMESTAMP
+             WHERE usuario_id = ? AND read_at IS NULL`,
+            [userId]
+        );
+        return result.affectedRows || 0;
+    }
 }
 
 module.exports = MariaDBNotificationRepository;

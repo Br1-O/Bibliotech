@@ -24,13 +24,25 @@
             <p data-i18n="catalog.subtitle">Explora todo el material educativo publicado en la plataforma.</p>
         </section>
 
-        <section class="bt-container bt-stack bt-mt-6">
+        <section id="catalogo" class="bt-container bt-stack bt-mt-6">
+            <h2 data-i18n="catalog.materialsTitle">Material educativo</h2>
             <div class="bt-toolbar bt-row">
                 <input id="catalogSearch" class="bt-input" type="search"
                        data-i18n-placeholder="catalog.searchPlaceholder" placeholder="Buscar...">
+                <select id="catalogCareerFilter" class="bt-select"
+                        data-i18n-title="catalog.filterByCareer" title="Carrera">
+                    <option value="" data-i18n="careers.allCareers">Todas las carreras</option>
+                </select>
+                <select id="catalogYearFilter" class="bt-select"
+                        data-i18n-title="catalog.filterByYear" title="Anio">
+                    <option value="" data-i18n="careers.allYears">Todos los anios</option>
+                </select>
                 <select id="catalogSubjectFilter" class="bt-select"
                         data-i18n-title="catalog.filterBySubject" title="Materia">
                     <option value="" data-i18n="catalog.allSubjects">Todas las materias</option>
+                </select>
+                <select id="catalogTypeFilter" class="bt-select" data-i18n-title="catalog.filterByType" title="Tipo">
+                    <option value="" data-i18n="filters.allTypes">Todos los tipos</option>
                 </select>
                 <input id="catalogTagFilter" class="bt-input" type="search"
                        data-i18n-placeholder="material.tagsPlaceholder"
@@ -48,29 +60,6 @@
             <div id="materialsGrid" class="bt-grid"></div>
             <div id="catalogPagination"></div>
         </section>
-
-        <section id="materias" class="bt-container bt-stack bt-mt-6">
-            <div class="bt-row bt-between">
-                <div>
-                    <h2 data-i18n="subjects.title">Materias</h2>
-                    <p class="bt-text-muted" data-i18n="subjects.subtitle">Explora las materias disponibles y suscribete.</p>
-                </div>
-                <div id="subscribedToggleWrap" class="bt-hidden">
-                    <bt-button id="toggleSubscribedBtn" size="sm" variant="secondary" label-i18n="subjects.onlySubscribed"></bt-button>
-                </div>
-            </div>
-            <div id="subjectsGrid" class="bt-grid"></div>
-            <div id="subjectsPagination"></div>
-        </section>
-
-        <section id="suscritas" class="bt-container bt-stack bt-mt-6 bt-hidden">
-            <div>
-                <h2 data-i18n="subjects.mySubscriptionsTitle">Mis materias suscritas</h2>
-                <p class="bt-text-muted" data-i18n="subjects.mySubscriptionsSubtitle">Accede rapido al material de las materias que sigues.</p>
-            </div>
-            <div id="subscribedGrid" class="bt-grid"></div>
-            <div id="subscribedPagination"></div>
-        </section>
     </main>
 
     <script src="/js/utils/dom.js"></script>
@@ -85,6 +74,7 @@
     <script src="/js/components/modal.js"></script>
     <script src="/js/components/materialViewer.js"></script>
     <script src="/js/components/cards.js"></script>
+    <script src="/js/components/materialEditor.js"></script>
     <script src="/js/components/tagInput.js"></script>
     <script src="/js/components/navbar.js"></script>
     <script src="/js/components/pagination.js"></script>

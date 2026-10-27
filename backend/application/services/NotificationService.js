@@ -21,6 +21,11 @@ class NotificationService {
         await this.notificationRepository.markRead(id, usuarioId);
         return { read: true };
     }
+
+    async markAllRead(usuarioId) {
+        const marked = await this.notificationRepository.markAllRead(usuarioId);
+        return { read: true, marked };
+    }
 }
 
 module.exports = NotificationService;

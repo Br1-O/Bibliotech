@@ -34,10 +34,12 @@
                     <label class="bt-label" for="tTipo" data-i18n="material.type">Tipo</label>
                     <select id="tTipo" class="bt-select" name="tipo">
                         <option value="PDF" data-i18n="material.types.PDF">PDF</option>
+                        <option value="EPUB" data-i18n="material.types.EPUB">EPUB</option>
                         <option value="Word" data-i18n="material.types.Word">Word</option>
                         <option value="Presentacion" data-i18n="material.types.Presentacion">Presentacion</option>
                         <option value="Link_Drive" data-i18n="material.types.Link_Drive">Enlace de Drive</option>
                         <option value="Youtube" data-i18n="material.types.Youtube">Video de YouTube</option>
+                        <option value="Repositorio" data-i18n="material.types.Repositorio">Repositorio GitHub</option>
                     </select>
                 </div>
 
@@ -50,6 +52,11 @@
                     <label class="bt-label" for="tUrl" data-i18n="material.link">Enlace</label>
                     <input id="tUrl" class="bt-input" type="url" name="urlOrPath"
                            data-i18n-placeholder="material.linkPlaceholder" placeholder="https://...">
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="tPortada" data-i18n="material.cover">Imagen de portada</label>
+                    <input id="tPortada" class="bt-input" type="file" name="portada" accept="image/*">
                 </div>
 
                 <div class="bt-field">
@@ -80,6 +87,12 @@
         </section>
 
         <section class="bt-stack">
+            <h2 data-i18n="myUploads.title">Mis subidas</h2>
+            <p class="bt-text-muted" data-i18n="myUploads.hint">Material subido por ti, con busqueda, filtros y edicion.</p>
+            <div id="myUploads"></div>
+        </section>
+
+        <section class="bt-stack">
             <h2 data-i18n="teacher.mySubjects">Mis materias</h2>
             <div id="mySubjects" class="bt-grid"></div>
             <div id="mySubjectsPagination"></div>
@@ -100,6 +113,8 @@
     <script src="/js/components/materialViewer.js"></script>
     <script src="/js/components/tagInput.js"></script>
     <script src="/js/components/cards.js"></script>
+    <script src="/js/components/materialEditor.js"></script>
+    <script src="/js/components/myUploads.js"></script>
     <script src="/js/components/navbar.js"></script>
     <script src="/js/components/pagination.js"></script>
     <script src="/js/services/apiService.js"></script>

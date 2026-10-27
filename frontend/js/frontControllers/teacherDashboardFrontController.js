@@ -22,7 +22,14 @@ document.addEventListener('bt:ready', () => {
     if (tTagsInput && window.BTTagInput) window.BTTagInput(tTagsInput);
     let mySubjects = [];
     let subjectPage = 1;
+    let myUploadsControl = null;
     const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
+    const ACCEPT_BY_TYPE = {
+        PDF: '.pdf,application/pdf',
+        EPUB: '.epub,application/epub+zip',
+        Word: '.doc,.docx',
+        Presentacion: '.ppt,.pptx,.odp'
+    };
 
     setupTypeToggle(form);
 
@@ -34,12 +41,16 @@ document.addEventListener('bt:ready', () => {
         if (!tipo || !fileField || !linkField) return;
 
         const sync = () => {
-            const isLink = tipo.value === 'Link_Drive' || tipo.value === 'Youtube';
+            const isLink = ['Link_Drive', 'Youtube', 'Repositorio'].includes(tipo.value);
             fileField.classList.toggle('bt-hidden', isLink);
             linkField.classList.toggle('bt-hidden', !isLink);
             const fileInput = fileField.querySelector('input');
             const linkInput = linkField.querySelector('input');
-            if (fileInput) { fileInput.disabled = isLink; if (isLink) fileInput.value = ''; }
+            if (fileInput) {
+                fileInput.disabled = isLink;
+                fileInput.setAttribute('accept', ACCEPT_BY_TYPE[tipo.value] || '');
+                if (isLink) fileInput.value = '';
+            }
             if (linkInput) { linkInput.disabled = !isLink; if (!isLink) linkInput.value = ''; }
         };
         tipo.addEventListener('change', sync);
@@ -49,7 +60,7 @@ document.addEventListener('bt:ready', () => {
     async function loadSubjects() {
         try {
             const { subjects } = await apiService.get('/subjects');
-            mySubjects = subjects.filter(s => String(s.profesorId) === String(me.id) || authHelper.isRole('Superadmin'));
+            mySubjects = subjects.filter(s => Cards.isSubjectProfessor(s, me.id) || authHelper.isRole('Superadmin'));
             render(subjectsSelect, mySubjects.map(s => el('option', { value: String(s.id), text: s.nombre })));
             renderMySubjects();
         } catch (error) { Toast.error(error.message); }
@@ -164,6 +175,7 @@ document.addEventListener('bt:ready', () => {
         event.preventDefault();
         const data = new FormData(form);
         const file = form.querySelector('[name="archivo"]').files[0];
+        const cover = form.querySelector('[name="portada"]')?.files[0];
         const urlOrPath = (data.get('urlOrPath') || '').trim();
         const selected = Array.from(subjectsSelect.selectedOptions).map(o => o.value);
 
@@ -192,6 +204,7 @@ document.addEventListener('bt:ready', () => {
         payload.append('subjects', selected.join(','));
         if (file) payload.append('archivo', file);
         else payload.append('urlOrPath', urlOrPath);
+        if (cover) payload.append('portada', cover);
 
         const btn = form.querySelector('bt-button');
         try {
@@ -200,6 +213,7 @@ document.addEventListener('bt:ready', () => {
             Toast.success(LanguageManager.tr(result.message));
             form.reset();
             loadSubjects();
+            if (myUploadsControl) myUploadsControl.reload();
         } catch (error) {
             if (!Validator.applyServerErrors(form, error)) Toast.error(error.message);
         } finally {
@@ -207,9 +221,15 @@ document.addEventListener('bt:ready', () => {
         }
     });
 
+    myUploadsControl = MyUploads.mount({ container: document.getElementById('myUploads') });
+
     (async () => {
         await loadSubjects();
         await loadReview();
     })();
-    LanguageManager.onChange(() => { loadSubjects(); loadReview(); });
+    LanguageManager.onChange(() => {
+        loadSubjects();
+        loadReview();
+        myUploadsControl = MyUploads.mount({ container: document.getElementById('myUploads') });
+    });
 });

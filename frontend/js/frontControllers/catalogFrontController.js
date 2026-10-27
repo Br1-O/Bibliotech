@@ -1,211 +1,105 @@
 /**
 * Project     : Bibliotech  |  Frontend - Controlador
-* catalogFrontController: vista global del catalogo, materias y seccion de
-* suscripciones del alumno (RF-03, RF-04.1).
+* catalogFrontController: vista global de materiales.
 */
 
 document.addEventListener('bt:ready', () => {
     const grid = document.getElementById('materialsGrid');
     if (!grid) return;
 
-    const subjectsGrid = document.getElementById('subjectsGrid');
-    const subjectsPagination = document.getElementById('subjectsPagination');
-    const subscribedSection = document.getElementById('suscritas');
-    const subscribedGrid = document.getElementById('subscribedGrid');
-    const subscribedPagination = document.getElementById('subscribedPagination');
     const searchInput = document.getElementById('catalogSearch');
     const subjectFilter = document.getElementById('catalogSubjectFilter');
+    const careerFilter = document.getElementById('catalogCareerFilter');
+    const yearFilter = document.getElementById('catalogYearFilter');
+    const typeFilter = document.getElementById('catalogTypeFilter');
     const tagFilter = document.getElementById('catalogTagFilter');
     const sortSelect = document.getElementById('catalogSort');
     const clearButton = document.getElementById('catalogClear');
     const materialsPagination = document.getElementById('catalogPagination');
     const resultsLabel = document.getElementById('catalogResults');
 
+    const params = new URLSearchParams(window.location.search);
     const PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
-    const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
-    let subscriptions = [];
+    const MATERIAL_TYPES = ['PDF', 'EPUB', 'Word', 'Presentacion', 'Link_Drive', 'Youtube', 'Repositorio'];
+
     let allMaterials = [];
-    let allSubjectsCache = [];
+    let allSubjects = [];
+    let allCareers = [];
     let materialPage = 1;
-    let subjectPage = 1;
-    let subscribedPage = 1;
     let debounce;
     let tagFilterControl = null;
-
-    const isAlumno = authHelper.isRole('Alumno');
+    let selectedCareerId = params.get('career') ? Number(params.get('career')) : null;
+    let selectedYearId = params.get('year') ? Number(params.get('year')) : null;
+    let selectedType = params.get('tipo') || '';
+    const isAdmin = authHelper.isRole('Superadmin');
+    const currentUser = authHelper.getUser() || {};
     const canFavorite = authHelper.isAuthenticated();
-    const toggleSubscribedBtn = document.getElementById('toggleSubscribedBtn');
-    const subscribedToggleWrap = document.getElementById('subscribedToggleWrap');
-    let showOnlySubscribed = false;
 
-    const subjectIdOf = (subscription) => String(subscription.materiaId ?? subscription.materia_id);
-    const isSubscribed = (id) => subscriptions.some(s => subjectIdOf(s) === String(id));
+    if (tagFilter && params.get('tags')) tagFilter.value = params.get('tags');
 
-    if (isAlumno) {
-        subscribedToggleWrap?.classList.remove('bt-hidden');
-        subscribedSection?.classList.remove('bt-hidden');
-        toggleSubscribedBtn?.addEventListener('click', () => {
-            showOnlySubscribed = !showOnlySubscribed;
-            updateToggleLabel();
-            subjectPage = 1;
-            renderSubjects();
-        });
-        updateToggleLabel();
+    function populateTypeFilter() {
+        if (!typeFilter) return;
+        render(typeFilter, [
+            el('option', { value: '', text: LanguageManager.t('filters.allTypes') }),
+            ...MATERIAL_TYPES.map(value =>
+                el('option', { value, text: LanguageManager.t(`material.types.${value}`) }))
+        ]);
+        typeFilter.value = selectedType;
     }
 
-    function updateToggleLabel() {
-        if (!toggleSubscribedBtn) return;
-        toggleSubscribedBtn.setAttribute('label-i18n', showOnlySubscribed ? 'subjects.showAll' : 'subjects.onlySubscribed');
-        toggleSubscribedBtn.setAttribute('variant', showOnlySubscribed ? 'ghost' : 'secondary');
-    }
-
-    async function loadSubjects() {
+    async function loadFilters() {
         try {
-            const { subjects } = await apiService.get('/subjects');
-            allSubjectsCache = subjects || [];
-            renderSubjectsList();
-            renderSubscribed();
+            const [careerResult, subjectResult] = await Promise.all([
+                apiService.get('/careers'),
+                apiService.get('/subjects')
+            ]);
+            allCareers = careerResult.careers || [];
+            allSubjects = subjectResult.subjects || [];
+            const validCareer = allCareers.find(career => Number(career.id) === Number(selectedCareerId));
+            if (!validCareer) {
+                selectedCareerId = null;
+                selectedYearId = null;
+            } else if (selectedYearId && !(validCareer.years || []).some(year => Number(year.id) === Number(selectedYearId))) {
+                selectedYearId = null;
+            }
+            renderFilterOptions();
         } catch (error) {
             console.error(error);
         }
     }
 
-    function renderSubjectsList() {
-        subjectPage = 1;
-        renderSubjects();
-    }
-
-    function renderSubjects() {
-        let subjects = [...allSubjectsCache];
-        if (isAlumno) {
-            subjects.sort((a, b) => {
-                const as = isSubscribed(a.id);
-                const bs = isSubscribed(b.id);
-                if (as !== bs) return as ? -1 : 1;
-                return String(a.nombre).localeCompare(String(b.nombre));
-            });
-            if (showOnlySubscribed) subjects = subjects.filter(s => isSubscribed(s.id));
-        }
-        renderSubjectsGrid(subjects);
-    }
-
-    function renderSubjectsGrid(subjects) {
-        if (!subjectsGrid) return;
-        if (!subjects.length) {
-            const message = showOnlySubscribed && isAlumno
-                ? LanguageManager.t('subjects.noSubscribed')
-                : LanguageManager.t('subjects.noSubjects');
-            render(subjectsGrid, Cards.empty(message));
-            Pagination.render(subjectsPagination, { total: 0, pageSize: SUBJECT_PAGE_SIZE });
-            updateSubjectFilter();
-            return;
+    function renderFilterOptions() {
+        if (careerFilter) {
+            render(careerFilter, [
+                el('option', { value: '', text: LanguageManager.t('careers.allCareers') }),
+                ...allCareers.map(career => el('option', { value: String(career.id), text: career.nombre }))
+            ]);
+            careerFilter.value = selectedCareerId ? String(selectedCareerId) : '';
         }
 
-        const totalPages = Pagination.totalPages(subjects.length, SUBJECT_PAGE_SIZE);
-        if (subjectPage > totalPages) subjectPage = totalPages;
-        const start = (subjectPage - 1) * SUBJECT_PAGE_SIZE;
-        const pageItems = subjects.slice(start, start + SUBJECT_PAGE_SIZE);
-
-        render(subjectsGrid, pageItems.map(subject => Cards.subject(subject, {
-            subscribeButton: isAlumno ? buildSubscribeButton(subject) : null
-        })));
-
-        Pagination.render(subjectsPagination, {
-            page: subjectPage,
-            total: subjects.length,
-            pageSize: SUBJECT_PAGE_SIZE,
-            onChange: (page) => { subjectPage = page; renderSubjects(); }
-        });
-
-        updateSubjectFilter();
-    }
-
-    function updateSubjectFilter() {
-        if (!subjectFilter) return;
-        const current = subjectFilter.value;
-        const options = [...allSubjectsCache]
-            .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
-        render(subjectFilter, [
-            el('option', { value: '', text: LanguageManager.t('catalog.allSubjects') }),
-            ...options.map(s => el('option', { value: String(s.id), text: s.nombre }))
-        ]);
-        if ([...subjectFilter.options].some(o => o.value === current)) subjectFilter.value = current;
-    }
-
-    function buildSubscribeButton(subject) {
-        const subscribed = isSubscribed(subject.id);
-        const btn = el('bt-button', {
-            size: 'sm',
-            variant: subscribed ? 'secondary' : 'success',
-            label: LanguageManager.t(subscribed ? 'subject.subscribed' : 'subject.subscribe')
-        });
-        btn.addEventListener('click', async () => {
-            try {
-                btn.setLoading(true);
-                if (subscribed) {
-                    await apiService.del(`/subscriptions/subscribe/${subject.id}`);
-                    Toast.success(LanguageManager.t('messages.unsubscribed'));
-                } else {
-                    await apiService.post(`/subscriptions/subscribe/${subject.id}`, {});
-                    Toast.success(LanguageManager.t('messages.subscribed'));
-                }
-                await loadSubscriptions();
-                renderSubjects();
-                renderSubscribed();
-            } catch (error) {
-                Toast.error(error.message);
-                btn.setLoading(false);
-            }
-        });
-        return btn;
-    }
-
-    async function loadSubscriptions() {
-        if (!isAlumno) return;
-        try {
-            const result = await apiService.get('/subscriptions/mine');
-            subscriptions = result.subscriptions || [];
-        } catch (error) {
-            subscriptions = [];
-        }
-    }
-
-    /** Materias del alumno: tarjetas de acceso rapido siempre visibles. */
-    function renderSubscribed() {
-        if (!isAlumno || !subscribedGrid) return;
-
-        const subjects = subscriptions.map(subscription => {
-            const id = subjectIdOf(subscription);
-            const cached = allSubjectsCache.find(s => String(s.id) === id);
-            return cached || {
-                id,
-                nombre: subscription.materiaNombre || subscription.materia_nombre || '',
-                descripcion: subscription.materiaDescripcion || subscription.materia_descripcion || '',
-                profesorNombre: subscription.profesorNombre || subscription.profesor_nombre || '',
-                totalMateriales: subscription.totalMateriales ?? subscription.total_materiales ?? 0
-            };
-        }).filter(subject => subject.nombre);
-
-        if (!subjects.length) {
-            render(subscribedGrid, Cards.empty(LanguageManager.t('subjects.noSubscribed')));
-            Pagination.render(subscribedPagination, { total: 0, pageSize: SUBJECT_PAGE_SIZE });
-            return;
+        const currentCareer = allCareers.find(career => Number(career.id) === Number(selectedCareerId));
+        if (yearFilter) {
+            render(yearFilter, [
+                el('option', { value: '', text: LanguageManager.t('careers.allYears') }),
+                ...((currentCareer && currentCareer.years) || []).map(year =>
+                    el('option', { value: String(year.id), text: year.nombre }))
+            ]);
+            yearFilter.value = selectedYearId ? String(selectedYearId) : '';
+            yearFilter.disabled = !currentCareer;
         }
 
-        const totalPages = Pagination.totalPages(subjects.length, SUBJECT_PAGE_SIZE);
-        if (subscribedPage > totalPages) subscribedPage = totalPages;
-        const start = (subscribedPage - 1) * SUBJECT_PAGE_SIZE;
-        const pageItems = subjects.slice(start, start + SUBJECT_PAGE_SIZE);
-
-        render(subscribedGrid, pageItems.map(subject => Cards.subject(subject, {
-            subscribeButton: buildSubscribeButton(subject)
-        })));
-        Pagination.render(subscribedPagination, {
-            page: subscribedPage,
-            total: subjects.length,
-            pageSize: SUBJECT_PAGE_SIZE,
-            onChange: (page) => { subscribedPage = page; renderSubscribed(); }
-        });
+        if (subjectFilter) {
+            const options = [...allSubjects]
+                .filter(subject => !selectedCareerId || Number(subject.carreraId) === Number(selectedCareerId))
+                .filter(subject => !selectedYearId || Number(subject.anioId) === Number(selectedYearId))
+                .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
+            const current = subjectFilter.value;
+            render(subjectFilter, [
+                el('option', { value: '', text: LanguageManager.t('catalog.allSubjects') }),
+                ...options.map(subject => el('option', { value: String(subject.id), text: subject.nombre }))
+            ]);
+            if ([...subjectFilter.options].some(option => option.value === current)) subjectFilter.value = current;
+        }
     }
 
     function currentTagQuery() {
@@ -224,6 +118,9 @@ document.addEventListener('bt:ready', () => {
             const result = await apiService.get('/materials/global', {
                 q: searchInput?.value || '',
                 subjects: subjectFilter?.value || '',
+                careerId: selectedCareerId || '',
+                yearId: selectedYearId || '',
+                tipo: selectedType,
                 tags: currentTagQuery()
             });
             allMaterials = result.materials || [];
@@ -271,14 +168,45 @@ document.addEventListener('bt:ready', () => {
             page: materialPage,
             total,
             pageSize: PAGE_SIZE,
-            onChange: (page) => { materialPage = page; applyAndRender(); }
+            onChange: page => { materialPage = page; applyAndRender(); }
         });
+    }
+
+    function canEditMaterial(material) {
+        if (!isAdmin || Cards.isInactive(material)) return false;
+        if (Number(material.autorId) === Number(currentUser.id)) return true;
+        return material.autorRol === 'Alumno';
     }
 
     function materialCard(material) {
         return Cards.material(material, {
-            onToggleFavorite: canFavorite ? (m) => Cards.toggleFavorite(m) : null
+            onToggleFavorite: canFavorite ? value => Cards.toggleFavorite(value) : null,
+            onEdit: canEditMaterial(material) ? editMaterial : null,
+            onAdminDelete: isAdmin ? deleteMaterial : null
         });
+    }
+
+    function editMaterial(material) {
+        if (typeof MaterialEditor === 'undefined') return;
+        MaterialEditor.open(material, async () => {
+            await Promise.all([loadFilters(), loadMaterials()]);
+        });
+    }
+
+    async function deleteMaterial(material) {
+        const confirmed = await Modal.confirm({
+            title: LanguageManager.t('material.deleteGlobal'),
+            message: LanguageManager.t('material.deleteGlobalConfirm', { title: material.titulo }),
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+        try {
+            const result = await apiService.del(`/materials/${material.id}`);
+            Toast.success(LanguageManager.tr(result.message));
+            await Promise.all([loadFilters(), loadMaterials()]);
+        } catch (error) {
+            Toast.error(error.message);
+        }
     }
 
     function scheduleMaterialLoad() {
@@ -292,30 +220,45 @@ document.addEventListener('bt:ready', () => {
 
     searchInput?.addEventListener('input', scheduleMaterialLoad);
     subjectFilter?.addEventListener('change', loadMaterials);
+    careerFilter?.addEventListener('change', () => {
+        selectedCareerId = careerFilter.value ? Number(careerFilter.value) : null;
+        selectedYearId = null;
+        renderFilterOptions();
+        loadMaterials();
+    });
+    yearFilter?.addEventListener('change', () => {
+        selectedYearId = yearFilter.value ? Number(yearFilter.value) : null;
+        renderFilterOptions();
+        loadMaterials();
+    });
+    typeFilter?.addEventListener('change', () => { selectedType = typeFilter.value; loadMaterials(); });
     tagFilter?.addEventListener('input', scheduleMaterialLoad);
-
     sortSelect?.addEventListener('change', () => { materialPage = 1; applyAndRender(); });
 
     clearButton?.addEventListener('click', () => {
         if (searchInput) searchInput.value = '';
         if (subjectFilter) subjectFilter.value = '';
+        if (typeFilter) typeFilter.value = '';
         if (tagFilterControl) tagFilterControl.clear(false);
         else if (tagFilter) tagFilter.value = '';
         if (sortSelect) sortSelect.value = 'newest';
+        selectedType = '';
+        selectedCareerId = null;
+        selectedYearId = null;
         clearTimeout(debounce);
+        renderFilterOptions();
         loadMaterials();
     });
 
+    populateTypeFilter();
     LanguageManager.onChange(() => {
-        updateToggleLabel();
-        renderSubjects();
-        renderSubscribed();
+        populateTypeFilter();
+        renderFilterOptions();
         applyAndRender();
     });
 
     (async () => {
-        await loadSubscriptions();
-        await loadSubjects();
+        await loadFilters();
         await loadMaterials();
     })();
 });

@@ -36,6 +36,43 @@
             </div>
         </div>
 
+        <section class="bt-panel bt-stack">
+            <h2 data-i18n="admin.batchUpload">Carga masiva de material</h2>
+            <p class="bt-text-muted" data-i18n="admin.batchUploadHint">Sube hasta 100 archivos o enlaces sin materia. Quedaran disponibles para que los profesores los asignen.</p>
+            <form id="batchMaterialForm" class="bt-stack" novalidate>
+                <div class="bt-field">
+                    <label class="bt-label" for="batchFiles" data-i18n="admin.batchFiles">Archivos</label>
+                    <input id="batchFiles" class="bt-input" type="file" name="archivos" multiple
+                           accept=".pdf,.epub,.doc,.docx,.ppt,.pptx,.odp">
+                </div>
+                <div id="batchFilesMeta" class="bt-batch-meta"></div>
+                <div class="bt-field">
+                    <label class="bt-label" for="batchLinks" data-i18n="admin.batchLinks">Enlaces (uno por linea)</label>
+                    <textarea id="batchLinks" class="bt-textarea" name="links" rows="4"
+                              data-i18n-placeholder="admin.batchLinksPlaceholder"
+                              placeholder="Titulo | https://github.com/usuario/repositorio"></textarea>
+                </div>
+                <div class="bt-field">
+                    <label class="bt-label" for="batchTags" data-i18n="material.tags">Etiquetas tematicas</label>
+                    <input id="batchTags" class="bt-input" type="text" name="categories"
+                           data-i18n-placeholder="material.tagsPlaceholder" placeholder="matematica, algebra">
+                </div>
+                <bt-button type="submit" block label-i18n="admin.batchUploadAction"></bt-button>
+            </form>
+        </section>
+
+        <section class="bt-panel bt-stack">
+            <h2 data-i18n="admin.careersTitle">Carreras y anios</h2>
+            <p class="bt-text-muted" data-i18n="admin.careersHint">Crea carreras y anios, y modifica sus nombres o colores.</p>
+            <form id="careerForm" class="bt-row bt-wrap" novalidate>
+                <input id="careerNombre" class="bt-input" type="text" name="nombre"
+                       data-i18n-placeholder="admin.careerName" placeholder="Nombre de la carrera">
+                <input id="careerColor" class="bt-input bt-input--color" type="color" name="color" value="#6f5bd3">
+                <bt-button type="submit" size="sm" label-i18n="admin.createCareer"></bt-button>
+            </form>
+            <div id="careersAdminList" class="bt-stack"></div>
+        </section>
+
         <section class="bt-columns">
             <div class="bt-panel bt-stack">
                 <h2 data-i18n="admin.createTeacher">Crear profesor</h2>
@@ -77,8 +114,12 @@
                         <textarea id="sDescripcion" class="bt-textarea" name="descripcion" rows="3"></textarea>
                     </div>
                     <div class="bt-field">
-                        <label class="bt-label" for="subjectProfessor" data-i18n="subjects.teacher">Profesor titular</label>
-                        <select id="subjectProfessor" class="bt-select" name="profesorId"></select>
+                        <label class="bt-label" for="subjectCareerYear" data-i18n="admin.careerYear">Carrera y anio</label>
+                        <select id="subjectCareerYear" class="bt-select" name="careerYearId"></select>
+                    </div>
+                    <div class="bt-field">
+                        <span class="bt-label" data-i18n="subjects.teachers">Profesores asignados</span>
+                        <div id="subjectProfessors" class="bt-check-grid"></div>
                     </div>
                     <bt-button type="submit" block label-i18n="admin.createSubject"></bt-button>
                 </form>
@@ -87,11 +128,30 @@
 
         <section class="bt-stack">
             <h2 data-i18n="admin.associationRequests">Solicitudes de asociacion</h2>
-            <div id="associationRequests" class="bt-stack"></div>
+            <div id="associationRequests" class="bt-stack bt-scroll-list"></div>
         </section>
 
         <section class="bt-stack">
             <h2 data-i18n="admin.users">Usuarios</h2>
+            <div class="bt-toolbar bt-row">
+                <input id="adminUserSearch" class="bt-input" type="search"
+                       data-i18n-placeholder="admin.searchUsers" placeholder="Buscar usuarios...">
+                <select id="adminUserRole" class="bt-select">
+                    <option value="" data-i18n="admin.allRoles">Todos los roles</option>
+                    <option value="Superadmin" data-i18n="roles.Superadmin">Superadministrador</option>
+                    <option value="Profesor" data-i18n="roles.Profesor">Profesor</option>
+                    <option value="Alumno" data-i18n="roles.Alumno">Alumno</option>
+                </select>
+                <select id="adminUserStatus" class="bt-select">
+                    <option value="" data-i18n="admin.allStates">Todos los estados</option>
+                    <option value="Activo" data-i18n="userStates.Activo">Activo</option>
+                    <option value="Baneado" data-i18n="userStates.Baneado">Baneado</option>
+                    <option value="Inactivo" data-i18n="userStates.Inactivo">Inactivo</option>
+                    <option value="PendienteVerificacion" data-i18n="userStates.PendienteVerificacion">Pendiente de verificacion</option>
+                </select>
+                <button id="adminUserClear" class="bt-btn bt-btn--ghost" type="button"
+                        data-i18n="filters.clear">Limpiar filtros</button>
+            </div>
             <div class="bt-table-wrap">
                 <table class="bt-table">
                     <thead>
@@ -104,15 +164,16 @@
                             <th data-i18n="common.actions">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="usersTable"></tbody>
+                    <tbody id="usersTable">                    </tbody>
                 </table>
             </div>
+            <div id="usersPagination"></div>
         </section>
 
 
         <section class="bt-stack">
             <h2 data-i18n="admin.subjectManagement">Gestionar materias</h2>
-            <p class="bt-text-muted" data-i18n="admin.subjectManagementHint">Elige una materia para modificar su titulo, descripcion o profesor titular.</p>
+            <p class="bt-text-muted" data-i18n="admin.subjectManagementHint">Elige una materia para modificar su titulo, descripcion o profesores asignados.</p>
             <div id="adminSubjectsGrid" class="bt-grid"></div>
             <div id="adminSubjectsPagination"></div>
         </section>
@@ -135,8 +196,12 @@
                     <span class="bt-error-text" data-error-for="descripcion"></span>
                 </div>
                 <div class="bt-field">
-                    <label class="bt-label" for="editProfesor" data-i18n="subjects.teacher">Profesor</label>
-                    <select id="editProfesor" class="bt-select" name="profesorId"></select>
+                    <label class="bt-label" for="editCareerYear" data-i18n="admin.careerYear">Carrera y anio</label>
+                    <select id="editCareerYear" class="bt-select" name="careerYearId"></select>
+                </div>
+                <div class="bt-field">
+                    <span class="bt-label" data-i18n="subjects.teachers">Profesores asignados</span>
+                    <div id="editProfessors" class="bt-check-grid"></div>
                 </div>
                 <bt-button id="editSubjectBtn" variant="success" label-i18n="common.save"></bt-button>
             </div>
@@ -144,7 +209,19 @@
 
         <section class="bt-stack">
             <h2 data-i18n="admin.thematicTags">Etiquetas tematicas</h2>
+            <div class="bt-toolbar bt-row">
+                <input id="adminTagSearch" class="bt-input" type="search"
+                       data-i18n-placeholder="admin.searchTags" placeholder="Buscar etiquetas...">
+                <select id="adminTagStatus" class="bt-select">
+                    <option value="" data-i18n="admin.allTags">Todas las etiquetas</option>
+                    <option value="active" data-i18n="admin.activeTags">Activas</option>
+                    <option value="banned" data-i18n="admin.bannedTags">Baneadas</option>
+                </select>
+                <button id="adminTagClear" class="bt-btn bt-btn--ghost" type="button"
+                        data-i18n="filters.clear">Limpiar filtros</button>
+            </div>
             <div id="thematicTagsList" class="bt-stack"></div>
+            <div id="tagsPagination"></div>
         </section>
 
         <section class="bt-stack">

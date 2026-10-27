@@ -20,8 +20,15 @@ document.addEventListener('bt:ready', () => {
     if (tagsInput && window.BTTagInput) window.BTTagInput(tagsInput);
 
     const SUBSCRIPTION_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
+    const ACCEPT_BY_TYPE = {
+        PDF: '.pdf,application/pdf',
+        EPUB: '.epub,application/epub+zip',
+        Word: '.doc,.docx',
+        Presentacion: '.ppt,.pptx,.odp'
+    };
     let allSubscriptions = [];
     let subscriptionPage = 1;
+    let myUploadsControl = null;
 
     populateSubjects();
     setupTypeToggle(form);
@@ -34,12 +41,16 @@ document.addEventListener('bt:ready', () => {
         if (!tipo || !fileField || !linkField) return;
 
         const sync = () => {
-            const isLink = tipo.value === 'Link_Drive' || tipo.value === 'Youtube';
+            const isLink = ['Link_Drive', 'Youtube', 'Repositorio'].includes(tipo.value);
             fileField.classList.toggle('bt-hidden', isLink);
             linkField.classList.toggle('bt-hidden', !isLink);
             const fileInput = fileField.querySelector('input');
             const linkInput = linkField.querySelector('input');
-            if (fileInput) { fileInput.disabled = isLink; if (isLink) fileInput.value = ''; }
+            if (fileInput) {
+                fileInput.disabled = isLink;
+                fileInput.setAttribute('accept', ACCEPT_BY_TYPE[tipo.value] || '');
+                if (isLink) fileInput.value = '';
+            }
             if (linkInput) { linkInput.disabled = !isLink; if (!isLink) linkInput.value = ''; }
         };
         tipo.addEventListener('change', sync);
@@ -157,6 +168,7 @@ document.addEventListener('bt:ready', () => {
         event.preventDefault();
         const data = new FormData(form);
         const file = form.querySelector('[name="archivo"]').files[0];
+        const cover = form.querySelector('[name="portada"]')?.files[0];
         const urlOrPath = (data.get('urlOrPath') || '').trim();
         const selectedSubjects = Array.from(subjectsSelect.selectedOptions).map(o => o.value);
 
@@ -185,6 +197,7 @@ document.addEventListener('bt:ready', () => {
         payload.append('subjects', selectedSubjects.join(','));
         if (file) payload.append('archivo', file);
         else payload.append('urlOrPath', urlOrPath);
+        if (cover) payload.append('portada', cover);
 
         const btn = form.querySelector('bt-button');
         try {
@@ -193,6 +206,7 @@ document.addEventListener('bt:ready', () => {
             Toast.success(LanguageManager.tr(result.message));
             form.reset();
             loadPending();
+            if (myUploadsControl) myUploadsControl.reload();
         } catch (error) {
             if (!Validator.applyServerErrors(form, error)) Toast.error(error.message);
         } finally {
@@ -200,8 +214,13 @@ document.addEventListener('bt:ready', () => {
         }
     });
 
+    myUploadsControl = MyUploads.mount({ container: document.getElementById('myUploads') });
     loadPending();
     loadSubscriptions();
     // Refresca el panel cuando cambia el idioma.
-    LanguageManager.onChange(() => { loadPending(); loadSubscriptions(); });
+    LanguageManager.onChange(() => {
+        loadPending();
+        loadSubscriptions();
+        myUploadsControl = MyUploads.mount({ container: document.getElementById('myUploads') });
+    });
 });

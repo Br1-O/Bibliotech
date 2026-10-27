@@ -243,6 +243,26 @@ if (!customElements.get('bt-navbar')) {
             }
         }
 
+        async markAllNotificationsRead() {
+            if (!this._notifMenu || this._unreadCount <= 0 || this._markingAllRead) return;
+            this._markingAllRead = true;
+            try {
+                await apiService.post('/notifications/read-all', {});
+                if (!this.isConnected) return;
+                const now = new Date().toISOString();
+                this._notifications.forEach(notification => {
+                    if (!notification.readAt) notification.readAt = now;
+                });
+                this._unreadCount = 0;
+                this.updateNotificationButton();
+                this.renderNotificationMenu();
+            } catch (error) {
+                // Se reintentara al volver a abrir la bandeja.
+            } finally {
+                this._markingAllRead = false;
+            }
+        }
+
         async toggleNotifications() {
             if (!this._notifMenu) return;
             if (this._notificationsOpen) {
@@ -256,6 +276,7 @@ if (!customElements.get('bt-navbar')) {
             this._notifMenu.hidden = false;
             this._notifToggle.setAttribute('aria-expanded', 'true');
             await this.refreshNotifications();
+            await this.markAllNotificationsRead();
         }
 
         closeNotifications() {
@@ -284,12 +305,12 @@ if (!customElements.get('bt-navbar')) {
             });
 
             linksWrap.appendChild(link('/', 'nav.catalog', active === 'catalog'));
-            linksWrap.appendChild(link('/catalogo#materias', 'nav.subjects', active === 'subjects'));
+            linksWrap.appendChild(link('/materias', 'nav.subjects', active === 'subjects'));
 
             if (authed) {
                 linksWrap.appendChild(link(authHelper.panelRoute(), 'nav.myPanel', active === 'panel'));
                 if (role === 'Alumno') {
-                    linksWrap.appendChild(link('/#suscritas', 'nav.mySubscriptions', active === 'subscribed'));
+                    linksWrap.appendChild(link('/materias#suscritas', 'nav.mySubscriptions', active === 'subscribed'));
                 }
                 linksWrap.appendChild(link('/favoritos', 'nav.favorites', active === 'favorites'));
                 linksWrap.appendChild(el('a', {

@@ -13,6 +13,7 @@ module.exports = (container) => {
     const router = express.Router();
 
     router.get(['/', '/catalogo'], page('index.html'));
+    router.get('/materias', page('subjects.html'));
     router.get('/login', page('login.html'));
     router.get('/register', page('register.html'));
     router.get('/forgot-password', page('forgot-password.html'));
@@ -38,6 +39,7 @@ module.exports = (container) => {
     });
     router.get(['/confirmar-cuenta', '/verify-account'], (req, res) => res.redirect('/login'));
     router.get('/materia/:id', page('subject.html'));
+    router.get('/autor/:id', page('author.html'));
     router.get('/alumno', page('dashboard-alumno.html'));
     router.get('/profesor', page('dashboard-profesor.html'));
     router.get('/admin', page('dashboard-admin.html'));

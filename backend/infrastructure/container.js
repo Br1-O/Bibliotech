@@ -7,6 +7,7 @@
 
 const MariaDBRoleRepository = require('./repositories/MariaDBRoleRepository');
 const MariaDBUserRepository = require('./repositories/MariaDBUserRepository');
+const MariaDBCareerRepository = require('./repositories/MariaDBCareerRepository');
 const MariaDBSubjectRepository = require('./repositories/MariaDBSubjectRepository');
 const MariaDBMaterialRepository = require('./repositories/MariaDBMaterialRepository');
 const MariaDBSubscriptionRepository = require('./repositories/MariaDBSubscriptionRepository');
@@ -18,6 +19,7 @@ const ThematicTagService = require('../application/services/ThematicTagService')
 const AuditLogService = require('../application/services/AuditLogService');
 const AuthService = require('../application/services/AuthService');
 const RoleService = require('../application/services/RoleService');
+const CareerService = require('../application/services/CareerService');
 const SubjectService = require('../application/services/SubjectService');
 const MaterialService = require('../application/services/MaterialService');
 const SubscriptionService = require('../application/services/SubscriptionService');
@@ -32,6 +34,7 @@ const fileHelper = require('../utils/fileHelper');
 function buildContainer() {
     const roleRepository = new MariaDBRoleRepository();
     const userRepository = new MariaDBUserRepository();
+    const careerRepository = new MariaDBCareerRepository();
     const subjectRepository = new MariaDBSubjectRepository();
     const materialRepository = new MariaDBMaterialRepository();
     const subscriptionRepository = new MariaDBSubscriptionRepository();
@@ -47,6 +50,7 @@ function buildContainer() {
         // Repositorios (puertos de salida)
         roleRepository,
         userRepository,
+        careerRepository,
         subjectRepository,
         materialRepository,
         subscriptionRepository,
@@ -61,7 +65,8 @@ function buildContainer() {
         auditLogService,
         roleService: new RoleService(roleRepository, auditLogService, languageManager),
         authService: new AuthService(userRepository, roleRepository, auditLogService, languageManager, require('../application/services/mail/MailerService').mailerService),
-        subjectService: new SubjectService(subjectRepository, userRepository, auditLogService, languageManager),
+        careerService: new CareerService(careerRepository, auditLogService, languageManager),
+        subjectService: new SubjectService(subjectRepository, userRepository, auditLogService, languageManager, careerRepository),
         materialService: new MaterialService(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService, fileHelper, notificationRepository),
         subscriptionService: new SubscriptionService(subscriptionRepository, subjectRepository, userRepository, auditLogService, languageManager),
         notificationService: new NotificationService(notificationRepository),

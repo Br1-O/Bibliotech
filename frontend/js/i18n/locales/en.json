@@ -105,10 +105,35 @@
     "searchPlaceholder": "Search by title, author or tag...",
     "filterBySubject": "Subject",
     "filterByTag": "Topic tag",
+    "filterByType": "Material type",
+    "filterByCareer": "Career",
     "allSubjects": "All subjects",
+    "materialsTitle": "Educational material",
     "showing": "Showing {count} materials",
     "viewDetail": "View detail",
-    "by": "by"
+    "by": "by",
+    "filterByYear": "Year"
+  },
+  "careers": {
+    "title": "Careers",
+    "subtitle": "Choose a career and a year to explore its subjects.",
+    "allCareers": "All careers",
+    "allYears": "All years",
+    "seeAllSubjects": "See all subjects",
+    "summary": "{subjects} subjects · {years} years",
+    "none": "No careers have been created yet."
+  },
+  "myUploads": {
+    "title": "My uploads",
+    "hint": "Material you uploaded, with search, filters and editing.",
+    "hintStudent": "Check all the material you shared and its status.",
+    "empty": "You have not uploaded any material yet."
+  },
+  "author": {
+    "materials": "Published materials",
+    "email": "Contact email: {email}",
+    "noMaterials": "This author has no published materials yet.",
+    "backToCatalog": "Back to catalog"
   },
   "filters": {
     "sort": "Sort by",
@@ -117,7 +142,9 @@
     "title": "Title (A-Z)",
     "clear": "Clear filters",
     "showing": "Showing {shown} of {total}",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "allTypes": "All types",
+    "allStates": "All states"
   },
   "pagination": {
     "label": "Pagination of results",
@@ -147,7 +174,11 @@
     "mySubscriptionsSubtitle": "Quick access to the material of the subjects you follow.",
     "noSubscribed": "You are not subscribed to any subject yet.",
     "explore": "Explore subjects",
-    "materialCount": "{count} materials"
+    "materialCount": "{count} materials",
+    "onlyMine": "Only my subjects",
+    "pageTitle": "Careers and subjects",
+    "pageSubtitle": "Explore careers, their years, and the available subjects.",
+    "teachers": "Teachers"
   },
   "subject": {
     "materialsOf": "Materials of",
@@ -165,8 +196,9 @@
     "title": "Title",
     "type": "Type",
     "file": "File",
+    "cover": "Cover image",
     "link": "Link",
-    "linkPlaceholder": "https://drive.google.com/... or https://youtube.com/...",
+    "linkPlaceholder": "https://drive.google.com/... , https://youtube.com/... or https://github.com/...",
     "description": "Description",
     "descriptionPlaceholder": "Short description of the material (optional)",
     "uploadedOn": "Uploaded on {date}",
@@ -201,23 +233,43 @@
     "watchOnYoutube": "Watch on YouTube",
     "associateConfirm": "Add material",
     "edit": "Edit material",
-    "editHint": "Change the title or description of the material in your subject.",
+    "editHint": "Edit any material data and its tags.",
+    "editAuthor": "Author",
+    "editState": "Status",
+    "editCurrentSource": "Current file or link",
+    "editNoSource": "No file or link available.",
+    "editReplaceFile": "File (replace if needed)",
+    "editReplaceCover": "Replace cover (optional)",
+    "editRemoveCover": "Remove current cover",
+    "editNoCover": "No custom cover",
+    "editFileRequired": "Select a new file for this material type.",
+    "editLinkRequired": "Enter a valid link for this material type.",
     "removeFromSubject": "Remove from subject",
     "removeConfirm": "The material will be removed from this subject. If it does not belong to another subject and is not in anyone's favorites, it will be permanently deleted. Continue?",
     "types": {
       "PDF": "PDF",
+      "EPUB": "EPUB",
       "Word": "Word",
       "Presentacion": "Presentation",
       "Link_Drive": "Drive link",
-      "Youtube": "YouTube video"
+      "Youtube": "YouTube video",
+      "Repositorio": "GitHub repository"
     },
     "states": {
       "Aprobado": "Approved",
       "Pendiente": "Pending",
-      "Cancelado": "Cancelled"
+      "Cancelado": "Cancelled",
+      "Rechazado": "Rejected"
     },
     "addFavorite": "Add to favorites",
-    "removeFavorite": "Remove from favorites"
+    "removeFavorite": "Remove from favorites",
+    "deleteGlobal": "Delete material from catalog",
+    "deleteGlobalConfirm": "\"{title}\" will be permanently removed from the catalog and all its subjects. Continue?",
+    "associations": "Associations",
+    "associatedCareers": "Careers",
+    "associatedSubjects": "Subjects",
+    "noAssociations": "This material is not associated with any career or subject yet.",
+    "noDescription": "No description available."
   },
   "student": {
     "panelTitle": "Student panel",
@@ -258,9 +310,33 @@
     "subjectManagement": "Manage subjects",
     "thematicTags": "Thematic tags",
     "subjectManagementHint": "Choose a subject to modify its title, description or head teacher.",
+    "batchUpload": "Batch material upload",
+    "batchUploadHint": "Upload up to 100 files or links without a subject. They will be available for teachers to assign.",
+    "batchFiles": "Files",
+    "batchLinks": "Links (one per line)",
+    "batchLinksPlaceholder": "Title | https://github.com/user/repository",
+    "batchUploadAction": "UPLOAD BATCH",
+    "batchLimit": "Batch upload allows at most 100 files or links.",
+    "careersTitle": "Careers and years",
+    "careersHint": "Create careers and years, and change their names or colors.",
+    "careerName": "Career name",
+    "createCareer": "Create career",
+    "careerYear": "Career and year",
+    "noCareerYear": "Ungrouped",
+    "yearName": "Year name",
+    "createYear": "Add year",
+    "searchUsers": "Search users...",
+    "allRoles": "All roles",
+    "allStates": "All states",
+    "searchTags": "Search tags...",
+    "allTags": "All tags",
+    "activeTags": "Active",
+    "bannedTags": "Banned",
     "editSubject": "Edit subject",
     "selectSubject": "Subject to edit",
-    "noTags": "No tags."
+    "noTags": "No tags.",
+    "batchTitle": "Material title",
+    "batchCover": "Cover (optional)"
   },
   "errors": {
     "notFound": "Resource not found.",
@@ -304,7 +380,12 @@
     "favoriteAdded": "Added to favorites.",
     "favoriteRemoved": "Removed from favorites.",
     "verificationResent": "If the account is pending, we sent a new activation link.",
-    "accountVerified": "Account activated successfully. You can now sign in."
+    "accountVerified": "Account activated successfully. You can now sign in.",
+    "careerCreated": "Career created successfully.",
+    "careerUpdated": "Career updated successfully.",
+    "yearCreated": "Year created successfully.",
+    "yearUpdated": "Year updated successfully.",
+    "batchUploaded": "Batch upload completed. Created: {created}. Skipped duplicates: {skipped}."
   },
   "favorites": {
     "title": "My favorites",
@@ -329,7 +410,9 @@
       "Usuario": "User",
       "Rol": "Role",
       "Materia": "Subject",
-      "Material": "Material"
+      "Material": "Material",
+      "Carrera": "Career",
+      "Anio": "Year"
     },
     "operations": {
       "Alta Usuario": "User created",
@@ -341,6 +424,10 @@
       "Alta Rol": "Role created",
       "Solicitud Materia": "Subject requested",
       "Alta Materia": "Subject created",
+      "Alta Carrera": "Career created",
+      "Modificacion Carrera": "Career updated",
+      "Alta Anio": "Year created",
+      "Modificacion Anio": "Year updated",
       "Asociacion Materia": "Subject association",
       "Modificacion Materia": "Subject updated",
       "Subida Material": "Material uploaded",

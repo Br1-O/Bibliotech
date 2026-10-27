@@ -4,13 +4,25 @@
 */
 
 const Cards = {
+    TYPE_TONES: {
+        PDF: 'danger', EPUB: 'info', Word: 'info', Presentacion: 'warning',
+        Link_Drive: 'success', Youtube: 'danger', Repositorio: 'subject'
+    },
+
     typeBadge(tipo) {
-        const map = { PDF: 'danger', Word: 'info', Presentacion: 'warning', Link_Drive: 'success', Youtube: 'danger' };
-        return el('span', { className: `bt-badge bt-badge--${map[tipo] || 'info'}`, text: LanguageManager.t(`material.types.${tipo}`) });
+        return el('a', {
+            className: `bt-badge bt-badge--${this.TYPE_TONES[tipo] || 'info'}`,
+            text: LanguageManager.t(`material.types.${tipo}`),
+            attrs: { href: `/catalogo?tipo=${encodeURIComponent(tipo)}#catalogo`, title: LanguageManager.t('catalog.filterByType') }
+        });
+    },
+
+    isInactive(material) {
+        return ['Cancelado', 'Rechazado'].includes(String(material?.estado || ''));
     },
 
     stateBadge(estado) {
-        const map = { Aprobado: 'success', Pendiente: 'warning', Cancelado: 'danger' };
+        const map = { Aprobado: 'success', Pendiente: 'warning', Cancelado: 'danger', Rechazado: 'danger' };
         return el('span', { className: `bt-badge bt-badge--${map[estado] || 'info'}`, text: LanguageManager.t(`material.states.${estado}`) });
     },
 
@@ -19,7 +31,111 @@ const Cards = {
     },
 
     tagChips(items) {
-        return (items || []).map(c => el('span', { className: 'bt-chip bt-chip--tag', text: c }));
+        return (items || []).map(c => el('a', {
+            className: 'bt-chip bt-chip--tag',
+            text: c,
+            attrs: { href: `/catalogo?tags=${encodeURIComponent(c)}#catalogo` }
+        }));
+    },
+
+    subjectChips(material) {
+        const details = material.materiasDetalle?.length
+            ? material.materiasDetalle
+            : (material.materias || []).map((name, index) => ({
+                id: (material.materiasIds || [])[index],
+                nombre: name,
+                carreraColor: null
+            }));
+        return details.map(subject => subject.id
+            ? el('a', {
+                className: 'bt-chip bt-chip--subject',
+                text: subject.nombre,
+                attrs: {
+                    href: `/materia/${subject.id}`,
+                    ...(subject.carreraColor ? { style: `--career-color:${subject.carreraColor}` } : {})
+                }
+            })
+            : el('span', { className: 'bt-chip bt-chip--subject', text: subject.nombre }));
+    },
+
+    careerChips(material) {
+        return (material.carreras || []).map(career => el('a', {
+            className: 'bt-chip bt-chip--career',
+            text: career.anioNombre ? `${career.nombre} · ${career.anioNombre}` : career.nombre,
+            attrs: {
+                href: career.anioId
+                    ? `/materias?career=${career.id}&year=${career.anioId}#materias`
+                    : `/materias?career=${career.id}#materias`,
+                style: `--career-color:${career.color || '#6f5bd3'}`
+            }
+        }));
+    },
+
+    /** Contenido enriquecido del modal +info: materias, carreras y etiquetas. */
+    materialInfoContent(material) {
+        const careers = this.careerChips(material);
+        const subjects = this.subjectChips(material);
+        const tags = this.tagChips(material.categories);
+        const section = (labelKey, nodes) => nodes.length
+            ? el('div', { className: 'bt-material-info__group' }, [
+                el('h4', { className: 'bt-material-info__label', text: LanguageManager.t(labelKey) }),
+                el('div', { className: 'bt-material-info__tags' }, nodes)
+            ])
+            : null;
+
+        const hasAssociations = careers.length || subjects.length;
+        return el('div', { className: 'bt-material-info' }, [
+            el('section', { className: 'bt-material-info__associations' }, [
+                el('h4', { className: 'bt-material-info__title', text: LanguageManager.t('material.associations') }),
+                hasAssociations
+                    ? el('div', { className: 'bt-material-info__groups' }, [
+                        section('material.associatedCareers', careers),
+                        section('material.associatedSubjects', subjects)
+                    ].filter(Boolean))
+                    : el('p', {
+                        className: 'bt-material-info__empty',
+                        text: LanguageManager.t('material.noAssociations')
+                    })
+            ]),
+            section('material.tags', tags)
+        ]);
+    },
+
+    coverFile(tipo) {
+        const names = {
+            PDF: 'pdf-cover.png',
+            EPUB: 'epub-cover.png',
+            Word: 'word-cover.png',
+            Presentacion: 'presentacion-cover.png',
+            Link_Drive: 'drive-cover.png',
+            Youtube: 'youtube-cover.png',
+            Repositorio: 'repositorio-cover.png'
+        };
+        return `/img/${names[tipo] || 'material-cover.png'}`;
+    },
+
+    cover(material) {
+        const wrap = el('div', { className: 'bt-card__cover' });
+        const fallback = el('div', { className: 'bt-card__cover-fallback' }, [
+            el('span', { className: 'bt-card__cover-type', text: LanguageManager.t(`material.types.${material.tipo}`) }),
+            el('span', { className: 'bt-card__cover-title', text: material.titulo })
+        ]);
+        const img = el('img', {
+            className: 'bt-card__cover-img',
+            attrs: {
+                src: material.portada || this.coverFile(material.tipo),
+                alt: '',
+                loading: 'lazy'
+            }
+        });
+        img.addEventListener('error', () => {
+            if (!img.isConnected) return;
+            img.remove();
+            wrap.classList.add('is-fallback');
+            wrap.appendChild(fallback);
+        }, { once: true });
+        wrap.appendChild(img);
+        return wrap;
     },
 
     uploadInfo(value) {
@@ -46,18 +162,25 @@ const Cards = {
         };
     },
 
-    /** Boton "+ info" que muestra la descripcion del material en un aviso. */
+    /** Boton "+ info" con descripcion y todas las asociaciones del material. */
     infoButton(material) {
         const btn = el('button', {
             className: 'bt-btn bt-btn--ghost bt-btn--sm',
             text: `+ ${LanguageManager.t('material.info')}`,
-            attrs: { type: 'button' }
+            attrs: { type: 'button', 'aria-haspopup': 'dialog' }
         });
-        btn.addEventListener('click', () => Modal.alert(material.titulo, material.descripcion));
+        btn.addEventListener('click', () => {
+            Modal.info({
+                title: material.titulo,
+                description: material.descripcion || LanguageManager.t('material.noDescription'),
+                content: this.materialInfoContent(material)
+            });
+        });
         return btn;
     },
 
     addToSubjectsButton(material, onSuccess) {
+        if (this.isInactive(material)) return null;
         if (typeof authHelper === 'undefined' || !authHelper.isRole('Profesor')) return null;
 
         const btn = el('button', {
@@ -74,7 +197,7 @@ const Cards = {
                 const me = authHelper.getUser() || {};
                 const { subjects } = await apiService.get('/subjects');
                 const owned = (subjects || []).filter(subject =>
-                    String(subject.profesorId) === String(me.id));
+                    this.isSubjectProfessor(subject, me.id));
                 this.openAddToSubjectsModal(material, owned, onSuccess);
             } catch (error) {
                 Toast.error(error.message);
@@ -385,7 +508,7 @@ const Cards = {
     isFileMaterial(material) {
         const tipo = String(material.tipo || '');
         const link = String(material.urlOrPath || '');
-        return !['Link_Drive', 'Youtube'].includes(tipo)
+        return !['Link_Drive', 'Youtube', 'Repositorio'].includes(tipo)
             || link.startsWith('/uploads/')
             || /res\.cloudinary\.com\//i.test(link);
     },
@@ -420,35 +543,40 @@ const Cards = {
     },
 
     material(material, options = {}) {
-        const link = typeof MaterialViewer !== 'undefined'
+        const inactive = this.isInactive(material);
+        const link = inactive ? '' : (typeof MaterialViewer !== 'undefined'
             ? MaterialViewer.safeHref(material.urlOrPath)
-            : String(material.urlOrPath || '');
-        const isFile = this.isFileMaterial(material);
+            : String(material.urlOrPath || ''));
+        const isFile = !inactive && this.isFileMaterial(material);
         const upload = this.uploadInfo(material.createdAt);
 
+        const author = material.autorNombre
+            ? el('a', {
+                className: 'bt-card__author',
+                text: `· ${material.autorNombre}`,
+                attrs: { href: `/autor/${material.autorId}` }
+            })
+            : null;
         const meta = el('div', { className: 'bt-card__meta bt-row', style: { gap: 'var(--space-2)' } }, [
             upload.isNew
                 ? el('span', { className: 'bt-badge bt-badge--new', text: LanguageManager.t('material.new') })
                 : null,
             this.typeBadge(material.tipo),
-            el('span', { text: material.autorNombre ? `· ${material.autorNombre}` : '' })
+            author
         ]);
         const favorite = options.onToggleFavorite ? this.favoriteButton(material, options.onToggleFavorite) : null;
-        const subjectChips = el('div', { className: 'bt-row', style: { gap: '6px' } }, this.chips(material.materias));
 
         const body = el('div', { className: 'bt-card__body bt-stack', style: { gap: 'var(--space-3)' } }, [
             el('div', { className: 'bt-card__top' }, [meta, favorite || el('span')]),
             el('h3', { className: 'bt-card__title', text: material.titulo }),
-            upload.node,
-            subjectChips,
-            el('div', { className: 'bt-row', style: { gap: '6px' } }, this.tagChips(material.categories))
+            upload.node
         ]);
 
         const actions = [
             link ? this.openButton(material, link) : null,
             isFile && link ? this.downloadButton(material) : null,
-            this.addToSubjectsButton(material, () => render(subjectChips, this.chips(material.materias))),
-            material.descripcion ? this.infoButton(material) : null,
+            this.addToSubjectsButton(material, null),
+            this.infoButton(material),
             options.onCancel ? el('bt-button', {
                 size: 'sm', variant: 'accent', label: LanguageManager.t('material.cancel'),
                 on: { click: () => options.onCancel(material) }
@@ -463,6 +591,9 @@ const Cards = {
                     label: LanguageManager.t(options.deleteLabel || 'common.delete'),
                     on: { click: () => options.onDelete(material) }
                 })
+                : null,
+            options.onAdminDelete
+                ? this.trashButton(material, options.onAdminDelete)
                 : null
         ];
 
@@ -471,13 +602,49 @@ const Cards = {
             el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, actions.filter(Boolean))
         ]);
 
-        return el('article', { className: 'bt-card bt-card--interactive' }, [body, footer]);
+        return el('article', {
+            className: `bt-card bt-card--interactive bt-card--material${inactive ? ' bt-card--disabled' : ''}`,
+            attrs: { 'data-type': material.tipo, ...(inactive ? { 'aria-disabled': 'true' } : {}) }
+        }, [
+            this.cover(material),
+            body,
+            footer
+        ]);
+    },
+
+    trashButton(material, onDelete) {
+        const btn = el('button', {
+            className: 'bt-icon-btn bt-icon-btn--danger',
+            attrs: {
+                type: 'button',
+                title: LanguageManager.t('material.deleteGlobal'),
+                'aria-label': LanguageManager.t('material.deleteGlobal')
+            }
+        });
+        btn.appendChild(typeof Icons !== 'undefined' ? Icons.trash() : document.createTextNode('×'));
+        btn.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            onDelete(material);
+        });
+        return btn;
+    },
+
+    isSubjectProfessor(subject, userId) {
+        if (!subject || !userId) return false;
+        if (Array.isArray(subject.profesores) && subject.profesores.length) {
+            return subject.profesores.some(professor => String(professor.id) === String(userId));
+        }
+        return String(subject.profesorId) === String(userId);
     },
 
     /** Tarjeta de materia (categoria de agrupacion). */
     subject(subject, options = {}) {
-        const teacher = subject.profesorNombre || LanguageManager.t('subject.noTeacher');
-        const isTeacher = Boolean(subject.profesorNombre);
+        const professors = Array.isArray(subject.profesores) && subject.profesores.length
+            ? subject.profesores
+            : (subject.profesorNombre
+                ? [{ id: subject.profesorId, nombreCompleto: subject.profesorNombre }]
+                : []);
 
         const actions = [];
         if (!options.hideViewMaterials) {
@@ -495,20 +662,89 @@ const Cards = {
             el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, actions)
         ]);
 
-        return el('div', { className: 'bt-card bt-card--interactive' }, [
+        const group = [];
+        if (subject.carreraNombre) {
+            group.push(el('a', {
+                className: 'bt-chip bt-chip--career',
+                text: subject.carreraNombre,
+                attrs: {
+                    href: `/materias?career=${subject.carreraId}#materias`,
+                    style: `--career-color:${subject.carreraColor || '#6f5bd3'}`
+                }
+            }));
+        }
+        if (subject.anioNombre) {
+            group.push(el('a', {
+                className: 'bt-chip bt-chip--year',
+                text: subject.anioNombre,
+                attrs: { href: `/materias?career=${subject.carreraId}&year=${subject.anioId}#materias` }
+            }));
+        }
+
+        const teacherRow = professors.length
+            ? el('div', { className: 'bt-card__teachers' }, [
+                el('span', { className: 'bt-card__meta', text: LanguageManager.t('subjects.teachers') + ':' }),
+                ...professors.map(professor => el('a', {
+                    className: 'bt-teacher-link',
+                    text: professor.nombreCompleto || `${professor.nombre || ''} ${professor.apellido || ''}`.trim(),
+                    attrs: { href: `/autor/${professor.id}` }
+                }))
+            ])
+            : el('span', {
+                className: 'bt-badge bt-badge--info',
+                text: LanguageManager.t('subject.noTeacher')
+            });
+
+        return el('div', {
+            className: 'bt-card bt-card--interactive bt-card--subject',
+            attrs: subject.carreraColor ? { style: `--career-color:${subject.carreraColor}` } : {}
+        }, [
             el('div', { className: 'bt-card__body bt-stack', style: { gap: 'var(--space-3)' } }, [
                 el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, [
-                    el('span', { className: 'bt-badge bt-badge--subject', text: LanguageManager.t('subjects.badge') })
+                    el('span', { className: 'bt-badge bt-badge--subject', text: LanguageManager.t('subjects.badge') }),
+                    ...group
                 ]),
                 el('h3', { className: 'bt-card__title', text: subject.nombre }),
                 el('p', { className: 'bt-card__meta', text: subject.descripcion || '' }),
-                el('span', {
-                    className: `bt-badge ${isTeacher ? 'bt-badge--teacher' : 'bt-badge--info'}`,
-                    text: isTeacher ? `${LanguageManager.t('subject.teacher')}: ${teacher}` : teacher
-                })
+                teacherRow
             ]),
             footer
         ]);
+    },
+
+    career(career, options = {}) {
+        const selected = options.selected ? ' is-selected' : '';
+        const btn = el('button', {
+            className: `bt-career-card${selected}`,
+            attrs: {
+                type: 'button',
+                style: `--career-color:${career.color || '#6f5bd3'}`,
+                'aria-pressed': options.selected ? 'true' : 'false'
+            }
+        }, [
+            el('span', { className: 'bt-career-card__dot' }),
+            el('span', { className: 'bt-career-card__body' }, [
+                el('strong', { text: career.nombre }),
+                el('span', {
+                    text: LanguageManager.t('careers.summary', {
+                        subjects: Number(career.totalMaterias || 0),
+                        years: (career.years || []).length
+                    })
+                })
+            ])
+        ]);
+        btn.addEventListener('click', () => options.onSelect && options.onSelect(career));
+        return btn;
+    },
+
+    year(year, options = {}) {
+        const btn = el('button', {
+            className: `bt-chip bt-chip--year${options.selected ? ' is-selected' : ''}`,
+            text: year.nombre,
+            attrs: { type: 'button', 'aria-pressed': options.selected ? 'true' : 'false' }
+        });
+        btn.addEventListener('click', () => options.onSelect && options.onSelect(year));
+        return btn;
     },
 
     empty(message) {

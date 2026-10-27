@@ -12,7 +12,6 @@ const AuditLog = require('../../domain/entities/AuditLog');
 const AppError = require('../../utils/AppError');
 const hashHelper = require('../../utils/hashHelper');
 const ValidationHandler = require('../../validator/ValidationHandler');
-const ValidationError = require('../../validator/ValidationError');
 const Required = require('../../validator/rules/Required');
 const Length = require('../../validator/rules/Length');
 const In = require('../../validator/rules/In');
@@ -21,7 +20,7 @@ const fileHelper = require('../../utils/fileHelper');
 const PENDING_LIMIT = 3;
 
 class MaterialService {
-    constructor(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService = null, fileStorage = fileHelper) {
+    constructor(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService = null, fileStorage = fileHelper, notificationRepository = null) {
         this.materialRepository = materialRepository;
         this.subjectRepository = subjectRepository;
         this.subscriptionRepository = subscriptionRepository;
@@ -29,6 +28,7 @@ class MaterialService {
         this.languageManager = languageManager;
         this.thematicTagService = thematicTagService;
         this.fileStorage = fileStorage;
+        this.notificationRepository = notificationRepository;
     }
 
     /** Materias (de las que contiene el material) cuyo titular es el profesor. */
@@ -54,13 +54,36 @@ class MaterialService {
         return Array.isArray(value) ? value : [value];
     }
 
+    normalizeSubjectIds(value) {
+        const ids = this.toArray(value).map(Number);
+        if (!ids.length || ids.some(id => !Number.isInteger(id) || id <= 0)) {
+            throw new AppError('validation.invalidData', { status: 422 });
+        }
+        return [...new Set(ids)];
+    }
+
+    async assertProfessorOwnsSubjects(subjectIds, ctx) {
+        if (!ctx || ctx.rol !== 'Profesor') {
+            throw new AppError('errors.forbidden', { status: 403 });
+        }
+        const subjects = [];
+        for (const subjectId of subjectIds) {
+            const subject = await this.subjectRepository.findById(subjectId);
+            if (!subject || Number(subject.profesorId) !== Number(ctx.usuarioId)) {
+                throw new AppError('errors.forbidden', { status: 403 });
+            }
+            subjects.push(subject);
+        }
+        return subjects;
+    }
+
     validate(dto) {
         const validator = new ValidationHandler(this.languageManager)
             .with(new Required('titulo'))
             .with(new Length('titulo', { min: 2, max: 150 }))
             .with(new Required('tipo'))
             .with(new In('tipo', Material.TIPOS));
-        if (!validator.validateThis(dto)) throw new ValidationError(validator.getErrors());
+        if (!validator.validateThis(dto)) throw validator.toError();
     }
 
     /** RF-03/RF-04: notifica a los observadores (alumnos suscritos) de una materia. */
@@ -72,7 +95,19 @@ class MaterialService {
         rows.forEach(row => observable.attach(new StudentObserver({
             alumnoId: row.alumnoId, email: row.email, materiaId: subject.id
         })));
-        return observable.notifyObservers(material);
+        const notifications = observable.notifyObservers(material);
+
+        if (this.notificationRepository && rows.length) {
+            try {
+                await this.notificationRepository.createForSubscribers(
+                    subject.id, material.id, rows.map(row => row.alumnoId)
+                );
+            } catch (error) {
+                console.error('No se pudieron guardar las notificaciones:', error.message);
+            }
+        }
+
+        return notifications;
     }
 
     /**
@@ -86,6 +121,7 @@ class MaterialService {
         if (!subjects.length) throw new AppError('validation.required', { status: 422, params: { field: 'Materia' } });
 
         const esProfesor = ctx.rol === 'Profesor';
+        if (esProfesor) await this.assertProfessorOwnsSubjects(subjects, ctx);
         const hash = dto.fileHash || hashHelper.hashString(dto.urlOrPath);
 
         const existing = await this.materialRepository.findByHash(hash);
@@ -156,21 +192,28 @@ class MaterialService {
         }
     }
 
-    /** Un profesor agrega un material existente a una de sus materias. */
-    async associateMaterialToSubject(materialId, subjectId, ctx) {
-        const material = await this.materialRepository.findById(materialId);
-        if (!material) throw new AppError('errors.notFound', { status: 404 });
-        const subject = await this.subjectRepository.findById(subjectId);
-        if (!subject) throw new AppError('errors.notFound', { status: 404 });
-
-        if (ctx.rol !== 'Superadmin' && subject.profesorId !== ctx.usuarioId) {
+    /** Un profesor agrega un material existente solo a sus propias materias. */
+    async associateMaterialToSubjects(materialId, rawSubjectIds, ctx) {
+        if (!ctx || ctx.rol !== 'Profesor') {
             throw new AppError('errors.forbidden', { status: 403 });
         }
 
-        await this.materialRepository.associateToSubject(materialId, subjectId, 'Aprobado');
-        await this.notifyObservers(subject, material);
+        const material = await this.materialRepository.findById(materialId);
+        if (!material) throw new AppError('errors.notFound', { status: 404 });
+
+        const subjectIds = this.normalizeSubjectIds(rawSubjectIds);
+        const subjects = await this.assertProfessorOwnsSubjects(subjectIds, ctx);
+
+        for (const subject of subjects) {
+            await this.materialRepository.associateToSubject(material.id, subject.id, 'Aprobado');
+            await this.notifyObservers(subject, material);
+        }
+
         await this.auditLogService.record(AuditLog.OPERACIONES.ASOCIACION_MATERIAL, ctx.usuarioId, materialId);
-        return { message: 'messages.materialAssociated' };
+        return {
+            message: 'messages.materialAssociated',
+            subjectIds: subjects.map(subject => subject.id)
+        };
     }
 
     /** Aprobacion de material sugerido por un alumno (RF-05). */
@@ -206,7 +249,7 @@ class MaterialService {
         const remaining = await this.materialRepository.countAssociations(materialId);
         if (remaining === 0) await this.materialRepository.cancelPendingUpload(materialId);
 
-        await this.auditLogService.record(AuditLog.OPERACIONES.APROBACION_MATERIAL, ctx.usuarioId, materialId);
+        await this.auditLogService.record(AuditLog.OPERACIONES.CANCELACION_MATERIAL, ctx.usuarioId, materialId);
         return { message: 'messages.associationRejected' };
     }
 
@@ -251,7 +294,7 @@ class MaterialService {
             const validator = new ValidationHandler(this.languageManager)
                 .with(new Required('titulo'))
                 .with(new Length('titulo', { min: 2, max: 150 }));
-            if (!validator.validateThis({ titulo: changes.titulo })) throw new ValidationError(validator.getErrors());
+            if (!validator.validateThis({ titulo: changes.titulo })) throw validator.toError();
         }
 
         await this.materialRepository.update(materialId, changes);
@@ -261,38 +304,49 @@ class MaterialService {
     }
 
     /**
-     * Borrado / desasociacion de material (RD-04).
-     * - Un alumno no puede borrar material confirmado.
-     * - Si se indica subjectId, el profesor titular de esa materia (o el
-     *   Superadmin) quita el material unicamente de esa materia.
-     * - Sin subjectId, el profesor lo quita de todas sus materias.
-     * - Superadmin sin subjectId: borrado total.
-     * El material se elimina fisicamente (registro + almacenamiento) solo si
-     * ya no pertenece a ninguna materia y ningun usuario lo tiene en favoritos.
+     * Borrado / desasociacion de material.
+     * - Si se indica subjectId, el profesor titular de esa materia (o Superadmin)
+     *   quita el material SOLO de esa materia. No se borra el material ni del resto
+     *   ni del catalogo global.
+     * - Sin subjectId, solo Superadmin puede eliminar el material globalmente.
      */
-    /**
-     * RD-04: un alumno no puede borrar material confirmado (solo cancelar sus
-     * subidas pendientes). Un profesor solo borra material de sus materias;
-     * el Superadmin puede borrar cualquiera.
-     */
-    async delete(materialId, ctx) {
+    async delete(materialId, ctx, subjectId = null) {
         const material = await this.materialRepository.findById(materialId);
         if (!material) throw new AppError('errors.notFound', { status: 404 });
 
         if (ctx.rol === 'Alumno') throw new AppError('errors.forbidden', { status: 403 });
 
-        if (ctx.rol === 'Profesor') {
-            let owns = false;
-            for (const subjectId of material.materiasIds || []) {
-                const subject = await this.subjectRepository.findById(subjectId);
-                if (subject && subject.profesorId === ctx.usuarioId) { owns = true; break; }
+        if (subjectId) {
+            const subject = await this.subjectRepository.findById(subjectId);
+            if (!subject) throw new AppError('errors.notFound', { status: 404 });
+            if (ctx.rol !== 'Superadmin' && subject.profesorId !== ctx.usuarioId) {
+                throw new AppError('errors.forbidden', { status: 403 });
             }
-            if (!owns) throw new AppError('errors.forbidden', { status: 403 });
+            await this.materialRepository.deleteAssociation(materialId, subjectId);
+            await this.auditLogService.record(AuditLog.OPERACIONES.DESASOCIACION_MATERIAL, ctx.usuarioId, materialId);
+            return { message: 'messages.materialRemovedFromSubject', deleted: false };
         }
 
-        await this.materialRepository.delete(materialId);
-        await this.auditLogService.record(AuditLog.OPERACIONES.BORRADO_MATERIAL, ctx.usuarioId, materialId);
-        return { message: 'messages.materialDeleted' };
+        if (ctx.rol === 'Superadmin') {
+            await this.auditLogService.record(AuditLog.OPERACIONES.BORRADO_MATERIAL, ctx.usuarioId, materialId);
+            await this.materialRepository.delete(materialId);
+            await this.fileStorage.deleteStorageFile(material.urlOrPath);
+            return { message: 'messages.materialDeleted', deleted: true };
+        }
+
+        if (ctx.rol === 'Profesor') {
+            let owns = false;
+            for (const sid of material.materiasIds || []) {
+                const subj = await this.subjectRepository.findById(sid);
+                if (subj && subj.profesorId === ctx.usuarioId) { owns = true; break; }
+            }
+            if (!owns) throw new AppError('errors.forbidden', { status: 403 });
+            await this.auditLogService.record(AuditLog.OPERACIONES.BORRADO_MATERIAL, ctx.usuarioId, materialId);
+            await this.materialRepository.delete(materialId);
+            return { message: 'messages.materialDeleted', deleted: true };
+        }
+
+        throw new AppError('errors.forbidden', { status: 403 });
     }
 
     async getGlobalContent(filters, usuarioId = null) {

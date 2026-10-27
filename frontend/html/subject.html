@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f5f2ff">
+    <script src="/js/theme.js"></script>
     <title>Bibliotech · Materia</title>
     <link rel="stylesheet" href="/css/variables.css">
     <link rel="stylesheet" href="/css/base.css">
@@ -10,6 +12,10 @@
     <link rel="stylesheet" href="/css/pages.css">
 </head>
 <body>
+    <div id="btPageLoader" class="bt-page-loader" role="status" aria-live="polite" aria-label="Cargando...">
+        <span class="bt-page-loader__mark" aria-hidden="true">B</span>
+        <span class="bt-page-loader__label">Bibliotech</span>
+    </div>
     <bt-navbar active="subjects"></bt-navbar>
 
     <main class="bt-page">
@@ -39,10 +45,12 @@
                     <div class="bt-field">
                         <label class="bt-label" for="materialEditTitulo" data-i18n="material.title">Titulo</label>
                         <input id="materialEditTitulo" class="bt-input" type="text" name="titulo" maxlength="150" required>
+                        <span class="bt-error-text" data-error-for="titulo"></span>
                     </div>
                     <div class="bt-field">
                         <label class="bt-label" for="materialEditDesc" data-i18n="material.description">Descripcion</label>
                         <textarea id="materialEditDesc" class="bt-textarea" name="descripcion" rows="3"></textarea>
+                        <span class="bt-error-text" data-error-for="descripcion"></span>
                     </div>
                     <div class="bt-row" style="gap: var(--space-2)">
                         <bt-button type="submit" variant="primary" label-i18n="common.save"></bt-button>
@@ -58,10 +66,13 @@
     <script src="/js/i18n/LanguageManager.js"></script>
     <script src="/js/utils/authHelper.js"></script>
     <script src="/js/utils/validator.js"></script>
+    <script src="/js/components/icons.js"></script>
+    <script src="/js/components/passwordField.js"></script>
     <script src="/js/components/button.js"></script>
     <script src="/js/components/loader.js"></script>
     <script src="/js/components/toast.js"></script>
     <script src="/js/components/modal.js"></script>
+    <script src="/js/components/materialViewer.js"></script>
     <script src="/js/components/cards.js"></script>
     <script src="/js/components/navbar.js"></script>
     <script src="/js/components/pagination.js"></script>

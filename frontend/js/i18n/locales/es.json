@@ -15,6 +15,15 @@
     "mySubscriptions": "Mis suscripciones",
     "favorites": "Favoritos"
   },
+  "notifications": {
+    "title": "Notificaciones",
+    "empty": "No tienes notificaciones.",
+    "unread": "{count} sin leer",
+    "aria": "Notificaciones",
+    "ariaUnread": "Notificaciones, {count} sin leer",
+    "byProfessor": "Agregado por {name}",
+    "loading": "Cargando notificaciones..."
+  },
   "roles": {
     "Superadmin": "Superadministrador",
     "Profesor": "Profesor",
@@ -63,17 +72,21 @@
     "registerButton": "CREAR CUENTA",
     "forgotPassword": "Olvide mi contrasena",
     "forgotTitle": "Recuperar contrasena",
-    "forgotSubtitle": "Te enviaremos un enlace para restablecerla",
-    "sendLink": "Enviar enlace",
+    "forgotSubtitle": "Te enviaremos un enlace para restablecerla.",
+    "sendLink": "ENVIAR ENLACE",
     "resetTitle": "Nueva contrasena",
-    "resetSubtitle": "Elige una contrasena segura",
+    "resetSubtitle": "Elige una contrasena segura para tu cuenta.",
     "resetButton": "CAMBIAR CONTRASENA",
     "noAccount": "Aun no tienes cuenta?",
     "hasAccount": "Ya tienes cuenta?",
     "backToLogin": "Volver al inicio de sesion",
     "demoHint": "Cuenta de prueba: alumno@bibliotech.edu (Alumno123)",
     "ban": "Banear usuario",
-    "unban": "Desbanear usuario"
+    "unban": "Desbanear usuario",
+    "repeatPassword": "Repite la contrasena",
+    "newPassword": "Nueva contrasena",
+    "showPassword": "Mostrar contrasena",
+    "hidePassword": "Ocultar contrasena"
   },
   "validation": {
     "required": "{field} es obligatorio.",
@@ -83,7 +96,8 @@
     "maxLength": "{field} es demasiado largo.",
     "pendingLimit": "No puedes tener mas de {max} materiales pendientes.",
     "fileType": "Tipo de archivo no valido. Se permiten PDF, Word y Presentaciones.",
-    "invalidData": "Revisa los datos ingresados."
+    "invalidData": "Revisa los datos ingresados.",
+    "passwordMismatch": "Las contrasenas no coinciden."
   },
   "catalog": {
     "title": "Catalogo global",
@@ -98,7 +112,11 @@
   },
   "favorites": {
     "title": "Mis favoritos",
-    "empty": "Todavia no agregaste materiales a favoritos."
+    "empty": "Todavia no agregaste materiales a favoritos.",
+    "subtitle": "Los materiales que guardaste para consultar mas tarde.",
+    "count": "{count} materiales guardados",
+    "emptyHint": "Explora el catalogo y marca con la estrella el material que quieras guardar.",
+    "browse": "Explorar catalogo"
   },
   "filters": {
     "sort": "Ordenar por",
@@ -130,7 +148,14 @@
     "pendingAssociation": "Pendiente de asociacion",
     "requestAssociation": "Solicitar asociacion",
     "viewMaterials": "Ver materiales",
-    "noSubjects": "Todavia no hay materias publicadas."
+    "noSubjects": "Todavia no hay materias publicadas.",
+    "onlySubscribed": "Solo suscritas",
+    "showAll": "Ver todas",
+    "mySubscriptionsTitle": "Mis materias suscritas",
+    "mySubscriptionsSubtitle": "Accede rapido al material de las materias que sigues.",
+    "noSubscribed": "Todavia no te suscribiste a ninguna materia.",
+    "explore": "Explorar materias",
+    "materialCount": "{count} materiales"
   },
   "subject": {
     "materialsOf": "Material de",
@@ -152,6 +177,8 @@
     "linkPlaceholder": "https://drive.google.com/... o https://youtube.com/...",
     "description": "Descripcion",
     "descriptionPlaceholder": "Breve descripcion del material (opcional)",
+    "uploadedOn": "Subido el {date}",
+    "new": "Nuevo",
     "info": "Info",
     "subjects": "Materias de destino",
     "tags": "Etiquetas tematicas",
@@ -161,7 +188,26 @@
     "approve": "Aprobar",
     "reject": "Rechazar",
     "cancel": "Cancelar subida",
-    "associated": "Asociar a mi materia",
+    "addToSubjects": "Agregar a materias",
+    "addToSubjectsTitle": "Agregar a tus materias",
+    "addToSubjectsMaterial": "Material",
+    "addToSubjectsHint": "Elige una o mas de tus materias para asociar este material.",
+    "addToSubjectsPlaceholder": "Seleccionar materia",
+    "selectedSubjects": "Seleccionadas ({count})",
+    "noSelection": "Todavia no seleccionaste ninguna materia.",
+    "allSubjectsSelected": "Todas tus materias ya estan seleccionadas.",
+    "alreadyInAllSubjects": "Este material ya esta en todas tus materias.",
+    "removeSubject": "Quitar {name}",
+    "removeTag": "Quitar etiqueta {tag}",
+    "pdfViewer": "Visor de PDF",
+    "youtubeVideo": "Video de YouTube",
+    "pdfFrameTitle": "Visor del PDF: {title}",
+    "youtubeFrameTitle": "Video de YouTube: {title}",
+    "pdfHint": "Usa los controles del visor para navegar y hacer zoom.",
+    "youtubeHint": "Si el video no se reproduce, abrelo directamente en YouTube.",
+    "openNewTab": "Abrir en una pestaña nueva",
+    "watchOnYoutube": "Ver en YouTube",
+    "associateConfirm": "Agregar material",
     "edit": "Editar material",
     "editHint": "Modifica el titulo o la descripcion del material en tu materia.",
     "removeFromSubject": "Quitar de la materia",
@@ -201,8 +247,6 @@
     "ban": "Banear",
     "unban": "Quitar baneo",
     "approveMaterial": "Aprobar material",
-    "associateTitle": "Asociar material existente",
-    "selectSubject": "Selecciona una materia.",
     "noSubjects": "No tienes materias asociadas."
   },
   "admin": {
@@ -231,16 +275,16 @@
     "unauthorized": "No autorizado.",
     "forbidden": "No tienes permisos para realizar esta accion.",
     "invalidCredentials": "Credenciales invalidas.",
-    "invalidToken": "Token invalido o expirado.",
+    "invalidToken": "Enlace invalido o expirado.",
     "serverError": "Error interno del servidor.",
     "network": "No se pudo conectar con el servidor.",
     "tooManyRequests": "Demasiadas solicitudes. Intenta de nuevo más tarde."
   },
   "messages": {
-    "registerSuccess": "Cuenta creada correctamente. Ya puedes iniciar sesion.",
+    "registerSuccess": "Cuenta creada. Revisa tu correo y abre el enlace de activacion antes de iniciar sesion.",
     "loginSuccess": "Sesion iniciada correctamente.",
     "logoutSuccess": "Sesion cerrada.",
-    "resetRequested": "Si el correo existe, se envio un enlace de recuperacion.",
+    "resetRequested": "Si el correo existe, enviamos un enlace de recuperacion.",
     "passwordChanged": "Contrasena actualizada correctamente.",
     "subjectCreated": "Materia creada correctamente.",
     "associationRequested": "Solicitud de asociacion enviada al superadministrador.",
@@ -252,6 +296,7 @@
     "materialUploaded": "Material publicado correctamente.",
     "materialSuggested": "Material sugerido. Queda pendiente de aprobacion.",
     "materialAssociated": "Material asociado a la materia.",
+    "materialAssociatedMany": "Material asociado a {count} materias.",
     "materialApproved": "Material aprobado y publicado.",
     "materialCancelled": "Subida pendiente cancelada.",
     "materialUpdated": "Material actualizado correctamente.",
@@ -265,6 +310,50 @@
     "userUnbanned": "Usuario desbaneado.",
     "userDeleted": "Usuario desactivado.",
     "favoriteAdded": "Agregado a favoritos.",
-    "favoriteRemoved": "Quitado de favoritos."
+    "favoriteRemoved": "Quitado de favoritos.",
+    "verificationResent": "Si la cuenta esta pendiente, enviamos un nuevo enlace de activacion.",
+    "accountVerified": "Cuenta activada correctamente. Ya puedes iniciar sesion."
+  },
+  "theme": {
+    "toDark": "Activar tema oscuro",
+    "toLight": "Activar tema claro"
+  },
+  "userStates": {
+    "Activo": "Activo",
+    "Baneado": "Baneado",
+    "Inactivo": "Inactivo",
+    "PendienteVerificacion": "Pendiente de verificacion"
+  },
+  "audit": {
+    "types": {
+      "Usuario": "Usuario",
+      "Rol": "Rol",
+      "Materia": "Materia",
+      "Material": "Material"
+    },
+    "operations": {
+      "Alta Usuario": "Alta de usuario",
+      "Verificacion Cuenta": "Verificacion de cuenta",
+      "Solicitud Reseteo Clave": "Solicitud de reseteo de clave",
+      "Cambio Clave": "Cambio de clave",
+      "Desbaneo Usuario": "Desbaneo de usuario",
+      "Baja Usuario": "Baja de usuario",
+      "Alta Rol": "Alta de rol",
+      "Solicitud Materia": "Solicitud de materia",
+      "Alta Materia": "Alta de materia",
+      "Asociacion Materia": "Asociacion de materia",
+      "Modificacion Materia": "Modificacion de materia",
+      "Subida Material": "Subida de material",
+      "Asociacion Material": "Asociacion de material",
+      "Aprobacion Material": "Aprobacion de material",
+      "Modificacion Material": "Modificacion de material",
+      "Desasociacion Material": "Desasociacion de material",
+      "Cancelacion Material": "Cancelacion de material",
+      "Borrado Material": "Borrado de material",
+      "Suscripcion Materia": "Suscripcion a materia",
+      "Baneo Alumno": "Baneo de alumno",
+      "Inicio Sesion": "Inicio de sesion",
+      "Cierre Sesion": "Cierre de sesion"
+    }
   }
 }

@@ -1,11 +1,16 @@
 {
-  "language": { "name": "Espanol", "code": "es" },
+  "language": {
+    "name": "Espanol",
+    "code": "es"
+  },
   "fields": {
     "nombre": "Nombre",
     "apellido": "Apellido",
     "email": "Correo electronico",
     "password": "Contrasena",
     "passwordConfirm": "Confirmacion de contrasena",
+    "code": "Codigo de verificacion",
+    "token": "Enlace de recuperacion",
     "resetToken": "Token de recuperacion",
     "roleId": "Rol",
     "titulo": "Titulo",
@@ -38,10 +43,12 @@
     "invalidData": "Los datos enviados no son validos."
   },
   "messages": {
-    "registerSuccess": "Cuenta creada correctamente. Ya puedes iniciar sesion.",
+    "registerSuccess": "Cuenta creada. Revisa tu correo y abre el enlace de activacion antes de iniciar sesion.",
     "loginSuccess": "Sesion iniciada correctamente.",
     "logoutSuccess": "Sesion cerrada.",
-    "resetRequested": "Si el correo existe, se envio un enlace de recuperacion.",
+    "resetRequested": "Si el correo existe, enviamos un enlace de recuperacion.",
+    "verificationResent": "Si la cuenta esta pendiente, enviamos un nuevo enlace de activacion.",
+    "accountVerified": "Cuenta activada correctamente. Ya puedes iniciar sesion.",
     "passwordChanged": "Contrasena actualizada correctamente.",
     "subjectCreated": "Materia creada correctamente.",
     "associationRequested": "Solicitud de asociacion enviada al superadministrador.",
@@ -72,7 +79,9 @@
     "unauthorized": "No autorizado.",
     "forbidden": "No tienes permisos para realizar esta accion.",
     "invalidCredentials": "Credenciales invalidas.",
-    "invalidToken": "Token invalido o expirado.",
+    "invalidToken": "Enlace invalido o expirado.",
+    "accountNotVerified": "Debes activar tu cuenta desde el enlace enviado a tu correo antes de iniciar sesion.",
+    "accountDisabled": "Tu cuenta esta deshabilitada. Contacta al administrador.",
     "serverError": "Error interno del servidor."
   }
 }

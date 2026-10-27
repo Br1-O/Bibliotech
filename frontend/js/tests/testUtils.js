@@ -125,6 +125,78 @@ var testUtils = (function () {
             return (r.data && r.data.token) || null;
         },
 
+        /** Activa una cuenta con el token de desarrollo que expone la API. */
+        activateAccount: async function (token) {
+            var r = await api.request('/auth/activate', {
+                method: 'POST', body: { token: token }
+            });
+            api.assert(r.ok, 'No se pudo activar la cuenta: ' + (r.data && r.data.message));
+            return r;
+        },
+
+        /** Simula el clic en el enlace de activacion enviado por correo. */
+        activateAccountViaLink: async function (token) {
+            var base = api.apiBase.replace(/\/api\/?$/, '');
+            var res = await fetch(base + '/activar-cuenta/' + encodeURIComponent(token));
+            api.assert(res.ok, 'El enlace de activacion no respondio correctamente');
+            api.assert(res.url.indexOf('activacion=exitosa') !== -1, 'El enlace de activacion no confirmo la cuenta');
+            return res;
+        },
+
+        /** Registra un alumno, activa su cuenta y devuelve { id, email, token }. */
+        registerVerifiedAlumno: async function (suffix) {
+            var email = api.uniq(suffix || 'alumno') + '@bibliotech.edu';
+            var password = 'Alumno123';
+            var reg = await api.request('/auth/register', {
+                method: 'POST',
+                body: { nombre: 'Alumno', apellido: 'Verificado', email: email, password: password }
+            });
+            api.assert(reg.status === 201, 'Registro fallido: ' + (reg.data && reg.data.message));
+            api.assert(reg.data.devToken, 'La API no devolvio el token de activacion de desarrollo');
+            await api.activateAccount(reg.data.devToken);
+            var token = await api.login(email, password);
+            api.assert(token, 'Login fallido tras verificar la cuenta');
+            return { id: reg.data.user.id, email: email, password: password, token: token };
+        },
+
+        /** Crea una materia asignada al profesor semilla y devuelve su id. */
+        createProfessorSubject: async function (prefix) {
+            var admin = await api.login(api.accounts.admin.email, api.accounts.admin.password);
+            api.assert(admin, 'No se pudo iniciar sesion como admin');
+            var r = await api.request('/subjects', {
+                method: 'POST', token: admin,
+                body: {
+                    nombre: api.uniq(prefix || 'Materia Profesor'),
+                    descripcion: 'Materia de pruebas',
+                    profesorId: 2
+                }
+            });
+            api.assert(r.status === 201, 'No se pudo crear la materia del profesor');
+            return r.data.subject.id;
+        },
+
+        /** Reutiliza una materia del profesor durante toda la suite. */
+        professorSubject: async function () {
+            if (!api._professorSubject) {
+                api._professorSubject = await api.createProfessorSubject('Materia Suite');
+            }
+            return api._professorSubject;
+        },
+
+        createUnassignedSubject: async function (prefix) {
+            var admin = await api.login(api.accounts.admin.email, api.accounts.admin.password);
+            api.assert(admin, 'No se pudo iniciar sesion como admin');
+            var r = await api.request('/subjects', {
+                method: 'POST', token: admin,
+                body: {
+                    nombre: api.uniq(prefix || 'Materia Sin Profesor'),
+                    descripcion: 'Materia de pruebas sin titular'
+                }
+            });
+            api.assert(r.status === 201, 'No se pudo crear la materia sin profesor');
+            return r.data.subject.id;
+        },
+
         /** Construye un FormData de subida de material con un PDF simulado. */
         pdfForm: function (fields, content) {
             var form = new FormData();

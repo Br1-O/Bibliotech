@@ -92,10 +92,23 @@ document.addEventListener('bt:ready', () => {
         const start = (subscriptionPage - 1) * SUBSCRIPTION_PAGE_SIZE;
         const pageItems = allSubscriptions.slice(start, start + SUBSCRIPTION_PAGE_SIZE);
 
-        render(subscriptionsList, pageItems.map(s => el('div', { className: 'bt-row bt-between bt-panel' }, [
-            el('a', { text: s.materiaNombre || `Materia #${s.materia_id}`, attrs: { href: `/materia/${s.materia_id}` } }),
-            el('span', { className: `bt-badge bt-badge--${s.estado === 'Baneado' ? 'danger' : 'success'}`, text: s.estado })
-        ])));
+        render(subscriptionsList, pageItems.map(s => {
+            const subjectId = s.materiaId ?? s.materia_id;
+            const subjectName = s.materiaNombre || s.materia_nombre || `Materia #${subjectId}`;
+            return el('div', { className: 'bt-row bt-between bt-panel' }, [
+                el('div', { className: 'bt-stack', style: { gap: '2px' } }, [
+                    el('a', { text: subjectName, attrs: { href: `/materia/${subjectId}` } }),
+                    el('span', { className: 'bt-card__meta', text: s.profesorNombre || s.profesor_nombre || '' })
+                ]),
+                el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, [
+                    el('span', { className: `bt-badge bt-badge--${s.estado === 'Baneado' ? 'danger' : 'success'}`, text: s.estado }),
+                    el('bt-button', {
+                        size: 'sm', variant: 'ghost', label: LanguageManager.t('subjects.unsubscribe'),
+                        on: { click: () => unsubscribe(subjectId) }
+                    })
+                ])
+            ]);
+        }));
 
         Pagination.render(subscriptionsPagination, {
             page: subscriptionPage,
@@ -103,6 +116,20 @@ document.addEventListener('bt:ready', () => {
             pageSize: SUBSCRIPTION_PAGE_SIZE,
             onChange: (page) => { subscriptionPage = page; renderSubscriptions(); }
         });
+    }
+
+    async function unsubscribe(subjectId) {
+        const confirmed = await Modal.confirm({
+            title: LanguageManager.t('subjects.unsubscribe'),
+            message: LanguageManager.t('messages.deleteConfirm'),
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+        try {
+            await apiService.del(`/subscriptions/subscribe/${subjectId}`);
+            Toast.success(LanguageManager.t('messages.unsubscribed'));
+            await loadSubscriptions();
+        } catch (error) { Toast.error(error.message); }
     }
 
     function updateStats(pendingCount) {
@@ -133,11 +160,17 @@ document.addEventListener('bt:ready', () => {
         const urlOrPath = (data.get('urlOrPath') || '').trim();
         const selectedSubjects = Array.from(subjectsSelect.selectedOptions).map(o => o.value);
 
-        const errors = Validator.validate([
-            { name: 'titulo', label: LanguageManager.t('material.title'), value: data.get('titulo'), checks: [{ type: 'required' }] },
-            { name: 'subjects', label: LanguageManager.t('material.subjects'), value: selectedSubjects.join(','), checks: [{ type: 'required' }] }
-        ]);
-        if (!Validator.renderErrors(form, errors)) return;
+        Validator.clear(form);
+        const valid = Validator.on(form)
+            .required('titulo', LanguageManager.t('material.title'))
+            .minLength('titulo', 3, LanguageManager.t('material.title'))
+            .validateThis()
+            .show();
+        if (!valid) return;
+        if (!selectedSubjects.length) {
+            Toast.error(LanguageManager.t('validation.required', { field: LanguageManager.t('material.subjects') }));
+            return;
+        }
 
         if (!file && !urlOrPath) {
             Toast.error(LanguageManager.t('validation.required', { field: LanguageManager.t('material.file') }));
@@ -157,11 +190,11 @@ document.addEventListener('bt:ready', () => {
         try {
             btn.setLoading(true);
             const result = await apiService.upload('/materials/upload', payload);
-            Toast.success(result.message);
+            Toast.success(LanguageManager.tr(result.message));
             form.reset();
             loadPending();
         } catch (error) {
-            Toast.error(error.message);
+            if (!Validator.applyServerErrors(form, error)) Toast.error(error.message);
         } finally {
             btn.setLoading(false);
         }

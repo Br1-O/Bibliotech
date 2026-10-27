@@ -1,6 +1,7 @@
 /**
 * Project     : Bibliotech  |  Frontend - Controlador
-* authFrontController: login, registro y recuperacion de contrasena (RF-01).
+* authFrontController: login, registro, verificacion de cuenta y recuperacion
+* de contrasena (RF-01 / RD-03).
 */
 
 document.addEventListener('bt:ready', () => {
@@ -20,27 +21,68 @@ function setBusy(form, busy) {
     busy ? Loader.show() : Loader.hide();
 }
 
+function showAlert(id, message, type = 'error') {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.textContent = message || '';
+    node.style.color = type === 'success' ? 'var(--color-success)' : 'var(--color-danger)';
+    node.style.background = type === 'success' ? 'var(--color-success-soft)' : 'var(--color-danger-soft)';
+}
+
+function translate(message) {
+    return LanguageManager.tr(message);
+}
+
+function currentResetToken() {
+    const match = window.location.pathname.match(/\/restablecer-password\/([^/?#]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+function showActivationNotice() {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('activacion');
+    if (!status) return;
+
+    if (status === 'exitosa') Toast.success(translate('messages.accountVerified'));
+    else Toast.error(translate('errors.invalidToken'));
+
+    params.delete('activacion');
+    const query = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : ''));
+}
+
 function bindLogin() {
     const form = document.getElementById('loginForm');
     if (!form) return;
 
+    showActivationNotice();
+
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        Validator.clear(form);
+        showAlert('loginAlert', '');
+
         const data = fieldValues(form);
-        const errors = Validator.validate([
-            { name: 'email', label: LanguageManager.t('auth.email'), value: data.email, checks: [{ type: 'required' }, { type: 'email' }] },
-            { name: 'password', label: LanguageManager.t('auth.password'), value: data.password, checks: [{ type: 'required' }] }
-        ]);
-        if (!Validator.renderErrors(form, errors)) return;
+        const valid = Validator.on(form)
+            .required('email', LanguageManager.t('auth.email'))
+            .email('email', LanguageManager.t('auth.email'))
+            .required('password', LanguageManager.t('auth.password'))
+            .validateThis()
+            .show();
+        if (!valid) return;
 
         try {
             setBusy(form, true);
             const result = await apiService.post('/auth/login', { email: data.email, password: data.password });
             authHelper.saveSession(result.token, result.user);
-            Toast.success(LanguageManager.t('common.welcome'));
+            Toast.success(translate(result.message || 'common.welcome'));
             window.location.href = authHelper.panelRoute();
         } catch (error) {
-            Toast.error(error.message);
+            if (error.code === 'errors.accountNotVerified') {
+                showAlert('loginAlert', error.message);
+            } else {
+                Toast.error(error.message);
+            }
         } finally {
             setBusy(form, false);
         }
@@ -53,22 +95,44 @@ function bindRegister() {
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        Validator.clear(form);
+        showAlert('registerAlert', '');
+
         const data = fieldValues(form);
-        const errors = Validator.validate([
-            { name: 'nombre', label: LanguageManager.t('auth.firstName'), value: data.nombre, checks: [{ type: 'required' }, { type: 'minLength', param: 2 }] },
-            { name: 'apellido', label: LanguageManager.t('auth.lastName'), value: data.apellido, checks: [{ type: 'required' }, { type: 'minLength', param: 2 }] },
-            { name: 'email', label: LanguageManager.t('auth.email'), value: data.email, checks: [{ type: 'required' }, { type: 'email' }] },
-            { name: 'password', label: LanguageManager.t('auth.password'), value: data.password, checks: [{ type: 'required' }, { type: 'password' }] }
-        ]);
-        if (!Validator.renderErrors(form, errors)) return;
+        const valid = Validator.on(form)
+            .required('nombre', LanguageManager.t('auth.firstName'))
+            .minLength('nombre', 2, LanguageManager.t('auth.firstName'))
+            .required('apellido', LanguageManager.t('auth.lastName'))
+            .minLength('apellido', 2, LanguageManager.t('auth.lastName'))
+            .required('email', LanguageManager.t('auth.email'))
+            .email('email', LanguageManager.t('auth.email'))
+            .required('password', LanguageManager.t('auth.password'))
+            .password('password', LanguageManager.t('auth.password'))
+            .required('passwordConfirm', LanguageManager.t('auth.repeatPassword'))
+            .match('passwordConfirm', 'password', LanguageManager.t('auth.repeatPassword'))
+            .validateThis()
+            .show();
+        if (!valid) return;
 
         try {
             setBusy(form, true);
-            await apiService.post('/auth/register', data);
-            await Modal.alert(LanguageManager.t('common.successTitle'), LanguageManager.t('messages.registerSuccess'));
+            const result = await apiService.post('/auth/register', {
+                nombre: data.nombre,
+                apellido: data.apellido,
+                email: data.email,
+                password: data.password,
+                passwordConfirm: data.passwordConfirm
+            });
+
+            await Modal.alert(
+                LanguageManager.t('common.successTitle'),
+                translate(result.message || 'messages.registerSuccess')
+            );
             window.location.href = '/login';
         } catch (error) {
-            Toast.error(error.message);
+            if (!Validator.applyServerErrors(form, error)) {
+                showAlert('registerAlert', error.message);
+            }
         } finally {
             setBusy(form, false);
         }
@@ -81,52 +145,81 @@ function bindForgot() {
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        Validator.clear(form);
+
         const data = fieldValues(form);
-        const errors = Validator.validate([
-            { name: 'email', label: LanguageManager.t('auth.email'), value: data.email, checks: [{ type: 'required' }, { type: 'email' }] }
-        ]);
-        if (!Validator.renderErrors(form, errors)) return;
+        const valid = Validator.on(form)
+            .required('email', LanguageManager.t('auth.email'))
+            .email('email', LanguageManager.t('auth.email'))
+            .validateThis()
+            .show();
+        if (!valid) return;
 
         try {
             setBusy(form, true);
             const result = await apiService.post('/auth/forgot-password', { email: data.email });
-            // En un entorno real el token viaja por correo; aqui se ofrece el enlace.
-            if (result.token) {
-                window.location.href = `/reset-password?token=${encodeURIComponent(result.token)}`;
-            } else {
-                await Modal.alert(LanguageManager.t('common.successTitle'), result.message);
-            }
+            await Modal.alert(LanguageManager.t('common.successTitle'), translate(result.message || 'messages.resetRequested'));
+            form.reset();
         } catch (error) {
-            Toast.error(error.message);
+            if (!Validator.applyServerErrors(form, error)) Toast.error(error.message);
         } finally {
             setBusy(form, false);
         }
     });
 }
 
+function markResetInvalid() {
+    const form = document.getElementById('resetForm');
+    if (form) form.hidden = true;
+    showAlert('resetAlert', translate('errors.invalidToken'));
+}
+
 function bindReset() {
     const form = document.getElementById('resetForm');
     if (!form) return;
 
-    const token = new URLSearchParams(window.location.search).get('token') || '';
+    const token = currentResetToken();
     const tokenInput = form.querySelector('[name="token"]');
     if (tokenInput) tokenInput.value = token;
+    if (!token) {
+        markResetInvalid();
+        return;
+    }
+
+    apiService.get(`/auth/reset-password/${encodeURIComponent(token)}/validate`)
+        .then(result => { if (!result.valid) markResetInvalid(); })
+        .catch(markResetInvalid);
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        Validator.clear(form);
+        showAlert('resetAlert', '');
+
         const data = fieldValues(form);
-        const errors = Validator.validate([
-            { name: 'password', label: LanguageManager.t('auth.password'), value: data.password, checks: [{ type: 'required' }, { type: 'password' }] }
-        ]);
-        if (!Validator.renderErrors(form, errors)) return;
+        const valid = Validator.on(form)
+            .required('password', LanguageManager.t('auth.newPassword'))
+            .password('password', LanguageManager.t('auth.newPassword'))
+            .required('passwordConfirm', LanguageManager.t('auth.repeatPassword'))
+            .match('passwordConfirm', 'password', LanguageManager.t('auth.repeatPassword'))
+            .validateThis()
+            .show();
+        if (!valid) return;
+        if (!data.token) {
+            markResetInvalid();
+            return;
+        }
 
         try {
             setBusy(form, true);
-            await apiService.post('/auth/reset-password', { token: data.token, password: data.password });
-            await Modal.alert(LanguageManager.t('common.successTitle'), LanguageManager.t('messages.passwordChanged'));
+            const result = await apiService.post('/auth/reset-password', {
+                token: data.token,
+                password: data.password,
+                passwordConfirm: data.passwordConfirm
+            });
+            await Modal.alert(LanguageManager.t('common.successTitle'), translate(result.message || 'messages.passwordChanged'));
             window.location.href = '/login';
         } catch (error) {
-            Toast.error(error.message);
+            if (!Validator.applyServerErrors(form, error)) showAlert('resetAlert', error.message);
         } finally {
             setBusy(form, false);
         }

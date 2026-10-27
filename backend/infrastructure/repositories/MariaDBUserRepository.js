@@ -10,7 +10,8 @@ const User = require('../../domain/entities/User');
 const SELECT_USER = `
     SELECT u.id, u.role_id AS roleId, r.nombre AS roleNombre, u.nombre, u.apellido,
            u.email, u.password, u.reset_token AS resetToken, u.estado,
-           u.token_expiration AS tokenExpiration, u.created_at AS createdAt
+           u.token_expiration AS tokenExpiration, u.created_at AS createdAt,
+           u.verification_token AS verificationToken, u.verification_expires AS verificationExpires
     FROM users u
     INNER JOIN roles r ON r.id = u.role_id
 `;
@@ -74,6 +75,27 @@ class MariaDBUserRepository extends UserRepositoryInterface {
 
     async softDelete(id) {
         const [res] = await db.execute("UPDATE users SET estado = 'Inactivo' WHERE id = ?", [id]);
+        return res.affectedRows > 0;
+    }
+
+    async setVerificationToken(email, token, expiration) {
+        const [res] = await db.execute(
+            `UPDATE users SET verification_token = ?, verification_expires = ?, estado = 'PendienteVerificacion' WHERE email = ?`,
+            [token, expiration, email]
+        );
+        return res.affectedRows > 0;
+    }
+
+    async findByVerificationToken(token) {
+        const [rows] = await db.execute(`${SELECT_USER} WHERE u.verification_token = ?`, [token]);
+        return mapUser(rows[0]);
+    }
+
+    async verifyUser(id) {
+        const [res] = await db.execute(
+            `UPDATE users SET estado = 'Activo', verification_token = NULL, verification_expires = NULL WHERE id = ?`,
+            [id]
+        );
         return res.affectedRows > 0;
     }
 

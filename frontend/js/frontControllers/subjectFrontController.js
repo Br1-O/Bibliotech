@@ -64,11 +64,11 @@ document.addEventListener('bt:ready', () => {
     }
 
     function buildSubscribeButton(subject) {
-        const btn = el('bt-button', { variant: 'success', label: LanguageManager.t('subject.subscribe') });
+        const btn = el('bt-button', { variant: 'success', 'label-i18n': 'subject.subscribe' });
         apiService.get('/subscriptions/mine').then(({ subscriptions }) => {
-            const subscribed = subscriptions.some(s => String(s.materia_id) === String(subject.id));
+            const subscribed = subscriptions.some(s => String(s.materiaId ?? s.materia_id) === String(subject.id));
             btn.setAttribute('variant', subscribed ? 'secondary' : 'success');
-            btn.setAttribute('label', LanguageManager.t(subscribed ? 'subject.subscribed' : 'subject.subscribe'));
+            btn.setAttribute('label-i18n', subscribed ? 'subject.subscribed' : 'subject.subscribe');
         });
         btn.addEventListener('click', async () => {
             const subscribed = btn.getAttribute('variant') === 'secondary';
@@ -110,6 +110,14 @@ document.addEventListener('bt:ready', () => {
     editForm?.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!editingMaterial) return;
+        Validator.clear(editForm);
+        const valid = Validator.on(editForm)
+            .required('titulo', LanguageManager.t('material.title'))
+            .minLength('titulo', 3, LanguageManager.t('material.title'))
+            .validateThis()
+            .show();
+        if (!valid) return;
+
         const btn = editForm.querySelector('bt-button');
         try {
             btn?.setLoading(true);
@@ -117,11 +125,11 @@ document.addEventListener('bt:ready', () => {
                 titulo: editTitulo?.value || '',
                 descripcion: editDesc?.value || ''
             });
-            Toast.success(result.message);
+            Toast.success(LanguageManager.tr(result.message));
             closeEditPanel();
             await loadMaterials();
         } catch (error) {
-            Toast.error(error.message);
+            if (!Validator.applyServerErrors(editForm, error)) Toast.error(error.message);
         } finally {
             btn?.setLoading(false);
         }
@@ -139,7 +147,7 @@ document.addEventListener('bt:ready', () => {
         if (!confirmed) return;
         try {
             const result = await apiService.del(`/materials/${material.id}/subjects/${subjectId}`);
-            Toast.success(result.message);
+            Toast.success(LanguageManager.tr(result.message));
             if (editingMaterial && editingMaterial.id === material.id) closeEditPanel();
             await loadMaterials();
         } catch (error) {

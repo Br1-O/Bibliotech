@@ -12,6 +12,8 @@ require('dotenv').config();
 
 const multer = require('multer');
 const path = require('path');
+const crypto = require('crypto');
+const { PassThrough } = require('stream');
 
 const FILES_MODE = process.env.FILES_MODE || 'local';
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -31,7 +33,25 @@ if (process.env.FILES_MODE === 'cloud') {
         api_secret: process.env.CLOUDINARY_API_SECRET
     });
 
-    const storage = new CloudinaryStorage({
+    // Cloudinary no expone el contenido del archivo, por lo que calculamos el
+    // hash SHA-256 mientras Multer lo transmite para detectar duplicados (RD-05).
+    class HashingCloudinaryStorage extends CloudinaryStorage {
+        _handleFile(req, file, callback) {
+            const hasher = crypto.createHash('sha256');
+            const pass = new PassThrough();
+            file.stream.on('data', chunk => hasher.update(chunk));
+            file.stream.pipe(pass);
+            const uploadFile = Object.assign({}, file, { stream: pass });
+
+            super._handleFile(req, uploadFile, (error, info) => {
+                if (error) return callback(error);
+                info.fileHash = hasher.digest('hex');
+                callback(undefined, info);
+            });
+        }
+    }
+
+    const storage = new HashingCloudinaryStorage({
         cloudinary: cloudinary,
         params: async (req, file) => {
             const ext = path.extname(file.originalname).toLowerCase();

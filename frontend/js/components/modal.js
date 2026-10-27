@@ -10,26 +10,30 @@ const Modal = (() => {
 
     function ensure() {
         if (root) return root;
-        const title = el('h3', { className: 'bt-card__title' });
-        const body = el('div', { className: 'bt-card__meta', style: { color: 'var(--text-secondary)' } });
+        const title = el('h3', { className: 'bt-modal__title' });
+        const body = el('p', { className: 'bt-modal__body' });
         const cancelBtn = el('bt-button', { variant: 'ghost' });
         const confirmBtn = el('bt-button', { variant: 'primary' });
 
         cancelBtn.addEventListener('click', () => close(false));
         confirmBtn.addEventListener('click', () => close(true));
 
-        const content = el('div', { className: 'bt-auth__card' }, [
-            el('div', { style: { marginBottom: 'var(--space-3)' } }, [title]),
+        const content = el('div', { className: 'bt-modal__content', attrs: { role: 'document' } }, [
+            el('div', { className: 'bt-modal__header' }, [title]),
             body,
-            el('div', { className: 'bt-row bt-between', style: { marginTop: 'var(--space-5)' } }, [cancelBtn, confirmBtn])
+            el('div', { className: 'bt-modal__footer' }, [cancelBtn, confirmBtn])
         ]);
 
         root = el('div', {
-            className: 'bt-loader-overlay',
+            className: 'bt-modal',
             attrs: { role: 'dialog', 'aria-modal': 'true' },
             on: { click: (e) => { if (e.target === root) close(false); } }
         }, [content]);
         document.body.appendChild(root);
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && root.hasAttribute('open')) close(false);
+        });
         return root;
     }
 
@@ -40,8 +44,8 @@ const Modal = (() => {
 
     function open({ title, message, confirmText, cancelText, hideCancel = false, variant = 'primary' }) {
         const node = ensure();
-        node.querySelector('.bt-card__title').textContent = title || '';
-        node.querySelector('.bt-card__meta').textContent = message || '';
+        node.querySelector('.bt-modal__title').textContent = title || '';
+        node.querySelector('.bt-modal__body').textContent = message || '';
 
         const [cancelBtn, confirmBtn] = node.querySelectorAll('bt-button');
         cancelBtn.setAttribute('label', cancelText || LanguageManager.t('common.cancel'));

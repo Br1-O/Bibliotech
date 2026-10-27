@@ -1,6 +1,7 @@
 /**
 * Project     : Bibliotech  |  Frontend - Controlador
-* catalogFrontController: vista global del catalogo y materias (RF-04.1, RF-03).
+* catalogFrontController: vista global del catalogo, materias y seccion de
+* suscripciones del alumno (RF-03, RF-04.1).
 */
 
 document.addEventListener('bt:ready', () => {
@@ -9,6 +10,9 @@ document.addEventListener('bt:ready', () => {
 
     const subjectsGrid = document.getElementById('subjectsGrid');
     const subjectsPagination = document.getElementById('subjectsPagination');
+    const subscribedSection = document.getElementById('suscritas');
+    const subscribedGrid = document.getElementById('subscribedGrid');
+    const subscribedPagination = document.getElementById('subscribedPagination');
     const searchInput = document.getElementById('catalogSearch');
     const subjectFilter = document.getElementById('catalogSubjectFilter');
     const tagFilter = document.getElementById('catalogTagFilter');
@@ -21,26 +25,46 @@ document.addEventListener('bt:ready', () => {
     const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     let subscriptions = [];
     let allMaterials = [];
+    let allSubjectsCache = [];
     let materialPage = 1;
     let subjectPage = 1;
+    let subscribedPage = 1;
     let debounce;
+    let tagFilterControl = null;
 
     const isAlumno = authHelper.isRole('Alumno');
     const canFavorite = authHelper.isAuthenticated();
-    const subscribedToggle = document.getElementById('subscribedToggle');
+    const toggleSubscribedBtn = document.getElementById('toggleSubscribedBtn');
     const subscribedToggleWrap = document.getElementById('subscribedToggleWrap');
-    let allSubjectsCache = [];
+    let showOnlySubscribed = false;
 
-    if (isAlumno && subscribedToggleWrap) {
-        subscribedToggleWrap.classList.remove('bt-hidden');
-        subscribedToggle?.addEventListener('change', () => renderSubjectsList());
+    const subjectIdOf = (subscription) => String(subscription.materiaId ?? subscription.materia_id);
+    const isSubscribed = (id) => subscriptions.some(s => subjectIdOf(s) === String(id));
+
+    if (isAlumno) {
+        subscribedToggleWrap?.classList.remove('bt-hidden');
+        subscribedSection?.classList.remove('bt-hidden');
+        toggleSubscribedBtn?.addEventListener('click', () => {
+            showOnlySubscribed = !showOnlySubscribed;
+            updateToggleLabel();
+            subjectPage = 1;
+            renderSubjects();
+        });
+        updateToggleLabel();
+    }
+
+    function updateToggleLabel() {
+        if (!toggleSubscribedBtn) return;
+        toggleSubscribedBtn.setAttribute('label-i18n', showOnlySubscribed ? 'subjects.showAll' : 'subjects.onlySubscribed');
+        toggleSubscribedBtn.setAttribute('variant', showOnlySubscribed ? 'ghost' : 'secondary');
     }
 
     async function loadSubjects() {
         try {
             const { subjects } = await apiService.get('/subjects');
-            allSubjectsCache = subjects;
+            allSubjectsCache = subjects || [];
             renderSubjectsList();
+            renderSubscribed();
         } catch (error) {
             console.error(error);
         }
@@ -54,16 +78,13 @@ document.addEventListener('bt:ready', () => {
     function renderSubjects() {
         let subjects = [...allSubjectsCache];
         if (isAlumno) {
-            // subscribed first
             subjects.sort((a, b) => {
-                const as = subscriptions.some(s => String(s.materia_id) === String(a.id));
-                const bs = subscriptions.some(s => String(s.materia_id) === String(b.id));
+                const as = isSubscribed(a.id);
+                const bs = isSubscribed(b.id);
                 if (as !== bs) return as ? -1 : 1;
-                return 0;
+                return String(a.nombre).localeCompare(String(b.nombre));
             });
-            if (subscribedToggle?.checked) {
-                subjects = subjects.filter(s => subscriptions.some(sub => String(sub.materia_id) === String(s.id)));
-            }
+            if (showOnlySubscribed) subjects = subjects.filter(s => isSubscribed(s.id));
         }
         renderSubjectsGrid(subjects);
     }
@@ -71,8 +92,12 @@ document.addEventListener('bt:ready', () => {
     function renderSubjectsGrid(subjects) {
         if (!subjectsGrid) return;
         if (!subjects.length) {
-            render(subjectsGrid, Cards.empty(LanguageManager.t('subjects.noSubjects')));
+            const message = showOnlySubscribed && isAlumno
+                ? LanguageManager.t('subjects.noSubscribed')
+                : LanguageManager.t('subjects.noSubjects');
+            render(subjectsGrid, Cards.empty(message));
             Pagination.render(subjectsPagination, { total: 0, pageSize: SUBJECT_PAGE_SIZE });
+            updateSubjectFilter();
             return;
         }
 
@@ -92,19 +117,23 @@ document.addEventListener('bt:ready', () => {
             onChange: (page) => { subjectPage = page; renderSubjects(); }
         });
 
-        if (subjectFilter) {
-            // Conserva la opcion "todas" y agrega todas las materias.
-            const current = subjectFilter.value;
-            render(subjectFilter, [
-                el('option', { value: '', text: LanguageManager.t('catalog.allSubjects') }),
-                ...subjects.map(s => el('option', { value: String(s.id), text: s.nombre }))
-            ]);
-            subjectFilter.value = current;
-        }
+        updateSubjectFilter();
+    }
+
+    function updateSubjectFilter() {
+        if (!subjectFilter) return;
+        const current = subjectFilter.value;
+        const options = [...allSubjectsCache]
+            .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
+        render(subjectFilter, [
+            el('option', { value: '', text: LanguageManager.t('catalog.allSubjects') }),
+            ...options.map(s => el('option', { value: String(s.id), text: s.nombre }))
+        ]);
+        if ([...subjectFilter.options].some(o => o.value === current)) subjectFilter.value = current;
     }
 
     function buildSubscribeButton(subject) {
-        const subscribed = subscriptions.some(s => String(s.materia_id) === String(subject.id));
+        const subscribed = isSubscribed(subject.id);
         const btn = el('bt-button', {
             size: 'sm',
             variant: subscribed ? 'secondary' : 'success',
@@ -112,6 +141,7 @@ document.addEventListener('bt:ready', () => {
         });
         btn.addEventListener('click', async () => {
             try {
+                btn.setLoading(true);
                 if (subscribed) {
                     await apiService.del(`/subscriptions/subscribe/${subject.id}`);
                     Toast.success(LanguageManager.t('messages.unsubscribed'));
@@ -121,9 +151,9 @@ document.addEventListener('bt:ready', () => {
                 }
                 await loadSubscriptions();
                 renderSubjects();
+                renderSubscribed();
             } catch (error) {
                 Toast.error(error.message);
-            } finally {
                 btn.setLoading(false);
             }
         });
@@ -135,7 +165,57 @@ document.addEventListener('bt:ready', () => {
         try {
             const result = await apiService.get('/subscriptions/mine');
             subscriptions = result.subscriptions || [];
-        } catch (error) { subscriptions = []; }
+        } catch (error) {
+            subscriptions = [];
+        }
+    }
+
+    /** Materias del alumno: tarjetas de acceso rapido siempre visibles. */
+    function renderSubscribed() {
+        if (!isAlumno || !subscribedGrid) return;
+
+        const subjects = subscriptions.map(subscription => {
+            const id = subjectIdOf(subscription);
+            const cached = allSubjectsCache.find(s => String(s.id) === id);
+            return cached || {
+                id,
+                nombre: subscription.materiaNombre || subscription.materia_nombre || '',
+                descripcion: subscription.materiaDescripcion || subscription.materia_descripcion || '',
+                profesorNombre: subscription.profesorNombre || subscription.profesor_nombre || '',
+                totalMateriales: subscription.totalMateriales ?? subscription.total_materiales ?? 0
+            };
+        }).filter(subject => subject.nombre);
+
+        if (!subjects.length) {
+            render(subscribedGrid, Cards.empty(LanguageManager.t('subjects.noSubscribed')));
+            Pagination.render(subscribedPagination, { total: 0, pageSize: SUBJECT_PAGE_SIZE });
+            return;
+        }
+
+        const totalPages = Pagination.totalPages(subjects.length, SUBJECT_PAGE_SIZE);
+        if (subscribedPage > totalPages) subscribedPage = totalPages;
+        const start = (subscribedPage - 1) * SUBJECT_PAGE_SIZE;
+        const pageItems = subjects.slice(start, start + SUBJECT_PAGE_SIZE);
+
+        render(subscribedGrid, pageItems.map(subject => Cards.subject(subject, {
+            subscribeButton: buildSubscribeButton(subject)
+        })));
+        Pagination.render(subscribedPagination, {
+            page: subscribedPage,
+            total: subjects.length,
+            pageSize: SUBJECT_PAGE_SIZE,
+            onChange: (page) => { subscribedPage = page; renderSubscribed(); }
+        });
+    }
+
+    function currentTagQuery() {
+        const values = tagFilterControl ? tagFilterControl.getTags() : [];
+        const draft = (tagFilter?.value || '').split(',').map(value => value.trim()).filter(Boolean);
+        const unique = [];
+        [...values, ...draft].forEach(value => {
+            if (!unique.some(tag => tag.toLowerCase() === value.toLowerCase())) unique.push(value);
+        });
+        return unique.join(',');
     }
 
     async function loadMaterials() {
@@ -144,7 +224,7 @@ document.addEventListener('bt:ready', () => {
             const result = await apiService.get('/materials/global', {
                 q: searchInput?.value || '',
                 subjects: subjectFilter?.value || '',
-                tags: tagFilter?.value || ''
+                tags: currentTagQuery()
             });
             allMaterials = result.materials || [];
             materialPage = 1;
@@ -201,35 +281,40 @@ document.addEventListener('bt:ready', () => {
         });
     }
 
-    // Filtros con debounce sobre el texto libre.
-    searchInput?.addEventListener('input', () => {
+    function scheduleMaterialLoad() {
         clearTimeout(debounce);
         debounce = setTimeout(loadMaterials, 300);
-    });
+    }
+
+    if (tagFilter && window.BTTagInput) {
+        tagFilterControl = window.BTTagInput(tagFilter, { onChange: scheduleMaterialLoad });
+    }
+
+    searchInput?.addEventListener('input', scheduleMaterialLoad);
     subjectFilter?.addEventListener('change', loadMaterials);
-    tagFilter?.addEventListener('input', () => {
-        clearTimeout(debounce);
-        debounce = setTimeout(loadMaterials, 300);
-    });
+    tagFilter?.addEventListener('input', scheduleMaterialLoad);
 
     sortSelect?.addEventListener('change', () => { materialPage = 1; applyAndRender(); });
 
     clearButton?.addEventListener('click', () => {
         if (searchInput) searchInput.value = '';
         if (subjectFilter) subjectFilter.value = '';
-        if (tagFilter) tagFilter.value = '';
+        if (tagFilterControl) tagFilterControl.clear(false);
+        else if (tagFilter) tagFilter.value = '';
         if (sortSelect) sortSelect.value = 'newest';
+        clearTimeout(debounce);
         loadMaterials();
     });
 
-    // Estado inicial.
+    LanguageManager.onChange(() => {
+        updateToggleLabel();
+        renderSubjects();
+        renderSubscribed();
+        applyAndRender();
+    });
+
     (async () => {
-        if (isAlumno) {
-            try {
-                const mine = await apiService.get('/subscriptions/mine');
-                subscriptions = mine.subscriptions || [];
-            } catch (error) { /* visitante */ }
-        }
+        await loadSubscriptions();
         await loadSubjects();
         await loadMaterials();
     })();

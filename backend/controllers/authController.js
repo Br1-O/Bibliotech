@@ -11,8 +11,8 @@ module.exports = (container) => {
     return {
         async register(req, res, next) {
             try {
-                const user = await authService.register(req.body);
-                return ok(req, res, { message: 'messages.registerSuccess', user }, 201);
+                const result = await authService.register(req.body);
+                return ok(req, res, { message: 'messages.registerSuccess', ...result }, 201);
             } catch (error) { return next(error); }
         },
 
@@ -37,9 +37,46 @@ module.exports = (container) => {
             } catch (error) { return next(error); }
         },
 
+        async verifyAccount(req, res, next) {
+            try {
+                const source = { ...(req.query || {}), ...(req.body || {}) };
+                const result = await authService.verifyAccount({
+                    token: source.token || source.code,
+                    email: source.email || null
+                });
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
+        async activateAccount(req, res, next) {
+            try {
+                const token = req.params.token || (req.body && req.body.token);
+                const result = await authService.activateAccount(token);
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
+        async validateResetToken(req, res, next) {
+            try {
+                const valid = await authService.validateResetToken(req.params.token);
+                return ok(req, res, { valid });
+            } catch (error) { return next(error); }
+        },
+
+        async resendVerification(req, res, next) {
+            try {
+                const result = await authService.resendVerification(req.body.email);
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
         async resetPassword(req, res, next) {
             try {
-                const result = await authService.resetPassword(req.body.token, req.body.password);
+                const result = await authService.resetPassword(
+                    req.body.token || req.body.code,
+                    req.body.password,
+                    req.body.passwordConfirm
+                );
                 return ok(req, res, result);
             } catch (error) { return next(error); }
         },

@@ -22,6 +22,12 @@ const hashHelper = {
     /** Token aleatorio para recuperacion de contrasena. */
     randomToken(bytes = 32) {
         return crypto.randomBytes(bytes).toString('hex');
+    },
+
+    /** Codigo numerico de un solo uso para correos de verificacion/recuperacion. */
+    randomCode(length = 6) {
+        const max = (10 ** length) - 1;
+        return String(crypto.randomInt(0, max + 1)).padStart(length, '0');
     }
 };
 

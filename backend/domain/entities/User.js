@@ -15,7 +15,9 @@ class User {
         resetToken = null,
         tokenExpiration = null,
         createdAt = null,
-        estado = 'Activo'
+        estado = 'Activo',
+        verificationToken = null,
+        verificationExpires = null
     }) {
         this.id = id;
         this.roleId = roleId;
@@ -28,6 +30,8 @@ class User {
         this.tokenExpiration = tokenExpiration;
         this.createdAt = createdAt;
         this.estado = estado || 'Activo';
+        this.verificationToken = verificationToken;
+        this.verificationExpires = verificationExpires;
     }
 
     get nombreCompleto() {
@@ -52,7 +56,7 @@ class User {
 
     /** Limpia los datos sensibles antes de exponer el usuario por la API. */
     toSafeJSON() {
-        const { password, resetToken, tokenExpiration, ...safe } = this;
+        const { password, resetToken, tokenExpiration, verificationToken, verificationExpires, ...safe } = this;
         return { ...safe, nombreCompleto: this.nombreCompleto };
     }
 }

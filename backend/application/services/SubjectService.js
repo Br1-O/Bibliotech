@@ -7,7 +7,6 @@ const Subject = require('../../domain/entities/Subject');
 const AuditLog = require('../../domain/entities/AuditLog');
 const AppError = require('../../utils/AppError');
 const ValidationHandler = require('../../validator/ValidationHandler');
-const ValidationError = require('../../validator/ValidationError');
 const Required = require('../../validator/rules/Required');
 const Length = require('../../validator/rules/Length');
 
@@ -24,7 +23,7 @@ class SubjectService {
             .with(new Required('nombre'))
             .with(new Length('nombre', { min: 2, max: 100 }))
             .with(new Length('descripcion', { min: 0, max: 500 }));
-        if (!validator.validateThis(dto)) throw new ValidationError(validator.getErrors());
+        if (!validator.validateThis(dto)) throw validator.toError();
 
         if (dto.profesorId) {
             const profesor = await this.userRepository.findById(dto.profesorId);
@@ -87,11 +86,25 @@ class SubjectService {
     async updateSubject(subjectId, dto, usuarioId = null) {
         const subject = await this.subjectRepository.findById(subjectId);
         if (!subject) throw new AppError('errors.notFound', { status: 404 });
+
         const updates = {};
-        if (dto.nombre !== undefined && dto.nombre !== null) updates.nombre = dto.nombre;
+        if (dto.nombre !== undefined && dto.nombre !== null) updates.nombre = String(dto.nombre).trim();
         if (dto.descripcion !== undefined) updates.descripcion = dto.descripcion;
         if (dto.profesorId !== undefined) updates.profesorId = dto.profesorId === '' ? null : dto.profesorId;
+
+        if (updates.nombre !== undefined) {
+            const validator = new ValidationHandler(this.languageManager)
+                .with(new Required('nombre'))
+                .with(new Length('nombre', { min: 2, max: 100 }));
+            if (!validator.validateThis({ nombre: updates.nombre })) throw validator.toError();
+        }
+        if (updates.profesorId) {
+            const profesor = await this.userRepository.findById(updates.profesorId);
+            if (!profesor || !profesor.isProfesor()) throw new AppError('errors.notFound', { status: 404 });
+        }
+
         await this.subjectRepository.update(subjectId, updates);
+        await this.auditLogService.record(AuditLog.OPERACIONES.MODIFICACION_MATERIA, usuarioId, subjectId);
         return this.subjectRepository.findById(subjectId);
     }
 }

@@ -7,6 +7,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     await LanguageManager.init();
     // Los componentes reutilizables se montan cuando el DOM ya existe.
-    if (window.Loader) Loader.hide();
+    if (typeof PasswordField !== 'undefined') PasswordField.enhanceAll(document);
     document.dispatchEvent(new CustomEvent('bt:ready'));
+    if (typeof Loader !== 'undefined') Loader.pageReady();
 });

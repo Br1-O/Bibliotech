@@ -13,7 +13,8 @@ function errorMiddleware(err, req, res, next) {
     if (err instanceof ValidationError) {
         return res.status(err.status || 422).json({
             message: t('validation.invalidData'),
-            errors: err.errors
+            errors: err.errors,
+            fields: err.fields || {}
         });
     }
 

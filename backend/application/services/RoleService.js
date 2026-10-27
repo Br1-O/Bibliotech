@@ -7,7 +7,6 @@ const Role = require('../../domain/entities/Role');
 const AuditLog = require('../../domain/entities/AuditLog');
 const AppError = require('../../utils/AppError');
 const ValidationHandler = require('../../validator/ValidationHandler');
-const ValidationError = require('../../validator/ValidationError');
 const Required = require('../../validator/rules/Required');
 const Length = require('../../validator/rules/Length');
 
@@ -24,7 +23,7 @@ class RoleService {
             .with(new Length('nombre', { min: 2, max: 50 }));
 
         if (!validator.validateThis(dto)) {
-            throw new ValidationError(validator.getErrors());
+            throw validator.toError();
         }
 
         const existing = await this.roleRepository.findByName(dto.nombre);

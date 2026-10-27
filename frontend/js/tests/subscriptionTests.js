@@ -16,12 +16,7 @@ async function crearMateriaObserver() {
 
 /** Registra un alumno nuevo y devuelve { id, email, token }. */
 async function crearAlumnoNuevo() {
-    const email = testUtils.uniq('alumno-sus') + '@bibliotech.edu';
-    const registro = await testUtils.request('/auth/register', {
-        method: 'POST', body: { nombre: 'Suscriptor', apellido: 'Alumno', email, password: 'Alumno123' }
-    });
-    const token = await testUtils.login(email, 'Alumno123');
-    return { id: registro.data.user.id, email, token };
+    return testUtils.registerVerifiedAlumno('alumno-sus');
 }
 
 // --- Suscripcion + notificacion de observadores ---

@@ -20,7 +20,7 @@ module.exports = (container) => {
     router.post('/upload', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), uploadRateLimit(), upload, controller.upload);
     router.post('/:id/approve', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.approve);
     router.post('/:id/reject', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.reject);
-    router.post('/:id/associate', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.associate);
+    router.post('/:id/associate', verifyToken, requireRole(Role.PROFESOR), controller.associate);
     router.post('/:id/cancel', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), controller.cancel);
     router.put('/:id', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.update);
     router.delete('/:id/subjects/:subjectId', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.remove);

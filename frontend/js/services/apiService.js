@@ -11,7 +11,6 @@ const apiService = {
         const token = authHelper.getToken();
         const lang = LanguageManager.language;
 
-        const separator = endpoint.includes('?') ? '&' : '?';
         const url = `/api${endpoint}${endpoint.includes('?') ? '&' : '?'}lang=${lang}`;
 
         const headers = {};
@@ -23,23 +22,29 @@ const apiService = {
             config.body = (data instanceof FormData) ? data : JSON.stringify(data);
         }
 
+        const requestEvent = new CustomEvent('bt:api-start', { detail: { method, endpoint } });
+        document.dispatchEvent(requestEvent);
+
         let response;
         try {
             response = await fetch(url, config);
         } catch (error) {
             throw new Error(LanguageManager.t('errors.network'));
-        }
-
-        if (response.status === 401) {
-            authHelper.logout();
-            throw new Error(LanguageManager.t('errors.unauthorized'));
+        } finally {
+            document.dispatchEvent(new CustomEvent('bt:api-end', { detail: { method, endpoint } }));
         }
 
         const body = await response.json().catch(() => ({}));
 
         if (!response.ok) {
             const err = new Error(body.message || LanguageManager.t('errors.serverError'));
-            error.errors = body.errors || [];
+            err.status = response.status;
+            err.code = body.code || null;
+            err.errors = body.errors || [];
+            err.fields = body.fields || {};
+
+            const publicAuth = /^\/auth\/(login|register|forgot-password|reset-password|verify-account|activate|resend-verification)/.test(endpoint);
+            if (response.status === 401 && token && !publicAuth) authHelper.logout();
             throw err;
         }
         return body;

@@ -1,85 +1,87 @@
 /* =====================================================================
-   Bibliotech - Sistema de diseno: VARIABLES
-   =====================================================================
-   Toda la apariencia del sitio se controla desde aqui. Para re-tematizar
-   la plataforma (skin) basta con cambiar estos valores, sin tocar el
-   marcado ni la logica. Los nombres son semanticos: describen el rol de
-   cada valor, no el color literal.
-
-   Paleta elegida:
-     - Deep Focus Blue     #253C6D  (azul principal, ancla la interfaz)
-     - Secondary Blue      #30497D  (azul de aula, profundidad profesional)
-     - Muted Steel  Accent #455B8A  (azul-gris acero, toque tecnologico)
-     - Highlight Orange    #F2A71B  (acento de energia / llamadas de atencion)
-
-   Para poner una imagen de fondo: descomenta y ajusta --bg-image y sube
-   la opacidad de --bg-overlay para que el texto siga siendo legible.
+   Bibliotech - Sistema de diseno
+   Variables semanticas para re-tematizar toda la plataforma.
+   Tema claro por defecto; tema oscuro con [data-theme="dark"].
    ===================================================================== */
 
 :root {
-    /* ---------- Marca / acento ---------------------------------------- */
-    --brand-primary:        #253C6D; /* Deep Focus Blue */
-    --brand-primary-hover:  #1b2d54;
-    --brand-primary-soft:   #e6ebf5;
-    --brand-secondary:      #30497D;
-    --brand-accent:         #F2A71B;
-    --brand-accent-dark:    #C9860B;
+    color-scheme: light;
 
-    /* Escala de marca usada por los componentes. */
-    --brand-color-500: #253C6D;
-    --brand-color-600: #1B2D54;
-    --brand-color-100: #E6EBF5;
+    /* ---------- Marca / acentos pastel -------------------------------- */
+    --brand-primary:       #6f5bd3;
+    --brand-primary-hover: #5b48be;
+    --brand-primary-soft:  #eeeaff;
+    --brand-secondary:     #5fb9a9;
+    --brand-secondary-soft:#e4f8f2;
+    --brand-accent:        #f2a58d;
+    --brand-accent-dark:   #d97f65;
+    --brand-accent-soft:   #fff0ea;
+    --brand-sky:           #9ec8f5;
+    --brand-sky-soft:      #eaf4ff;
+    --brand-rose:          #f2afc4;
+    --brand-rose-soft:     #fff0f5;
 
-    /* --- Fondo de la aplicacion (imagen + velo + color por defecto) --- */
-    --bg-color:    #E9EDF6;                       /* color por defecto si no hay imagen */
-    --bg-image:    none;                          /* ej: url('/img/campus.jpg') */
-    --bg-overlay:  rgba(37, 60, 109, 0.06);       /* velo de sombra sobre la imagen */
-    --bg-attachment: fixed;
+    --brand-color-500: var(--brand-primary);
+    --brand-color-600: var(--brand-primary-hover);
+    --brand-color-100: var(--brand-primary-soft);
 
-    /* --- Superficies --- */
-    --surface-bg: #E9EDF6;
-    --surface-1: #FFFFFF;
-    --surface-2: #F3F5FA;
-    --surface-3: #E4E9F3;
-    --surface-inverse: #1B2440;
+    /* ---------- Fondo general ---------------------------------------- */
+    --bg-color: #f6f3ff;
+    --bg-attachment: scroll;
+    --body-gradient:
+        radial-gradient(circle at 8% -10%, rgba(167, 139, 250, 0.32), transparent 38%),
+        radial-gradient(circle at 96% 8%, rgba(158, 200, 245, 0.34), transparent 36%),
+        linear-gradient(145deg, #fbf9ff 0%, #f3f4ff 48%, #fff8f4 100%);
 
-    /* --- Glass (cristal) --- */
-    --glass-bg:        rgba(255, 255, 255, 0.72);
-    --glass-bg-strong: rgba(255, 255, 255, 0.88);
-    --glass-border:    rgba(255, 255, 255, 0.55);
-    --glass-blur:      14px;
-    --glass-highlight: rgba(255, 255, 255, 0.45);
+    /* ---------- Superficies ------------------------------------------ */
+    --surface-bg: var(--bg-color);
+    --surface-0: #fbf9ff;
+    --surface-1: #ffffff;
+    --surface-2: #f8f6ff;
+    --surface-3: #f0ecfc;
+    --surface-inverse: #252343;
+    --surface-elevated: #ffffff;
 
-    /* --- Texto --- */
-    --text-primary: #1B2440;
-    --text-secondary: #4C5673;
-    --text-muted: #7A839C;
-    --text-inverse: #FFFFFF;
-    --text-on-brand: #FFFFFF;
+    /* ---------- Glass ------------------------------------------------- */
+    --glass-bg:        rgba(255, 255, 255, 0.78);
+    --glass-bg-strong: rgba(255, 255, 255, 0.92);
+    --glass-border:    rgba(255, 255, 255, 0.74);
+    --glass-blur:      10px;
+    --glass-highlight: rgba(255, 255, 255, 0.72);
+    --glass-shadow:    0 18px 45px rgba(84, 65, 145, 0.12);
+    --glass-sheen:     linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,255,255,0.18));
 
-    /* --- Bordes --- */
-    --border-color: #D8DEEB;
-    --border-strong: #BCC5DA;
-    --border-focus: var(--brand-color-500);
+    /* ---------- Texto ------------------------------------------------- */
+    --text-primary: #252343;
+    --text-secondary: #514c6d;
+    --text-muted: #76708f;
+    --text-inverse: #ffffff;
+    --text-on-brand: #ffffff;
+    --text-on-accent: #3d2530;
+
+    /* ---------- Bordes ------------------------------------------------ */
+    --border-color: rgba(86, 72, 140, 0.14);
+    --border-strong: rgba(86, 72, 140, 0.26);
+    --border-focus: var(--brand-primary);
     --border-width: 1px;
 
-    /* --- Insignias (badges) --- */
-    --badge-teacher-bg:    #253C6D;
-    --badge-teacher-color: #FFFFFF;
-    --badge-subject-bg:    #E6EBF5;
-    --badge-subject-color: #30497D;
+    /* ---------- Badges ------------------------------------------------ */
+    --badge-teacher-bg: #5b48be;
+    --badge-teacher-color: #ffffff;
+    --badge-subject-bg: #eeeaff;
+    --badge-subject-color: #5b48be;
 
-    /* --- Feedback --- */
-    --color-success: #1F9D68;
-    --color-success-soft: #E3F6ED;
-    --color-warning: #C9860B;
-    --color-warning-soft: #FDF1DA;
-    --color-danger: #D64550;
-    --color-danger-soft: #FDE6E8;
-    --color-info: #30497D;
-    --color-info-soft: #E6EBF5;
+    /* ---------- Feedback --------------------------------------------- */
+    --color-success: #218a65;
+    --color-success-soft: #e5f8f0;
+    --color-warning: #a56c13;
+    --color-warning-soft: #fff5df;
+    --color-danger: #c24c5c;
+    --color-danger-soft: #ffecef;
+    --color-info: #4272a8;
+    --color-info-soft: #eaf4ff;
 
-    /* --- Espaciado (escala) --- */
+    /* ---------- Espaciado -------------------------------------------- */
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
@@ -89,85 +91,141 @@
     --space-7: 48px;
     --space-8: 64px;
 
-    /* --- Radios --- */
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 16px;
+    /* ---------- Radios ------------------------------------------------ */
+    --radius-xs: 8px;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 22px;
+    --radius-xl: 30px;
     --radius-pill: 999px;
 
-    /* --- Sombras --- */
-    --shadow-xs: 0 1px 2px rgba(15, 23, 45, 0.06);
-    --shadow-sm: 0 2px 8px rgba(15, 23, 45, 0.08);
-    --shadow-md: 0 8px 24px rgba(15, 23, 45, 0.14);
-    --shadow-lg: 0 16px 48px rgba(15, 23, 45, 0.20);
+    /* ---------- Sombras ---------------------------------------------- */
+    --shadow-xs: 0 1px 2px rgba(66, 49, 120, 0.06);
+    --shadow-sm: 0 4px 14px rgba(66, 49, 120, 0.08);
+    --shadow-md: 0 12px 32px rgba(66, 49, 120, 0.13);
+    --shadow-lg: 0 24px 64px rgba(66, 49, 120, 0.18);
+    --shadow-colored: 0 12px 28px rgba(111, 91, 211, 0.28);
 
-    /* --- Tipografia --- */
-    --font-family-base: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --font-family-heading: 'Segoe UI Semibold', 'Segoe UI', Roboto, Arial, sans-serif;
+    /* ---------- Tipografia ------------------------------------------- */
+    --font-family-base: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    --font-family-heading: 'Manrope', 'Segoe UI Semibold', 'Segoe UI', Arial, sans-serif;
     --font-family-mono: 'Cascadia Code', 'Fira Code', Consolas, monospace;
     --font-size-xs: 0.75rem;
     --font-size-sm: 0.875rem;
     --font-size-md: 1rem;
-    --font-size-lg: 1.25rem;
-    --font-size-xl: 1.5rem;
-    --font-size-2xl: 2rem;
-    --line-height-base: 1.55;
+    --font-size-lg: 1.15rem;
+    --font-size-xl: 1.45rem;
+    --font-size-2xl: 2.1rem;
+    --font-size-3xl: clamp(2.2rem, 5vw, 3.4rem);
+    --line-height-base: 1.6;
+    --line-height-tight: 1.2;
 
-    /* --- Layout --- */
-    --container-max: 1200px;
-    --navbar-height: 64px;
+    /* ---------- Layout ------------------------------------------------ */
+    --container-max: 1180px;
+    --navbar-height: 72px;
 
-    /* --- Interaccion / comportamiento (facil de ajustar) --- */
-    --transition-fast: 120ms ease;
-    --transition-base: 200ms ease;
-    --transition-slow: 350ms ease;
-    --button-radius: var(--radius-md);
-    --button-padding-y: 10px;
-    --button-padding-x: 18px;
-    --focus-ring: 0 0 0 3px rgba(37, 60, 109, 0.28);
-    --hover-lift: translateY(-3px);
+    /* ---------- Interaccion ------------------------------------------ */
+    --transition-fast: 140ms ease;
+    --transition-base: 240ms ease;
+    --transition-slow: 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    --button-radius: var(--radius-pill);
+    --button-padding-y: 11px;
+    --button-padding-x: 22px;
+    --focus-ring: 0 0 0 4px rgba(111, 91, 211, 0.22);
+    --hover-lift: translateY(-4px);
     --hover-shadow: var(--shadow-md);
 
-    /* --- Capas (z-index) --- */
+    /* ---------- Navbar ------------------------------------------------ */
+    --navbar-bg: rgba(255, 255, 255, 0.97);
+    --navbar-border: rgba(255, 255, 255, 0.7);
+    --navbar-color: var(--text-primary);
+    --navbar-link-color: var(--text-secondary);
+    --navbar-link-hover: #f0ecfc;
+    --navbar-active-bg: #e9e3ff;
+    --navbar-active-color: #4f3fb3;
+
+    /* ---------- Capas ------------------------------------------------- */
     --z-navbar: 100;
     --z-dropdown: 200;
     --z-loader: 900;
     --z-modal: 1000;
     --z-toast: 1100;
-
-    /* --- Navbar --- */
-    --navbar-bg: var(--brand-primary);
 }
 
-/* Tema oscuro: se activa con <html data-theme="dark"> */
 [data-theme="dark"] {
-    --bg-color: #0E1526;
-    --bg-overlay: rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
 
-    --surface-inverse: #0B1120;
-    --surface-1: #16203A;
-    --text-primary: #EEF1F8;
-    --text-secondary: #BCC4DB;
-    --text-muted: #8791AB;
-    --border-color: #2A3450;
-    --border-strong: #3A4667;
+    --brand-primary:       #b4a4ff;
+    --brand-primary-hover: #c7bbff;
+    --brand-primary-soft:  #2b2550;
+    --brand-secondary:     #7ed7c8;
+    --brand-secondary-soft:#16352f;
+    --brand-accent:        #ffb59c;
+    --brand-accent-dark:   #ffcbb9;
+    --brand-accent-soft:   #3a2623;
+    --brand-sky:           #9ec8f5;
+    --brand-sky-soft:      #17273a;
+    --brand-rose:          #f5afc6;
+    --brand-rose-soft:     #3a2130;
 
-    --surface-2: #1B2440;
-    --surface-3: #232E4E;
+    --bg-color: #0f1122;
+    --body-gradient:
+        radial-gradient(circle at 8% -10%, rgba(124, 100, 230, 0.26), transparent 40%),
+        radial-gradient(circle at 96% 8%, rgba(87, 142, 196, 0.20), transparent 38%),
+        linear-gradient(145deg, #101322 0%, #121528 50%, #161424 100%);
 
-    --brand-color-500: #6D82D6;
-    --brand-color-600: #5568C0;
-    --brand-color-100: #262F52;
+    --surface-0: #121528;
+    --surface-1: #181c30;
+    --surface-2: #1d2138;
+    --surface-3: #252a43;
+    --surface-inverse: #f4f1ff;
+    --surface-elevated: #1b1f34;
 
-    --glass-bg:        rgba(27, 36, 64, 0.72);
-    --glass-bg-strong: rgba(27, 36, 64, 0.88);
-    --glass-border:    rgba(255, 255, 255, 0.12);
+    --glass-bg:        rgba(24, 28, 48, 0.82);
+    --glass-bg-strong: rgba(27, 32, 54, 0.94);
+    --glass-border:    rgba(255, 255, 255, 0.10);
+    --glass-blur:      12px;
+    --glass-highlight: rgba(255, 255, 255, 0.08);
+    --glass-shadow:    0 20px 50px rgba(0, 0, 0, 0.36);
+    --glass-sheen:     linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.01));
 
-    --badge-subject-bg:    #262F52;
-    --badge-subject-color: #C7D0EC;
+    --text-primary: #f4f1ff;
+    --text-secondary: #c9c3e2;
+    --text-muted: #9d96b8;
+    --text-inverse: #17142b;
+    --text-on-brand: #17122e;
+    --text-on-accent: #2f1a1f;
 
-    --color-success-soft: #12301F;
-    --color-warning-soft: #33280F;
-    --color-danger-soft: #3A1519;
-    --color-info-soft: #13293B;
+    --border-color: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.20);
+    --border-focus: var(--brand-primary);
+
+    --badge-teacher-bg: #4f3fb3;
+    --badge-teacher-color: #f6f2ff;
+    --badge-subject-bg: #2b2550;
+    --badge-subject-color: #cabfff;
+
+    --color-success: #71d7b4;
+    --color-success-soft: #15332b;
+    --color-warning: #f3c46c;
+    --color-warning-soft: #362b18;
+    --color-danger: #ff9bad;
+    --color-danger-soft: #3c1e26;
+    --color-info: #9dc5ef;
+    --color-info-soft: #182b40;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.20);
+    --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 16px 38px rgba(0, 0, 0, 0.36);
+    --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.48);
+    --shadow-colored: 0 12px 32px rgba(94, 75, 190, 0.36);
+    --focus-ring: 0 0 0 4px rgba(180, 164, 255, 0.24);
+
+    --navbar-bg: rgba(18, 21, 40, 0.97);
+    --navbar-border: rgba(255, 255, 255, 0.08);
+    --navbar-color: var(--text-primary);
+    --navbar-link-color: var(--text-secondary);
+    --navbar-link-hover: rgba(255, 255, 255, 0.07);
+    --navbar-active-bg: rgba(180, 164, 255, 0.16);
+    --navbar-active-color: #d8ceff;
 }

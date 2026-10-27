@@ -1,6 +1,6 @@
 /**
 * Project     : Bibliotech  |  Frontend - Sistema de diseno
-* base.css: reset, tipografia, layout y utilidades.
+* base.css: reset, tipografia, fondo, layout y utilidades.
 */
 
 *,
@@ -11,17 +11,14 @@
 
 html {
     scroll-behavior: smooth;
+    scroll-padding-top: calc(var(--navbar-height) + var(--space-4));
 }
 
 body {
     margin: 0;
     min-height: 100vh;
     background-color: var(--bg-color);
-    background-image:
-        radial-gradient(circle at 12% -10%, rgba(48, 73, 125, 0.12), transparent 45%),
-        radial-gradient(circle at 90% 110%, rgba(242, 167, 27, 0.08), transparent 42%),
-        linear-gradient(var(--bg-overlay), var(--bg-overlay)),
-        var(--bg-image);
+    background-image: var(--body-gradient);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -31,12 +28,15 @@ body {
     font-size: var(--font-size-md);
     line-height: var(--line-height-base);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition: background-color var(--transition-base), color var(--transition-base);
 }
 
 h1, h2, h3, h4, h5 {
     font-family: var(--font-family-heading);
     color: var(--text-primary);
-    line-height: 1.25;
+    line-height: var(--line-height-tight);
+    letter-spacing: -0.02em;
     margin: 0 0 var(--space-3);
 }
 
@@ -47,24 +47,24 @@ h3 { font-size: var(--font-size-lg); }
 p { margin: 0 0 var(--space-3); }
 
 a {
-    color: var(--brand-color-500);
+    color: var(--brand-primary);
     text-decoration: none;
-    transition: color var(--transition-fast);
+    transition: color var(--transition-fast), opacity var(--transition-fast);
 }
-a:hover { color: var(--brand-color-600); }
+a:hover { color: var(--brand-primary-hover); }
 
-img { max-width: 100%; display: block; }
+img, svg { max-width: 100%; display: block; }
 
 /* --- Layout --- */
 .bt-container {
     width: 100%;
     max-width: var(--container-max);
     margin: 0 auto;
-    padding: 0 var(--space-4);
+    padding: 0 var(--space-5);
 }
 
 .bt-page {
-    padding-top: var(--space-6);
+    padding-top: var(--space-7);
     padding-bottom: var(--space-8);
 }
 
@@ -75,16 +75,20 @@ img { max-width: 100%; display: block; }
     display: grid;
     gap: var(--space-5);
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    align-items: stretch;
 }
 
 /* Superficie de cristal reutilizable (glassmorphism). */
-.bt-glass {
+.bt-glass,
+.bt-panel,
+.bt-headline,
+.bt-toolbar,
+.bt-stat,
+.bt-card {
     background: var(--glass-bg);
     border: var(--border-width) solid var(--glass-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
 }
 
 /* Bloque de contenido con respiracion interna consistente. */
@@ -116,7 +120,32 @@ img { max-width: 100%; display: block; }
     border-radius: var(--radius-sm);
 }
 
-@media (max-width: 640px) {
-    :root { --font-size-2xl: 1.6rem; --font-size-xl: 1.3rem; }
-    .bt-page { padding-top: var(--space-4); }
+::selection {
+    background: var(--brand-primary-soft);
+    color: var(--brand-primary-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (max-width: 720px) {
+    :root {
+        --font-size-2xl: 1.7rem;
+        --font-size-xl: 1.3rem;
+        --navbar-height: 64px;
+    }
+    .bt-container { padding: 0 var(--space-4); }
+    .bt-page { padding-top: var(--space-5); padding-bottom: var(--space-7); }
+    .bt-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--space-4); }
+}
+
+@media (max-width: 460px) {
+    .bt-grid { grid-template-columns: 1fr; }
+    .bt-container { padding: 0 var(--space-3); }
 }

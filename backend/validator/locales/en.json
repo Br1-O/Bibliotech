@@ -1,11 +1,16 @@
 {
-  "language": { "name": "English", "code": "en" },
+  "language": {
+    "name": "English",
+    "code": "en"
+  },
   "fields": {
     "nombre": "First name",
     "apellido": "Last name",
     "email": "Email",
     "password": "Password",
     "passwordConfirm": "Password confirmation",
+    "code": "Verification code",
+    "token": "Recovery link",
     "resetToken": "Reset token",
     "roleId": "Role",
     "titulo": "Title",
@@ -38,10 +43,12 @@
     "invalidData": "The submitted data is invalid."
   },
   "messages": {
-    "registerSuccess": "Account created successfully. You can now sign in.",
+    "registerSuccess": "Account created. Check your email and open the activation link before signing in.",
     "loginSuccess": "Signed in successfully.",
     "logoutSuccess": "Signed out.",
-    "resetRequested": "If the email exists, a recovery link was sent.",
+    "resetRequested": "If the email exists, we sent a recovery link.",
+    "verificationResent": "If the account is pending, we sent a new activation link.",
+    "accountVerified": "Account activated successfully. You can now sign in.",
     "passwordChanged": "Password updated successfully.",
     "subjectCreated": "Subject created successfully.",
     "associationRequested": "Association request sent to the superadmin.",
@@ -72,7 +79,9 @@
     "unauthorized": "Unauthorized.",
     "forbidden": "You do not have permission to perform this action.",
     "invalidCredentials": "Invalid credentials.",
-    "invalidToken": "Invalid or expired token.",
+    "invalidToken": "Invalid or expired link.",
+    "accountNotVerified": "You must activate your account from the link sent to your email before signing in.",
+    "accountDisabled": "Your account is disabled. Contact the administrator.",
     "serverError": "Internal server error."
   }
 }

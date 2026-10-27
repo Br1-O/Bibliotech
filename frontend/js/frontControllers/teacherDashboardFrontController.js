@@ -18,7 +18,6 @@ document.addEventListener('bt:ready', () => {
     const mySubjectsPagination = document.getElementById('mySubjectsPagination');
     const reviewNode = document.getElementById('pendingReview');
     const observerNode = document.getElementById('observerPanel');
-    const existingNode = document.getElementById('existingMaterials');
     const tTagsInput = document.getElementById('tTags');
     if (tTagsInput && window.BTTagInput) window.BTTagInput(tTagsInput);
     let mySubjects = [];
@@ -50,7 +49,7 @@ document.addEventListener('bt:ready', () => {
     async function loadSubjects() {
         try {
             const { subjects } = await apiService.get('/subjects');
-            mySubjects = subjects.filter(s => s.profesorId === me.id || authHelper.isRole('Superadmin'));
+            mySubjects = subjects.filter(s => String(s.profesorId) === String(me.id) || authHelper.isRole('Superadmin'));
             render(subjectsSelect, mySubjects.map(s => el('option', { value: String(s.id), text: s.nombre })));
             renderMySubjects();
         } catch (error) { Toast.error(error.message); }
@@ -112,50 +111,9 @@ document.addEventListener('bt:ready', () => {
     async function banObserver(observer, subject) {
         try {
             const result = await apiService.post(`/subscriptions/ban/${observer.alumnoId}/${subject.id}`);
-            Toast.success(result.message);
+            Toast.success(LanguageManager.tr(result.message));
             loadObservers(subject);
         } catch (error) { Toast.error(error.message); }
-    }
-
-    /** RF-04.2: asociar material existente a una materia propia. */
-    async function loadExisting() {
-        if (!existingNode) return;
-        Loader.skeletons(existingNode, 3);
-        try {
-            const { materials } = await apiService.get('/materials/global');
-            if (!materials.length) { render(existingNode, Cards.empty(LanguageManager.t('common.noResults'))); return; }
-            render(existingNode, materials.map(m => associateCard(m)));
-        } catch (error) { Toast.error(error.message); }
-    }
-
-    function associateCard(material) {
-        const select = el('select', { className: 'bt-select' }, mySubjects.map(s =>
-            el('option', { value: String(s.id), text: s.nombre })));
-
-        const btn = el('bt-button', {
-            size: 'sm', variant: 'secondary', label: LanguageManager.t('material.associated'),
-            on: {
-                click: async () => {
-                    if (!select.value) { Toast.error(LanguageManager.t('teacher.selectSubject')); return; }
-                    try {
-                        btn.setLoading(true);
-                        const result = await apiService.post(`/materials/${material.id}/associate`, { subjectId: Number(select.value) });
-                        Toast.success(result.message);
-                    } catch (error) { Toast.error(error.message); } finally { btn.setLoading(false); }
-                }
-            }
-        });
-
-        return el('div', { className: 'bt-panel bt-stack' }, [
-            el('div', { className: 'bt-row bt-between' }, [
-                el('div', {}, [
-                    el('h3', { className: 'bt-card__title', text: material.titulo }),
-                    el('span', { className: 'bt-card__meta', text: (material.materias || []).join(', ') })
-                ]),
-                Cards.typeBadge(material.tipo)
-            ]),
-            el('div', { className: 'bt-row', style: { gap: 'var(--space-2)' } }, [select, btn])
-        ]);
     }
 
     async function loadReview() {
@@ -188,7 +146,7 @@ document.addEventListener('bt:ready', () => {
                 ]),
                 Cards.typeBadge(material.tipo)
             ]),
-            el('div', { className: 'bt-row', style: { gap: '6px' } }, Cards.chips(material.categories)),
+            el('div', { className: 'bt-row', style: { gap: '6px' } }, Cards.tagChips(material.categories)),
             actions
         ]);
     }
@@ -199,7 +157,6 @@ document.addEventListener('bt:ready', () => {
             Toast.success(LanguageManager.t(action === 'approve' ? 'messages.materialApproved' : 'messages.associationRejected'));
             loadReview();
             loadSubjects();
-            loadExisting();
         } catch (error) { Toast.error(error.message); }
     }
 
@@ -210,11 +167,17 @@ document.addEventListener('bt:ready', () => {
         const urlOrPath = (data.get('urlOrPath') || '').trim();
         const selected = Array.from(subjectsSelect.selectedOptions).map(o => o.value);
 
-        const errors = Validator.validate([
-            { name: 'titulo', label: LanguageManager.t('material.title'), value: data.get('titulo'), checks: [{ type: 'required' }] },
-            { name: 'subjects', label: LanguageManager.t('material.subjects'), value: selected.join(','), checks: [{ type: 'required' }] }
-        ]);
-        if (!Validator.renderErrors(form, errors)) return;
+        Validator.clear(form);
+        const valid = Validator.on(form)
+            .required('titulo', LanguageManager.t('material.title'))
+            .minLength('titulo', 3, LanguageManager.t('material.title'))
+            .validateThis()
+            .show();
+        if (!valid) return;
+        if (!selected.length) {
+            Toast.error(LanguageManager.t('validation.required', { field: LanguageManager.t('material.subjects') }));
+            return;
+        }
 
         if (!file && !urlOrPath) {
             Toast.error(LanguageManager.t('validation.required', { field: LanguageManager.t('material.file') }));
@@ -234,12 +197,11 @@ document.addEventListener('bt:ready', () => {
         try {
             btn.setLoading(true);
             const result = await apiService.upload('/materials/upload', payload);
-            Toast.success(result.message);
+            Toast.success(LanguageManager.tr(result.message));
             form.reset();
             loadSubjects();
-            loadExisting();
         } catch (error) {
-            Toast.error(error.message);
+            if (!Validator.applyServerErrors(form, error)) Toast.error(error.message);
         } finally {
             btn.setLoading(false);
         }
@@ -247,7 +209,7 @@ document.addEventListener('bt:ready', () => {
 
     (async () => {
         await loadSubjects();
-        await Promise.all([loadReview(), loadExisting()]);
+        await loadReview();
     })();
-    LanguageManager.onChange(() => { loadSubjects(); loadReview(); loadExisting(); });
+    LanguageManager.onChange(() => { loadSubjects(); loadReview(); });
 });

@@ -73,8 +73,8 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
             params.push(...filters.subjects);
         }
         if (filters.tags && filters.tags.length) {
-            const orTags = filters.tags.map(() => `${alias}.categories LIKE ?`).join(' OR ');
-            clauses.push(`(${orTags})`);
+            const andTags = filters.tags.map(() => `${alias}.categories LIKE ?`).join(' AND ');
+            clauses.push(`(${andTags})`);
             filters.tags.forEach(tag => params.push(`%${tag}%`));
         }
         return { clauses, params };
@@ -82,9 +82,8 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
 
     async findAllGlobal(filters = {}) {
         const { clauses, params } = this.buildFilters(filters);
-        // Solo aparece en el catalogo global el material vigente en al menos
-        // una materia: si se lo quito de todas las materias pero sigue en
-        // favoritos, permanece accesible desde ahi y no en la busqueda general.
+        // El catalogo global muestra todo material aprobado, aunque ya no
+        // tenga materias asociadas: sigue disponible para reasociarlo.
         const where = [`m.estado = 'Aprobado'`, ...clauses];
         const [rows] = await db.execute(
             `${SELECT_MATERIAL} WHERE ${where.join(' AND ')} ORDER BY m.created_at DESC`, params
@@ -215,28 +214,32 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
             'SELECT id FROM material_favorites WHERE material_id = ? AND usuario_id = ?',
             [materialId, userId]
         );
+        let favorited;
         if (existing.length > 0) {
             await db.execute('DELETE FROM material_favorites WHERE id = ?', [existing[0].id]);
             await db.execute('UPDATE materials SET contador_favoritos = GREATEST(contador_favoritos - 1, 0) WHERE id = ?', [materialId]);
-            return { favorited: false };
+            favorited = false;
         } else {
             await db.execute('INSERT INTO material_favorites (material_id, usuario_id) VALUES (?, ?)', [materialId, userId]);
             await db.execute('UPDATE materials SET contador_favoritos = contador_favoritos + 1 WHERE id = ?', [materialId]);
-            return { favorited: true };
+            favorited = true;
         }
+        return { favorited, contadorFavoritos: await this.countFavorites(materialId) };
     }
 
     async findFavorites(userId, filters = {}) {
-        const limit = parseInt(filters.limit) || 10;
-        const offset = parseInt(filters.offset) || 0;
         const built = this.buildFilters(filters, 'm');
         const clauses = built.clauses;
         const params = built.params;
         const where = [`mf.usuario_id = ?`, "m.estado = 'Aprobado'", ...clauses];
-        const [rows] = await db.execute(
-            `${SELECT_MATERIAL} INNER JOIN material_favorites mf ON mf.material_id = m.id WHERE ${where.join(' AND ')} ORDER BY mf.created_at DESC LIMIT ? OFFSET ?`,
-            [userId, ...params, limit, offset]
-        );
+        let sql = `${SELECT_MATERIAL} INNER JOIN material_favorites mf ON mf.material_id = m.id
+                   WHERE ${where.join(' AND ')} ORDER BY mf.created_at DESC`;
+        if (filters.limit !== undefined) {
+            const limit = Math.max(0, parseInt(filters.limit, 10) || 0);
+            const offset = Math.max(0, parseInt(filters.offset, 10) || 0);
+            sql += ` LIMIT ${limit} OFFSET ${offset}`;
+        }
+        const [rows] = await db.execute(sql, [userId, ...params]);
         return rows.map(row => {
             const material = mapMaterial(row);
             if (material) material.esFavorito = 1;

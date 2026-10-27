@@ -40,6 +40,7 @@ app.use('/api/auth', require('./routes/authRoutes')(container));
 app.use('/api/subjects', require('./routes/subjectRoutes')(container));
 app.use('/api/materials', require('./routes/materialRoutes')(container));
 app.use('/api/subscriptions', require('./routes/subscriptionRoutes')(container));
+app.use('/api/notifications', require('./routes/notificationRoutes')(container));
 app.use('/api/audit', require('./routes/auditRoutes')(container));
 app.use('/api/thematic-tags', require('./routes/thematicTagsRoutes')(container));
 
@@ -47,7 +48,7 @@ app.use('/api/thematic-tags', require('./routes/thematicTagsRoutes')(container))
 if (process.env.NODE_ENV === 'testing') {
     app.use('/', require('./routes/testsRoutes')());
 } else {
-    app.use('/', require('./routes/viewRoutes')());
+    app.use('/', require('./routes/viewRoutes')(container));
 }
 
 // --- Manejo centralizado de errores (siempre al final) ---

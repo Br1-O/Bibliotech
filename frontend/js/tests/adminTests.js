@@ -50,18 +50,28 @@ testUtils.createTestButton('Test Auditoria prohibida para Alumno (403)', async (
 // --- Recuperacion de contrasena (RD-03) ---
 testUtils.createTestButton('Test Recuperacion de Contrasena (token + reset + login)', async () => {
     const email = testUtils.uniq('reset') + '@bibliotech.edu';
-    await testUtils.request('/auth/register', {
+    const reg = await testUtils.request('/auth/register', {
         method: 'POST', body: { nombre: 'Reset', apellido: 'Clave', email, password: 'Original123' }
     });
+    testUtils.assert(reg.status === 201, 'Registro fallido');
+    testUtils.assert(reg.data.devToken, 'La API no devolvio el token de activacion');
+    await testUtils.activateAccount(reg.data.devToken);
 
     const solicitud = await testUtils.request('/auth/forgot-password', {
         method: 'POST', body: { email }
     });
     testUtils.log({ status: solicitud.status, message: solicitud.data && solicitud.data.message });
-    testUtils.assert(solicitud.ok && solicitud.data.token, 'No se emitio token de recuperacion');
+    const token = solicitud.data && solicitud.data.devToken;
+    testUtils.assert(solicitud.ok && token, 'No se emitio token de recuperacion');
+
+    const resetUrl = testUtils.apiBase.replace(/\/api\/?$/, '') + '/restablecer-password/' + encodeURIComponent(token);
+    const resetPage = await fetch(resetUrl);
+    testUtils.assert(resetPage.ok, 'El enlace de recuperacion no abrio el formulario');
+    const validacion = await testUtils.request('/auth/reset-password/' + encodeURIComponent(token) + '/validate');
+    testUtils.assert(validacion.ok && validacion.data.valid, 'El enlace de recuperacion no es valido');
 
     const cambio = await testUtils.request('/auth/reset-password', {
-        method: 'POST', body: { token: solicitud.data.token, password: 'Nueva1234' }
+        method: 'POST', body: { token: token, password: 'Nueva1234', passwordConfirm: 'Nueva1234' }
     });
     testUtils.assert(cambio.ok, 'Fallo el cambio de contrasena');
 
@@ -69,7 +79,7 @@ testUtils.createTestButton('Test Recuperacion de Contrasena (token + reset + log
     testUtils.assert(login, 'No se pudo iniciar sesion con la nueva contrasena');
 
     const reuso = await testUtils.request('/auth/reset-password', {
-        method: 'POST', body: { token: solicitud.data.token, password: 'Otra12345' }
+        method: 'POST', body: { token: token, password: 'Otra12345', passwordConfirm: 'Otra12345' }
     });
     testUtils.assert(reuso.status === 400, 'El token de recuperacion no deberia reutilizarse');
 });

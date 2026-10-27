@@ -39,6 +39,13 @@ const LanguageManager = (() => {
             params[token] !== undefined ? params[token] : `{${token}}`);
     }
 
+    /** Traduce solo si la clave existe; si no, devuelve el texto original. */
+    function tr(key, params = {}) {
+        if (typeof key !== 'string') return key;
+        const raw = key.split('.').reduce((acc, part) => (acc ? acc[part] : undefined), dictionary);
+        return raw === undefined ? key : t(key, params);
+    }
+
     /** Aplica las traducciones a todos los nodos con data-i18n. */
     function apply(root = document) {
         root.querySelectorAll('[data-i18n]').forEach(node => {
@@ -56,5 +63,5 @@ const LanguageManager = (() => {
 
     async function init() { return load(language); }
 
-    return { init, load, t, apply, onChange, get language() { return language; }, SUPPORTED };
+    return { init, load, t, tr, apply, onChange, get language() { return language; }, SUPPORTED };
 })();

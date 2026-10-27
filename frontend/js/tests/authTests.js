@@ -43,6 +43,38 @@ testUtils.createTestButton('Test Registro de Alumno Nuevo (201)', async () => {
     testUtils.assert(r.status === 201, 'Se esperaba 201');
     testUtils.assert(r.data.user && r.data.user.email === email, 'Email de registro incorrecto');
     testUtils.assert(r.data.user.roleNombre === 'Alumno', 'El registro publico debe crear Alumno');
+    testUtils.assert(r.data.user.estado === 'PendienteVerificacion', 'La cuenta debe quedar pendiente de activacion');
+    testUtils.assert(r.data.devToken, 'No se devolvio el token de activacion de desarrollo');
+
+    const pendiente = await testUtils.request('/auth/login', {
+        method: 'POST', body: { email, password: 'Alumna123' }
+    });
+    testUtils.assert(pendiente.status === 403, 'El login debe bloquearse hasta activar la cuenta');
+
+    await testUtils.activateAccountViaLink(r.data.devToken);
+    const reusoEnlace = await fetch(testUtils.apiBase.replace(/\/api\/?$/, '') + '/activar-cuenta/' + r.data.devToken);
+    testUtils.assert(reusoEnlace.url.indexOf('activacion=invalida') !== -1, 'El enlace de activacion no deberia reutilizarse');
+
+    const login = await testUtils.login(email, 'Alumna123');
+    testUtils.assert(login, 'No se pudo iniciar sesion tras activar la cuenta');
+});
+
+// --- Reenvio del enlace de activacion ---
+testUtils.createTestButton('Test Reenvio de Enlace de Activacion', async () => {
+    const email = testUtils.uniq('resend') + '@bibliotech.edu';
+    const reg = await testUtils.request('/auth/register', {
+        method: 'POST', body: { nombre: 'Reenvia', apellido: 'Codigo', email, password: 'Reenvia123' }
+    });
+    testUtils.assert(reg.status === 201, 'Registro fallido');
+    const r = await testUtils.request('/auth/resend-verification', {
+        method: 'POST', body: { email }
+    });
+    testUtils.log({ status: r.status, message: r.data && r.data.message });
+    testUtils.assert(r.ok && r.data.devToken, 'No se reenvio el enlace de activacion');
+    const base = testUtils.apiBase.replace(/\/api\/?$/, '');
+    const enlaceAnterior = await fetch(base + '/activar-cuenta/' + reg.data.devToken);
+    testUtils.assert(enlaceAnterior.url.indexOf('activacion=invalida') !== -1, 'El enlace anterior deberia invalidarse');
+    await testUtils.activateAccountViaLink(r.data.devToken);
 });
 
 // --- Registro con email duplicado ---
@@ -64,6 +96,7 @@ testUtils.createTestButton('Test Registro - Validacion (password debil, 422)', a
     testUtils.log({ status: r.status, errors: r.data && r.data.errors });
     testUtils.assert(r.status === 422, 'Se esperaba 422');
     testUtils.assert(Array.isArray(r.data.errors) && r.data.errors.length >= 2, 'Se esperaban varios errores');
+    testUtils.assert(r.data.fields && (r.data.fields.email || r.data.fields.password), 'Se esperaban errores por campo');
 });
 
 // --- Perfil autenticado ---

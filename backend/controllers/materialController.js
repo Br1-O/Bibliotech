@@ -47,7 +47,7 @@ module.exports = (container) => {
                     if (mode === 'cloud') {
                         // multer-storage-cloudinary sets req.file.path as secure_url, filename as public_id
                         urlOrPath = req.file.path;
-                        fileHash = hashHelper.hashString(urlOrPath);
+                        fileHash = req.file.fileHash || hashHelper.hashString(urlOrPath);
                     } else {
                         console.log("local")
                         fileHash = hashHelper.hashFile(req.file.path);
@@ -117,8 +117,9 @@ module.exports = (container) => {
 
         async associate(req, res, next) {
             try {
-                const result = await materialService.associateMaterialToSubject(
-                    req.params.id, Number(req.body.subjectId), { usuarioId: req.usuarioId, rol: req.rol });
+                const rawSubjectIds = req.body?.subjectIds ?? req.body?.subjectId;
+                const result = await materialService.associateMaterialToSubjects(
+                    req.params.id, rawSubjectIds, { usuarioId: req.usuarioId, rol: req.rol });
                 return ok(req, res, result);
             } catch (error) { return next(error); }
         },

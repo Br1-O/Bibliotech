@@ -13,6 +13,7 @@ document.addEventListener('bt:ready', () => {
 
     const usersTable = document.getElementById('usersTable');
     const auditTable = document.getElementById('auditLog');
+    const auditPagination = document.getElementById('auditPagination');
     const requestsNode = document.getElementById('associationRequests');
     const professorSelect = document.getElementById('subjectProfessor');
     const professorForm = document.getElementById('professorForm');
@@ -29,11 +30,28 @@ document.addEventListener('bt:ready', () => {
 
     const cache = { users: [], subjects: [], logs: [], tags: [] };
     const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
+    const AUDIT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     let subjectPage = 1;
+    let auditPage = 1;
+
+    const tr = (key) => LanguageManager.tr(key);
 
     async function loadAll() {
         await Promise.all([loadUsers(), loadSubjects(), loadAudit(), loadTags()]);
         updateStats();
+    }
+
+    function statusBadge(estado) {
+        const map = {
+            Activo: 'success',
+            Baneado: 'danger',
+            Inactivo: 'warning',
+            PendienteVerificacion: 'warning'
+        };
+        return el('span', {
+            className: `bt-badge bt-badge--${map[estado] || 'info'}`,
+            text: tr(`userStates.${estado}`)
+        });
     }
 
     async function loadUsers() {
@@ -52,24 +70,37 @@ document.addEventListener('bt:ready', () => {
 
     function renderUsers() {
         if (!usersTable) return;
-        render(usersTable, cache.users.map(u => el('tr', {}, [
-            el('td', { text: u.nombre }),
-            el('td', { text: u.apellido }),
-            el('td', { text: u.email }),
-            el('td', {}, [el('span', { className: 'bt-badge bt-badge--info', text: LanguageManager.t(`roles.${u.roleNombre}`) })]),
-            el('td', {}, [
-                el('span', {
-                    className: `bt-badge bt-badge--${u.estado === 'Baneado' ? 'danger' : (u.estado === 'Inactivo' ? 'warning' : 'success')}`,
-                    text: u.estado || 'Activo'
-                }),
-                u.estado === 'Baneado'
-                    ? el('bt-button', { size: 'sm', variant: 'success', label: LanguageManager.t('auth.unban'), on: { click: () => unbanUser(u.id) } })
-                    : el('bt-button', { size: 'sm', variant: 'danger', label: LanguageManager.t('auth.ban'), on: { click: () => banUser(u.id) } }),
-                u.estado !== 'Inactivo' && u.roleNombre === 'Profesor'
-                    ? el('bt-button', { size: 'sm', variant: 'secondary', label: LanguageManager.t('common.delete'), on: { click: () => softDeleteUser(u.id) } })
-                    : null
-            ].filter(Boolean))
-        ])));
+        render(usersTable, cache.users.map(u => {
+            const actions = [];
+            if (u.estado === 'Baneado') {
+                actions.push(el('bt-button', {
+                    size: 'sm', variant: 'success', label: LanguageManager.t('auth.unban'),
+                    on: { click: () => unbanUser(u.id) }
+                }));
+            } else if (u.estado !== 'Inactivo') {
+                actions.push(el('bt-button', {
+                    size: 'sm', variant: 'danger', label: LanguageManager.t('auth.ban'),
+                    on: { click: () => banUser(u.id) }
+                }));
+            }
+            if (u.estado !== 'Inactivo' && u.roleNombre === 'Profesor') {
+                actions.push(el('bt-button', {
+                    size: 'sm', variant: 'secondary', label: LanguageManager.t('common.delete'),
+                    on: { click: () => softDeleteUser(u.id) }
+                }));
+            }
+            return el('tr', {}, [
+                el('td', { text: u.nombre }),
+                el('td', { text: u.apellido }),
+                el('td', { text: u.email }),
+                el('td', {}, [el('span', {
+                    className: `bt-badge ${u.roleNombre === 'Profesor' ? 'bt-badge--teacher' : 'bt-badge--subject'}`,
+                    text: LanguageManager.t(`roles.${u.roleNombre}`)
+                })]),
+                el('td', {}, [statusBadge(u.estado || 'Activo')]),
+                el('td', {}, actions)
+            ]);
+        }));
     }
 
     async function loadSubjects() {
@@ -144,6 +175,7 @@ document.addEventListener('bt:ready', () => {
     function loadSubjectEditFields(id) {
         const s = cache.subjects.find(x => String(x.id) === String(id));
         if (!s) return;
+        Validator.clear(document.getElementById('subjectEditPanel'));
         if (editTitulo) editTitulo.value = s.nombre || '';
         if (editDesc) editDesc.value = s.descripcion || '';
         renderEditProfessorOptions();
@@ -171,13 +203,61 @@ document.addEventListener('bt:ready', () => {
         try {
             const { logs } = await apiService.get('/audit');
             cache.logs = logs;
-            render(auditTable, logs.slice(0, 25).map(l => el('tr', {}, [
-                el('td', { text: l.tipoOperacion }),
-                el('td', { text: l.usuarioNombre || (l.usuarioId != null ? String(l.usuarioId) : '-') }),
-                el('td', { text: l.registroNombre || (l.registroId != null ? String(l.registroId) : '-') }),
-                el('td', { text: l.timestamp ? new Date(l.timestamp).toLocaleString() : '' })
-            ])));
+            renderAuditLogs();
         } catch (error) { Toast.error(error.message); }
+    }
+
+    function operationLabel(operation) {
+        return tr(`audit.operations.${operation}`);
+    }
+
+    function renderAuditLogs() {
+        if (!auditTable) return;
+        const logs = cache.logs || [];
+        if (!logs.length) {
+            render(auditTable, [el('tr', {}, [
+                el('td', { attrs: { colspan: '4' }, text: LanguageManager.t('common.noResults') })
+            ])]);
+            Pagination.render(auditPagination, { total: 0, pageSize: AUDIT_PAGE_SIZE });
+            return;
+        }
+        const totalPages = Pagination.totalPages(logs.length, AUDIT_PAGE_SIZE);
+        if (auditPage > totalPages) auditPage = totalPages;
+        const start = (auditPage - 1) * AUDIT_PAGE_SIZE;
+        const pageItems = logs.slice(start, start + AUDIT_PAGE_SIZE);
+
+        render(auditTable, pageItems.map(l => {
+            const targetName = l.registroNombre || (l.registroId != null ? `#${l.registroId}` : '-');
+            const target = el('div', { className: 'bt-audit__target' }, [
+                l.registroTipo && el('span', {
+                    className: 'bt-badge bt-badge--subject',
+                    text: tr(`audit.types.${l.registroTipo}`)
+                }),
+                el('span', { className: 'bt-audit__target-name', text: targetName })
+            ].filter(Boolean));
+
+            const userCell = el('div', { className: 'bt-stack', style: { gap: '2px' } }, [
+                el('span', { text: l.usuarioNombre || (l.usuarioId != null ? `#${l.usuarioId}` : '-') }),
+                l.usuarioEmail && el('span', { className: 'bt-card__meta', text: l.usuarioEmail })
+            ].filter(Boolean));
+
+            return el('tr', {}, [
+                el('td', {}, [el('span', { className: 'bt-audit__operation', text: operationLabel(l.tipoOperacion) })]),
+                el('td', {}, [userCell]),
+                el('td', {}, [target]),
+                el('td', {}, [el('span', {
+                    className: 'bt-audit__date',
+                    text: l.timestamp ? new Date(l.timestamp).toLocaleString(LanguageManager.language) : ''
+                })])
+            ]);
+        }));
+
+        Pagination.render(auditPagination, {
+            page: auditPage,
+            total: logs.length,
+            pageSize: AUDIT_PAGE_SIZE,
+            onChange: (page) => { auditPage = page; renderAuditLogs(); }
+        });
     }
 
     function updateStats() {
@@ -191,21 +271,21 @@ document.addEventListener('bt:ready', () => {
         try {
             await apiService.post(`/subjects/${subject.id}/${action}`, action === 'confirm-association' ? { profesorId: subject.profesorId } : {});
             Toast.success(LanguageManager.t(action === 'confirm-association' ? 'messages.associationConfirmed' : 'messages.associationRejected'));
-            loadSubjects();
+            await Promise.all([loadSubjects(), loadAudit()]);
         } catch (error) { Toast.error(error.message); }
     }
 
     async function banUser(id) {
         try {
             await apiService.put(`/auth/users/${id}/ban`, {});
-            await loadUsers();
+            await Promise.all([loadUsers(), loadAudit()]);
         } catch (error) { Toast.error(error.message); }
     }
 
     async function unbanUser(id) {
         try {
             await apiService.put(`/auth/users/${id}/unban`, {});
-            await loadUsers();
+            await Promise.all([loadUsers(), loadAudit()]);
         } catch (error) { Toast.error(error.message); }
     }
 
@@ -218,7 +298,7 @@ document.addEventListener('bt:ready', () => {
         if (!confirmed) return;
         try {
             await apiService.del(`/auth/users/${id}`);
-            await loadUsers();
+            await Promise.all([loadUsers(), loadAudit()]);
         } catch (error) { Toast.error(error.message); }
     }
 
@@ -243,45 +323,59 @@ document.addEventListener('bt:ready', () => {
     async function removeTag(id) {
         try {
             await apiService.del(`/thematic-tags/${id}`);
-            loadTags();
+            await loadTags();
         } catch (error) { Toast.error(error.message); }
     }
 
     async function banTag(id) {
         try {
             await apiService.put(`/thematic-tags/${id}/ban`, {});
-            loadTags();
+            await loadTags();
         } catch (error) { Toast.error(error.message); }
     }
 
     professorForm?.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const data = new FormData(professorForm);
-        const errors = Validator.validate([
-            { name: 'nombre', label: LanguageManager.t('auth.firstName'), value: data.get('nombre'), checks: [{ type: 'required' }] },
-            { name: 'apellido', label: LanguageManager.t('auth.lastName'), value: data.get('apellido'), checks: [{ type: 'required' }] },
-            { name: 'email', label: LanguageManager.t('auth.email'), value: data.get('email'), checks: [{ type: 'required' }, { type: 'email' }] },
-            { name: 'password', label: LanguageManager.t('auth.password'), value: data.get('password'), checks: [{ type: 'required' }, { type: 'password' }] }
-        ]);
-        if (!Validator.renderErrors(professorForm, errors)) return;
+        Validator.clear(professorForm);
+
+        const data = Object.fromEntries(new FormData(professorForm).entries());
+        const valid = Validator.on(professorForm)
+            .required('nombre', LanguageManager.t('auth.firstName'))
+            .minLength('nombre', 2, LanguageManager.t('auth.firstName'))
+            .required('apellido', LanguageManager.t('auth.lastName'))
+            .minLength('apellido', 2, LanguageManager.t('auth.lastName'))
+            .required('email', LanguageManager.t('auth.email'))
+            .email('email', LanguageManager.t('auth.email'))
+            .required('password', LanguageManager.t('auth.password'))
+            .password('password', LanguageManager.t('auth.password'))
+            .validateThis()
+            .show();
+        if (!valid) return;
 
         const btn = professorForm.querySelector('bt-button');
         try {
             btn.setLoading(true);
-            const result = await apiService.post('/auth/professors', Object.fromEntries(data.entries()));
-            Toast.success(LanguageManager.t(result.message));
+            const result = await apiService.post('/auth/professors', data);
+            Toast.success(tr(result.message));
             professorForm.reset();
-            loadUsers();
-        } catch (error) { Toast.error(error.message); } finally { btn.setLoading(false); }
+            await Promise.all([loadUsers(), loadAudit()]);
+        } catch (error) {
+            if (!Validator.applyServerErrors(professorForm, error)) Toast.error(error.message);
+        } finally { btn.setLoading(false); }
     });
 
     subjectForm?.addEventListener('submit', async (event) => {
         event.preventDefault();
+        Validator.clear(subjectForm);
+
         const data = Object.fromEntries(new FormData(subjectForm).entries());
-        const errors = Validator.validate([
-            { name: 'nombre', label: LanguageManager.t('subjects.name'), value: data.nombre, checks: [{ type: 'required' }] }
-        ]);
-        if (!Validator.renderErrors(subjectForm, errors)) return;
+        const valid = Validator.on(subjectForm)
+            .required('nombre', LanguageManager.t('subjects.name'))
+            .minLength('nombre', 2, LanguageManager.t('subjects.name'))
+            .maxLength('nombre', 100, LanguageManager.t('subjects.name'))
+            .validateThis()
+            .show();
+        if (!valid) return;
 
         const btn = subjectForm.querySelector('bt-button');
         try {
@@ -291,10 +385,12 @@ document.addEventListener('bt:ready', () => {
                 descripcion: data.descripcion || null,
                 profesorId: data.profesorId ? Number(data.profesorId) : null
             });
-            Toast.success(LanguageManager.t(result.message));
+            Toast.success(tr(result.message));
             subjectForm.reset();
-            loadSubjects();
-        } catch (error) { Toast.error(error.message); } finally { btn.setLoading(false); }
+            await Promise.all([loadSubjects(), loadAudit()]);
+        } catch (error) {
+            if (!Validator.applyServerErrors(subjectForm, error)) Toast.error(error.message);
+        } finally { btn.setLoading(false); }
     });
 
     subjectEditSelect?.addEventListener('change', () => loadSubjectEditFields(subjectEditSelect.value));
@@ -302,6 +398,16 @@ document.addEventListener('bt:ready', () => {
     editSubjectBtn?.addEventListener('click', async () => {
         const id = subjectEditSelect?.value;
         if (!id) return;
+        const panel = document.getElementById('subjectEditPanel');
+        Validator.clear(panel);
+
+        const valid = Validator.on(panel)
+            .required('nombre', LanguageManager.t('subjects.name'))
+            .minLength('nombre', 2, LanguageManager.t('subjects.name'))
+            .validateThis()
+            .render();
+        if (!valid) return;
+
         editSubjectBtn.setLoading(true);
         try {
             await apiService.put(`/subjects/${id}`, {
@@ -310,8 +416,10 @@ document.addEventListener('bt:ready', () => {
                 profesorId: editProfesor.value ? Number(editProfesor.value) : null
             });
             Toast.success(LanguageManager.t('messages.subjectUpdated'));
-            await loadSubjects();
-        } catch (error) { Toast.error(error.message); } finally { editSubjectBtn.setLoading(false); }
+            await Promise.all([loadSubjects(), loadAudit()]);
+        } catch (error) {
+            if (!Validator.applyServerErrors(panel, error)) Toast.error(error.message);
+        } finally { editSubjectBtn.setLoading(false); }
     });
 
     loadAll();

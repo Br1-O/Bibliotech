@@ -17,9 +17,10 @@ const Toast = (() => {
     }
 
     function push(message, type = 'info', timeout = 4000) {
+        const text = typeof LanguageManager !== 'undefined' ? LanguageManager.tr(String(message ?? '')) : String(message ?? '');
         const node = el('div', { className: `bt-toast bt-toast--${type}`, attrs: { role: 'status' } }, [
             el('strong', { text: (ICONS[type] || '') + ' ' }),
-            el('span', { text: message })
+            el('span', { text })
         ]);
         ensure().appendChild(node);
         setTimeout(() => { node.style.opacity = '0'; setTimeout(() => node.remove(), 300); }, timeout);

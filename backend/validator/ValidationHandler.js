@@ -16,6 +16,7 @@ class ValidationHandler {
         this.languageManager = languageManager;
         this.rules = [];
         this.errors = [];
+        this.fieldErrors = {};
     }
 
     /** Agrega una regla al manejador (patron fluent). */
@@ -37,18 +38,21 @@ class ValidationHandler {
     validateThis(target, { language } = {}) {
         const lang = language || this.languageManager.getLanguage();
         this.errors = [];
+        this.fieldErrors = {};
 
         for (const rule of this.rules) {
             let valid = true;
             try {
-                valid = rule.evaluate(target[rule.field]);
+                valid = rule.evaluate(target[rule.field], target);
             } catch (err) {
                 valid = false;
             }
             if (!valid) {
                 const params = rule.params ? rule.params() : {};
                 if (params.field) params.field = this.fieldLabel(params.field, lang);
-                this.errors.push(this.languageManager.getThisMessage(rule.messageKey, params, lang));
+                const message = this.languageManager.getThisMessage(rule.messageKey, params, lang);
+                this.errors.push(message);
+                if (!this.fieldErrors[rule.field]) this.fieldErrors[rule.field] = message;
             }
         }
         return this.errors.length === 0;
@@ -56,6 +60,15 @@ class ValidationHandler {
 
     getErrors() {
         return this.errors;
+    }
+
+    getFieldErrors() {
+        return this.fieldErrors;
+    }
+
+    /** Construye el error de validacion conservando campo -> mensaje. */
+    toError() {
+        return new ValidationError(this.errors, { fields: this.fieldErrors });
     }
 
     /** Etiqueta localizada de un campo (ej: "email" -> "Correo electronico"). */
@@ -69,7 +82,7 @@ class ValidationHandler {
     }
 
     throwIfInvalid() {
-        if (this.errors.length) throw new ValidationError(this.errors);
+        if (this.errors.length) throw this.toError();
         return true;
     }
 

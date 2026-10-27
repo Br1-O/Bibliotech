@@ -7,13 +7,26 @@ const db = require('../../config/db');
 const AuditLogRepositoryInterface = require('../../domain/ports/AuditLogRepositoryInterface');
 const AuditLog = require('../../domain/entities/AuditLog');
 
-const map = row => new AuditLog({
-    id: row.id,
-    tipoOperacion: row.tipo_operacion,
-    usuarioId: row.usuario_id,
-    registroId: row.registro_id,
-    timestamp: row.timestamp
-});
+const map = row => {
+    const log = new AuditLog({
+        id: row.id,
+        tipoOperacion: row.tipo_operacion,
+        usuarioId: row.usuario_id,
+        registroId: row.registro_id,
+        timestamp: row.timestamp
+    });
+    log.usuarioEmail = row.usuarioEmail || null;
+    log.usuarioNombre = row.usuarioNombre || null;
+    log.registroTipo = row.registroTipo || AuditLog.tipoRegistro(row.tipo_operacion);
+    log.registroNombre = row.registroNombre || null;
+    return log;
+};
+
+const operationsFor = (tipo) => Object.entries(AuditLog.REGISTRO_TIPOS)
+    .filter(([, value]) => value === tipo)
+    .map(([key]) => key);
+
+const sqlList = (values) => values.map(value => `'${String(value).replace(/'/g, "''")}'`).join(', ');
 
 class MariaDBAuditLogRepository extends AuditLogRepositoryInterface {
     async save(log) {
@@ -26,17 +39,37 @@ class MariaDBAuditLogRepository extends AuditLogRepositoryInterface {
     }
 
     async findAll() {
+        const usuarioOps = sqlList(operationsFor('Usuario'));
+        const materialOps = sqlList(operationsFor('Material'));
+        const materiaOps = sqlList(operationsFor('Materia'));
+        const rolOps = sqlList(operationsFor('Rol'));
+
         const [rows] = await db.execute(`
-            SELECT l.*, u.email AS usuarioEmail, 
+            SELECT l.*, u.email AS usuarioEmail,
                    CONCAT(u.nombre, ' ', u.apellido) AS usuarioNombre,
-                   COALESCE(m.titulo, s.nombre, u2.nombre, CONCAT(u2.nombre, ' ', u2.apellido)) AS registroNombre
-            FROM audit_logs l 
+                   CASE
+                       WHEN l.tipo_operacion IN (${usuarioOps}) THEN 'Usuario'
+                       WHEN l.tipo_operacion IN (${materialOps}) THEN 'Material'
+                       WHEN l.tipo_operacion IN (${materiaOps}) THEN 'Materia'
+                       WHEN l.tipo_operacion IN (${rolOps}) THEN 'Rol'
+                       ELSE NULL
+                   END AS registroTipo,
+                   CASE
+                       WHEN l.tipo_operacion IN (${usuarioOps})
+                           THEN CONCAT(u2.nombre, ' ', u2.apellido)
+                       WHEN l.tipo_operacion IN (${materialOps}) THEN m.titulo
+                       WHEN l.tipo_operacion IN (${materiaOps}) THEN s.nombre
+                       WHEN l.tipo_operacion IN (${rolOps}) THEN r.nombre
+                       ELSE NULL
+                   END AS registroNombre
+            FROM audit_logs l
             LEFT JOIN users u ON u.id = l.usuario_id
+            LEFT JOIN users u2 ON u2.id = l.registro_id
             LEFT JOIN materials m ON m.id = l.registro_id
             LEFT JOIN subjects s ON s.id = l.registro_id
-            LEFT JOIN users u2 ON u2.id = l.registro_id
-            ORDER BY l.timestamp DESC, l.id DESC LIMIT 500`);
-        return rows.map(r => ({ ...map(r), usuarioEmail: r.usuarioEmail, usuarioNombre: r.usuarioNombre, registroNombre: r.registroNombre }));
+            LEFT JOIN roles r ON r.id = l.registro_id
+            ORDER BY l.timestamp DESC, l.id DESC`);
+        return rows.map(map);
     }
 
     async findByUser(userId) {

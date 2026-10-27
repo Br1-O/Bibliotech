@@ -12,8 +12,14 @@ module.exports = (container) => {
     const Role = require('../domain/entities/Role');
 
     router.post('/register', controller.register);
+    router.post('/verify-account', controller.verifyAccount);
+    router.get('/verify-account', controller.verifyAccount);
+    router.post('/activate', controller.activateAccount);
+    router.get('/activate/:token', controller.activateAccount);
+    router.post('/resend-verification', controller.resendVerification);
     router.post('/login', controller.login);
     router.post('/forgot-password', controller.forgotPassword);
+    router.get('/reset-password/:token/validate', controller.validateResetToken);
     router.post('/reset-password', controller.resetPassword);
     router.get('/roles', controller.listRoles);
 

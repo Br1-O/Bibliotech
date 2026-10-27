@@ -63,7 +63,9 @@ class MariaDBSubscriptionRepository extends SubscriptionRepositoryInterface {
 
     async findByAlumno(alumnoId) {
         const [rows] = await db.execute(
-            `SELECT s.*, sub.nombre AS materiaNombre
+            `SELECT s.*, s.materia_id AS materiaId, s.alumno_id AS alumnoId,
+                    sub.nombre AS materiaNombre, sub.descripcion AS materiaDescripcion,
+                    sub.profesor_id AS profesorId
              FROM subscriptions s INNER JOIN subjects sub ON sub.id = s.materia_id
              WHERE s.alumno_id = ? ORDER BY s.created_at DESC`,
             [alumnoId]

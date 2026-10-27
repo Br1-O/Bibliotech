@@ -15,6 +15,15 @@
     "mySubscriptions": "My subscriptions",
     "favorites": "Favorites"
   },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "You have no notifications.",
+    "unread": "{count} unread",
+    "aria": "Notifications",
+    "ariaUnread": "Notifications, {count} unread",
+    "byProfessor": "Added by {name}",
+    "loading": "Loading notifications..."
+  },
   "roles": {
     "Superadmin": "Superadmin",
     "Profesor": "Teacher",
@@ -63,17 +72,21 @@
     "registerButton": "CREATE ACCOUNT",
     "forgotPassword": "Forgot my password",
     "forgotTitle": "Recover password",
-    "forgotSubtitle": "We will send you a link to reset it",
-    "sendLink": "Send link",
+    "forgotSubtitle": "We will send you a link to reset it.",
+    "sendLink": "SEND LINK",
     "resetTitle": "New password",
-    "resetSubtitle": "Choose a secure password",
+    "resetSubtitle": "Choose a secure password for your account.",
     "resetButton": "CHANGE PASSWORD",
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
     "backToLogin": "Back to sign in",
     "demoHint": "Test account: alumno@bibliotech.edu (Alumno123)",
     "ban": "Ban user",
-    "unban": "Unban user"
+    "unban": "Unban user",
+    "repeatPassword": "Repeat password",
+    "newPassword": "New password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "validation": {
     "required": "{field} is required.",
@@ -83,7 +96,8 @@
     "maxLength": "{field} is too long.",
     "pendingLimit": "You cannot have more than {max} pending materials.",
     "fileType": "Invalid file type. PDF, Word and Presentations are allowed.",
-    "invalidData": "Check the submitted data."
+    "invalidData": "Check the submitted data.",
+    "passwordMismatch": "The passwords do not match."
   },
   "catalog": {
     "title": "Global catalog",
@@ -126,7 +140,14 @@
     "pendingAssociation": "Pending association",
     "requestAssociation": "Request association",
     "viewMaterials": "View materials",
-    "noSubjects": "No subjects have been published yet."
+    "noSubjects": "No subjects have been published yet.",
+    "onlySubscribed": "Only subscribed",
+    "showAll": "Show all",
+    "mySubscriptionsTitle": "My subscribed subjects",
+    "mySubscriptionsSubtitle": "Quick access to the material of the subjects you follow.",
+    "noSubscribed": "You are not subscribed to any subject yet.",
+    "explore": "Explore subjects",
+    "materialCount": "{count} materials"
   },
   "subject": {
     "materialsOf": "Materials of",
@@ -148,6 +169,8 @@
     "linkPlaceholder": "https://drive.google.com/... or https://youtube.com/...",
     "description": "Description",
     "descriptionPlaceholder": "Short description of the material (optional)",
+    "uploadedOn": "Uploaded on {date}",
+    "new": "New",
     "info": "Info",
     "subjects": "Target subjects",
     "tags": "Topic tags",
@@ -157,7 +180,26 @@
     "approve": "Approve",
     "reject": "Reject",
     "cancel": "Cancel upload",
-    "associated": "Link to my subject",
+    "addToSubjects": "Add to subjects",
+    "addToSubjectsTitle": "Add to your subjects",
+    "addToSubjectsMaterial": "Material",
+    "addToSubjectsHint": "Choose one or more of your subjects to associate this material.",
+    "addToSubjectsPlaceholder": "Select a subject",
+    "selectedSubjects": "Selected ({count})",
+    "noSelection": "You haven't selected any subjects yet.",
+    "allSubjectsSelected": "All your subjects are already selected.",
+    "alreadyInAllSubjects": "This material is already in all your subjects.",
+    "removeSubject": "Remove {name}",
+    "removeTag": "Remove tag {tag}",
+    "pdfViewer": "PDF viewer",
+    "youtubeVideo": "YouTube video",
+    "pdfFrameTitle": "PDF viewer: {title}",
+    "youtubeFrameTitle": "YouTube video: {title}",
+    "pdfHint": "Use the viewer controls to navigate and zoom.",
+    "youtubeHint": "If the video does not play, open it directly on YouTube.",
+    "openNewTab": "Open in a new tab",
+    "watchOnYoutube": "Watch on YouTube",
+    "associateConfirm": "Add material",
     "edit": "Edit material",
     "editHint": "Change the title or description of the material in your subject.",
     "removeFromSubject": "Remove from subject",
@@ -197,8 +239,6 @@
     "ban": "Ban",
     "unban": "Unban",
     "approveMaterial": "Approve material",
-    "associateTitle": "Associate existing material",
-    "selectSubject": "Select a subject",
     "noSubjects": "You have no subjects associated yet."
   },
   "admin": {
@@ -227,16 +267,16 @@
     "unauthorized": "Unauthorized.",
     "forbidden": "You do not have permission to perform this action.",
     "invalidCredentials": "Invalid credentials.",
-    "invalidToken": "Invalid or expired token.",
+    "invalidToken": "Invalid or expired link.",
     "serverError": "Internal server error.",
     "network": "Could not reach the server.",
     "tooManyRequests": "Too many requests. Please try again later."
   },
   "messages": {
-    "registerSuccess": "Account created successfully. You can now sign in.",
+    "registerSuccess": "Account created. Check your email and open the activation link before signing in.",
     "loginSuccess": "Signed in successfully.",
     "logoutSuccess": "Signed out.",
-    "resetRequested": "If the email exists, a recovery link was sent.",
+    "resetRequested": "If the email exists, we sent a recovery link.",
     "passwordChanged": "Password updated successfully.",
     "subjectCreated": "Subject created successfully.",
     "associationRequested": "Association request sent to the superadmin.",
@@ -248,6 +288,7 @@
     "materialUploaded": "Material published successfully.",
     "materialSuggested": "Material suggested. It is pending approval.",
     "materialAssociated": "Material associated to the subject.",
+    "materialAssociatedMany": "Material associated to {count} subjects.",
     "materialApproved": "Material approved and published.",
     "materialCancelled": "Pending upload cancelled.",
     "materialUpdated": "Material updated successfully.",
@@ -261,10 +302,58 @@
     "userUnbanned": "User unbanned.",
     "userDeleted": "User deactivated.",
     "favoriteAdded": "Added to favorites.",
-    "favoriteRemoved": "Removed from favorites."
+    "favoriteRemoved": "Removed from favorites.",
+    "verificationResent": "If the account is pending, we sent a new activation link.",
+    "accountVerified": "Account activated successfully. You can now sign in."
   },
   "favorites": {
     "title": "My favorites",
-    "empty": "You have not added any materials to favorites yet."
+    "empty": "You have not added any materials to favorites yet.",
+    "subtitle": "The materials you saved to review later.",
+    "count": "{count} saved materials",
+    "emptyHint": "Browse the catalog and star the material you want to keep.",
+    "browse": "Browse catalog"
+  },
+  "theme": {
+    "toDark": "Switch to dark theme",
+    "toLight": "Switch to light theme"
+  },
+  "userStates": {
+    "Activo": "Active",
+    "Baneado": "Banned",
+    "Inactivo": "Inactive",
+    "PendienteVerificacion": "Pending verification"
+  },
+  "audit": {
+    "types": {
+      "Usuario": "User",
+      "Rol": "Role",
+      "Materia": "Subject",
+      "Material": "Material"
+    },
+    "operations": {
+      "Alta Usuario": "User created",
+      "Verificacion Cuenta": "Account verified",
+      "Solicitud Reseteo Clave": "Password reset requested",
+      "Cambio Clave": "Password changed",
+      "Desbaneo Usuario": "User unbanned",
+      "Baja Usuario": "User deactivated",
+      "Alta Rol": "Role created",
+      "Solicitud Materia": "Subject requested",
+      "Alta Materia": "Subject created",
+      "Asociacion Materia": "Subject association",
+      "Modificacion Materia": "Subject updated",
+      "Subida Material": "Material uploaded",
+      "Asociacion Material": "Material associated",
+      "Aprobacion Material": "Material approved",
+      "Modificacion Material": "Material updated",
+      "Desasociacion Material": "Material unlinked",
+      "Cancelacion Material": "Material cancelled",
+      "Borrado Material": "Material deleted",
+      "Suscripcion Materia": "Subject subscription",
+      "Baneo Alumno": "Student banned",
+      "Inicio Sesion": "Signed in",
+      "Cierre Sesion": "Signed out"
+    }
   }
 }

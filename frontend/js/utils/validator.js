@@ -1,61 +1,142 @@
 /**
 * Project     : Bibliotech  |  Frontend - Utilidades
-* Validator: validacion de formularios con mensajes localizados.
-* Espeja las reglas del modulo Filter/Validator del backend (RNF-06).
+* Validator: validacion encadenada de formularios, espejo del
+* ValidationHandler del backend (patron fluent, RNF-06).
+*
+* Uso:
+*   const ok = Validator.on(form)
+*       .required('email', label)
+*       .email('email', label)
+*       .required('password', label)
+*       .password('password', label)
+*       .validateThis()
+*       .render();
 */
+
+class FormValidator {
+    constructor(form) {
+        this.form = form;
+        this.rules = [];
+        this.errors = {};
+    }
+
+    with(rule) {
+        this.rules.push(rule);
+        return this;
+    }
+
+    _add(field, label, type, param = null, extra = {}) {
+        return this.with({ field, label, type, param, ...extra });
+    }
+
+    required(field, label) { return this._add(field, label, 'required'); }
+    email(field, label) { return this._add(field, label, 'email'); }
+    password(field, label) { return this._add(field, label, 'password'); }
+    minLength(field, length, label) { return this._add(field, label, 'minLength', length); }
+    maxLength(field, length, label) { return this._add(field, label, 'maxLength', length); }
+    match(field, otherField, label) { return this._add(field, label, 'match', otherField); }
+
+    value(field) {
+        if (this.form) {
+            const input = this.form.querySelector(`[name="${field}"]`);
+            if (input) return input.value;
+            return new FormData(this.form).get(field);
+        }
+        return '';
+    }
+
+    _message(rule, text) {
+        const params = { field: rule.label };
+        switch (rule.type) {
+            case 'required': return LanguageManager.t('validation.required', params);
+            case 'email': return LanguageManager.t('validation.email', params);
+            case 'password': return LanguageManager.t('validation.password', params);
+            case 'minLength': return LanguageManager.t('validation.minLength', { ...params, length: rule.param });
+            case 'maxLength': return LanguageManager.t('validation.maxLength', { ...params, length: rule.param });
+            case 'match': return LanguageManager.t('validation.passwordMismatch');
+            default: return LanguageManager.t('validation.invalidData');
+        }
+    }
+
+    _valid(rule, text) {
+        switch (rule.type) {
+            case 'required': return text.trim().length > 0;
+            case 'email': return Validator.EMAIL_REGEX.test(text);
+            case 'password': return text.length >= 8 && /[A-Za-z]/.test(text) && /\d/.test(text);
+            case 'minLength': return text.length >= Number(rule.param);
+            case 'maxLength': return text.length <= Number(rule.param);
+            case 'match': {
+                const other = this.value(rule.param) || '';
+                return text === '' || text === other;
+            }
+            default: return true;
+        }
+    }
+
+    validateThis() {
+        this.errors = {};
+        for (const rule of this.rules) {
+            const text = String(this.value(rule.field) ?? '');
+            if (!this._valid(rule, text)) {
+                if (!this.errors[rule.field]) this.errors[rule.field] = this._message(rule, text);
+            }
+        }
+        return this;
+    }
+
+    getErrors() {
+        return this.errors;
+    }
+
+    render() {
+        if (!this.form) return Object.keys(this.errors).length === 0;
+        this.form.querySelectorAll('[data-error-for]').forEach(node => { node.textContent = ''; });
+        this.form.querySelectorAll('[aria-invalid]').forEach(node => node.removeAttribute('aria-invalid'));
+
+        Object.entries(this.errors).forEach(([field, message]) => {
+            const slot = this.form.querySelector(`[data-error-for="${field}"]`);
+            if (slot) slot.textContent = message;
+            const input = this.form.querySelector(`[name="${field}"]`);
+            if (input) input.setAttribute('aria-invalid', 'true');
+        });
+        return Object.keys(this.errors).length === 0;
+    }
+
+    show() {
+        this.render();
+        const first = this.form?.querySelector('[aria-invalid="true"]');
+        if (first) first.focus();
+        return Object.keys(this.errors).length === 0;
+    }
+}
 
 const Validator = {
     EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/,
 
-    /** Evalua una regla sobre un valor. Devuelve un mensaje localizado o null. */
-    evaluate(rule, value, label) {
-        const text = value === undefined || value === null ? '' : String(value).trim();
-        const params = { field: label };
-
-        switch (rule.type) {
-            case 'required':
-                return text === '' ? LanguageManager.t('validation.required', params) : null;
-            case 'email':
-                return this.EMAIL_REGEX.test(text) ? null : LanguageManager.t('validation.email', params);
-            case 'password':
-                return (text.length >= 8 && /[A-Za-z]/.test(text) && /\d/.test(text))
-                    ? null : LanguageManager.t('validation.password', params);
-            case 'minLength':
-                return text.length >= (rule.param || 0) ? null : LanguageManager.t('validation.minLength', params);
-            case 'maxLength':
-                return text.length <= (rule.param || Infinity) ? null : LanguageManager.t('validation.maxLength', params);
-            default:
-                return null;
-        }
+    on(form) {
+        return new FormValidator(form);
     },
 
-    /**
-     * @param {Array} fields [{ name, label, value, checks:[{type, param}] }]
-     * @returns {Object} mapa nombre -> mensaje de error
-     */
-    validate(fields) {
-        const errors = {};
-        for (const field of fields) {
-            for (const rule of field.checks) {
-                const message = this.evaluate(rule, field.value, field.label);
-                if (message) { errors[field.name] = message; break; }
-            }
-        }
-        return errors;
-    },
+    /** Vuelca errores de campo devueltos por el backend. */
+    applyServerErrors(form, error) {
+        if (!form || !error) return false;
+        const fields = error.fields && typeof error.fields === 'object' ? error.fields : {};
+        const entries = Object.entries(fields);
+        if (!entries.length) return false;
 
-    /** Pinta los errores en los contenedores [data-error-for] y quita aria-invalid. */
-    renderErrors(form, errors) {
         form.querySelectorAll('[data-error-for]').forEach(node => { node.textContent = ''; });
-        form.querySelectorAll('[aria-invalid]').forEach(node => node.removeAttribute('aria-invalid'));
-
-        Object.entries(errors).forEach(([name, message]) => {
-            const slot = form.querySelector(`[data-error-for="${name}"]`);
+        entries.forEach(([field, message]) => {
+            const slot = form.querySelector(`[data-error-for="${field}"]`);
             if (slot) slot.textContent = message;
-            const input = form.querySelector(`[name="${name}"]`);
+            const input = form.querySelector(`[name="${field}"]`);
             if (input) input.setAttribute('aria-invalid', 'true');
         });
+        return true;
+    },
 
-        return Object.keys(errors).length === 0;
+    clear(form) {
+        if (!form) return;
+        form.querySelectorAll('[data-error-for]').forEach(node => { node.textContent = ''; });
+        form.querySelectorAll('[aria-invalid]').forEach(node => node.removeAttribute('aria-invalid'));
     }
 };

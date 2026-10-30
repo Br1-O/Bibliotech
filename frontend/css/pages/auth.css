@@ -1,0 +1,75 @@
+/* ============================ Auth ============================ */
+.bt-auth {
+    position: relative;
+    min-height: calc(100vh - var(--navbar-height));
+    display: grid;
+    place-items: center;
+    padding: var(--space-7) var(--space-4);
+    overflow: hidden;
+}
+.bt-auth::before,
+.bt-auth::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+}
+.bt-auth::before {
+    width: 420px; height: 420px;
+    top: -140px; left: -120px;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.35), transparent 66%);
+}
+.bt-auth::after {
+    width: 380px; height: 380px;
+    bottom: -150px; right: -100px;
+    background: radial-gradient(circle, rgba(242, 165, 141, 0.32), transparent 68%);
+}
+[data-theme="dark"] .bt-auth::before { background: radial-gradient(circle, rgba(124, 100, 230, 0.22), transparent 68%); }
+[data-theme="dark"] .bt-auth::after { background: radial-gradient(circle, rgba(194, 112, 87, 0.20), transparent 68%); }
+
+.bt-auth__card {
+    position: relative;
+    width: 100%;
+    max-width: 460px;
+    padding: clamp(1.5rem, 5vw, 2.6rem);
+    background: var(--glass-bg-strong);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+.bt-auth__card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 5px;
+    background: linear-gradient(90deg, var(--brand-primary), var(--brand-sky), var(--brand-accent));
+    opacity: 0.7;
+}
+.bt-auth__brand { text-align: center; margin-bottom: var(--space-5); }
+.bt-auth__brand h1 {
+    margin-bottom: var(--space-2);
+    font-size: var(--font-size-2xl);
+    background: linear-gradient(120deg, var(--brand-primary), var(--brand-secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+[data-theme="dark"] .bt-auth__brand h1 {
+    background: linear-gradient(120deg, #d4c9ff, #9be6d8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.bt-auth__brand p { margin: 0; }
+.bt-auth__help {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: calc(-1 * var(--space-1)) 0 0;
+    font-size: var(--font-size-sm);
+}
+.bt-auth__card > .bt-row { margin-top: var(--space-2); }
+.bt-auth__card .bt-btn--block { width: 100%; }

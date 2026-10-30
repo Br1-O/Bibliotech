@@ -24,7 +24,16 @@
     "profesorId": "Profesor titular",
     "archivo": "Archivo",
     "subjectId": "Materia",
-    "alumnoId": "Alumno"
+    "alumnoId": "Alumno",
+    "birthdate": "Fecha de nacimiento",
+    "gender": "Genero",
+    "genderCustom": "Genero personalizado",
+    "linkedin": "LinkedIn",
+    "career": "Carrera",
+    "institute": "Instituto",
+    "aboutMe": "Sobre mi",
+    "pages": "Paginas",
+    "currentPassword": "Contrasena actual"
   },
   "validation": {
     "required": "{field} es obligatorio.",
@@ -44,7 +53,12 @@
     "emailTaken": "El correo electronico ya se encuentra registrado.",
     "roleTaken": "El rol ya se encuentra registrado.",
     "invalidData": "Los datos enviados no son validos.",
-    "duplicateMaterial": "Ya existe otro material con el mismo archivo o enlace."
+    "duplicateMaterial": "Ya existe otro material con el mismo archivo o enlace.",
+    "birthdate": "La fecha de nacimiento no es valida.",
+    "gender": "El genero seleccionado no es valido.",
+    "genderCustom": "El genero personalizado debe tener entre 3 y 10 letras.",
+    "materialPagesMissing": "Este material no tiene paginas registradas. Indica el total de paginas manualmente.",
+    "currentPassword": "La contrasena actual no es correcta."
   },
   "messages": {
     "registerSuccess": "Cuenta creada. Revisa tu correo y abre el enlace de activacion antes de iniciar sesion.",

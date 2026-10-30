@@ -1,0 +1,57 @@
+/* ============================ Dashboard ============================ */
+.bt-panel {
+    background: var(--glass-bg);
+    border: var(--border-width) solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    box-shadow: var(--shadow-sm);
+}
+.bt-panel > h2:first-child { margin-top: 0; }
+.bt-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-4);
+}
+.bt-stat {
+    position: relative;
+    overflow: hidden;
+    background: var(--glass-bg);
+    border: var(--border-width) solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4) var(--space-5);
+    box-shadow: var(--shadow-sm);
+}
+.bt-stat::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 5px;
+    background: linear-gradient(180deg, var(--brand-primary), var(--brand-sky));
+}
+.bt-stat:nth-child(2n)::before { background: linear-gradient(180deg, var(--brand-secondary), var(--brand-sky)); }
+.bt-stat:nth-child(3n)::before { background: linear-gradient(180deg, var(--brand-accent), var(--brand-rose)); }
+.bt-stat__value {
+    display: block;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: 800;
+    color: var(--brand-primary);
+    line-height: 1.1;
+}
+.bt-stat__label { color: var(--text-muted); font-size: var(--font-size-sm); font-weight: 600; }
+
+.bt-columns {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .bt-columns { grid-template-columns: 1fr; }
+}
+
+/* ============================ Auditoria ============================ */
+.bt-audit__target { display: flex; flex-direction: column; gap: 4px; }
+.bt-audit__target-name { font-weight: 700; color: var(--text-primary); }
+.bt-audit__date { white-space: nowrap; color: var(--text-muted); font-size: var(--font-size-xs); }
+.bt-audit__operation { font-weight: 600; }

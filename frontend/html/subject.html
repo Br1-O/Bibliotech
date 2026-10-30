@@ -6,10 +6,29 @@
     <meta name="theme-color" content="#f5f2ff">
     <script src="/js/theme.js"></script>
     <title>Bibliotech · Materia</title>
-    <link rel="stylesheet" href="/css/variables.css">
-    <link rel="stylesheet" href="/css/base.css">
-    <link rel="stylesheet" href="/css/components.css">
-    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/shared/variables.css">
+    <link rel="stylesheet" href="/css/shared/base.css">
+    <link rel="stylesheet" href="/css/shared/forms.css">
+    <link rel="stylesheet" href="/css/components/passwordField/passwordField.css">
+    <link rel="stylesheet" href="/css/shared/badges.css">
+    <link rel="stylesheet" href="/css/components/button/button.css">
+    <link rel="stylesheet" href="/css/components/cards/cards.css">
+    <link rel="stylesheet" href="/css/components/pagination/pagination.css">
+    <link rel="stylesheet" href="/css/components/navbar/navbar.css">
+    <link rel="stylesheet" href="/css/components/loader/loader.css">
+    <link rel="stylesheet" href="/css/components/modal/modal.css">
+    <link rel="stylesheet" href="/css/components/materialEditor/materialEditor.css">
+    <link rel="stylesheet" href="/css/components/materialViewer/materialViewer.css">
+    <link rel="stylesheet" href="/css/components/toast/toast.css">
+    <link rel="stylesheet" href="/css/components/table/table.css">
+    <link rel="stylesheet" href="/css/components/tagInput/tagInput.css">
+    <link rel="stylesheet" href="/css/components/careers/careers.css">
+    <link rel="stylesheet" href="/css/components/profileSummary/profileSummary.css">
+    <link rel="stylesheet" href="/css/components/contentTabs/contentTabs.css">
+    <link rel="stylesheet" href="/css/components/passwordChange/passwordChange.css">
+    <link rel="stylesheet" href="/css/shared/utilities.css">
+    <link rel="stylesheet" href="/css/pages/subjects.css">
+    <link rel="stylesheet" href="/css/pages/catalog.css">
 </head>
 <body>
     <div id="btPageLoader" class="bt-page-loader" role="status" aria-live="polite" aria-label="Cargando...">
@@ -25,6 +44,21 @@
             <div class="bt-toolbar bt-row bt-mt-4">
                 <input id="subjectSearch" class="bt-input" type="search"
                        data-i18n-placeholder="catalog.searchPlaceholder" placeholder="Buscar material...">
+                <select id="subjectTypeFilter" class="bt-select" data-i18n-title="catalog.filterByType" title="Tipo">
+                    <option value="" data-i18n="filters.allTypes">Todos los tipos</option>
+                </select>
+                <select id="subjectCategoryFilter" class="bt-select"
+                        data-i18n-title="catalog.filterByCategory" title="Categoria">
+                    <option value="" data-i18n="filters.allCategories">Todas las categorias</option>
+                </select>
+                <select id="subjectYearFilter" class="bt-select"
+                        data-i18n-title="catalog.filterByUploadYear" title="Anio de publicacion">
+                    <option value="" data-i18n="filters.allYears">Todos los anios</option>
+                </select>
+                <label class="bt-check bt-toolbar__check">
+                    <input id="subjectMandatoryFilter" type="checkbox">
+                    <span data-i18n="filters.onlyMandatory">Solo obligatorios</span>
+                </label>
                 <select id="subjectSort" class="bt-select" data-i18n-title="filters.sort" title="Ordenar por">
                     <option value="newest" data-i18n="filters.newest">Mas recientes</option>
                     <option value="oldest" data-i18n="filters.oldest">Mas antiguos</option>
@@ -45,18 +79,19 @@
     <script src="/js/i18n/LanguageManager.js"></script>
     <script src="/js/utils/authHelper.js"></script>
     <script src="/js/utils/validator.js"></script>
-    <script src="/js/components/icons.js"></script>
-    <script src="/js/components/passwordField.js"></script>
-    <script src="/js/components/button.js"></script>
-    <script src="/js/components/loader.js"></script>
-    <script src="/js/components/toast.js"></script>
-    <script src="/js/components/modal.js"></script>
-    <script src="/js/components/materialViewer.js"></script>
-    <script src="/js/components/cards.js"></script>
-    <script src="/js/components/tagInput.js"></script>
-    <script src="/js/components/materialEditor.js"></script>
-    <script src="/js/components/navbar.js"></script>
-    <script src="/js/components/pagination.js"></script>
+    <script src="/js/components/icons/icons.js"></script>
+    <script src="/js/components/passwordField/passwordField.js"></script>
+    <script src="/js/components/button/button.js"></script>
+    <script src="/js/components/loader/loader.js"></script>
+    <script src="/js/components/toast/toast.js"></script>
+    <script src="/js/components/modal/modal.js"></script>
+    <script src="/js/components/materialViewer/materialViewer.js"></script>
+    <script src="/js/components/cards/cards.js"></script>
+    <script src="/js/components/tagInput/tagInput.js"></script>
+    <script src="/js/components/materialEditor/materialEditor.js"></script>
+    <script src="/js/components/passwordChange/passwordChange.js"></script>
+    <script src="/js/components/navbar/navbar.js"></script>
+    <script src="/js/components/pagination/pagination.js"></script>
     <script src="/js/services/apiService.js"></script>
     <script src="/js/frontControllers/subjectFrontController.js"></script>
     <script src="/js/app.js"></script>

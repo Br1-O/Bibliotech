@@ -10,6 +10,10 @@ document.addEventListener('bt:ready', () => {
     const subjectId = Number(window.location.pathname.split('/').filter(Boolean).pop());
     const searchInput = document.getElementById('subjectSearch');
     const sortSelect = document.getElementById('subjectSort');
+    const typeFilter = document.getElementById('subjectTypeFilter');
+    const categoryFilter = document.getElementById('subjectCategoryFilter');
+    const yearFilter = document.getElementById('subjectYearFilter');
+    const mandatoryFilter = document.getElementById('subjectMandatoryFilter');
     const clearButton = document.getElementById('subjectClear');
     const paginationNode = document.getElementById('subjectPagination');
     const resultsLabel = document.getElementById('subjectResults');
@@ -19,20 +23,48 @@ document.addEventListener('bt:ready', () => {
     let currentPage = 1;
     let debounce;
     let canManage = false;
+    let filterOptions = { years: [], categories: [] };
+    const MATERIAL_TYPES = ['PDF', 'EPUB', 'Word', 'Presentacion', 'Link_Drive', 'Youtube', 'Repositorio'];
     const canFavorite = authHelper.isAuthenticated();
     const me = authHelper.getUser() || {};
-    const isAdmin = authHelper.isRole('Superadmin');
 
     function canEditMaterial(material) {
-        if (!authHelper.isRole('Profesor', 'Superadmin') || Cards.isInactive(material)) return false;
-        if (Number(material.autorId) === Number(me.id)) return true;
-        if (material.autorRol !== 'Alumno') return false;
-        return isAdmin || canManage;
+        return Cards.canEdit(material);
+    }
+
+    async function loadFilterOptions() {
+        try {
+            filterOptions = await apiService.get('/materials/filters');
+        } catch (error) {
+            filterOptions = { years: [], categories: [] };
+        }
+        if (typeFilter) {
+            render(typeFilter, [
+                el('option', { value: '', text: LanguageManager.t('filters.allTypes') }),
+                ...MATERIAL_TYPES.map(value => el('option', { value, text: LanguageManager.t(`material.types.${value}`) }))
+            ]);
+        }
+        if (categoryFilter) {
+            render(categoryFilter, [
+                el('option', { value: '', text: LanguageManager.t('filters.allCategories') }),
+                ...(filterOptions.categories || []).map(category => el('option', {
+                    value: category.slug,
+                    text: LanguageManager.t(`material.categories.${category.slug}`)
+                }))
+            ]);
+        }
+        if (yearFilter) {
+            render(yearFilter, [
+                el('option', { value: '', text: LanguageManager.t('filters.allYears') }),
+                ...(filterOptions.years || []).map(year => el('option', { value: String(year), text: String(year) }))
+            ]);
+        }
     }
 
     async function load() {
         Loader.skeletons(document.getElementById('subjectMaterials'), 3);
         try {
+            await loadFilterOptions();
             const { subject } = await apiService.get(`/subjects/${subjectId}`);
             canManage = authHelper.isRole('Superadmin')
                 || (authHelper.isRole('Profesor') && Cards.isSubjectProfessor(subject, me.id));
@@ -110,7 +142,7 @@ document.addEventListener('bt:ready', () => {
         if (!material || typeof MaterialEditor === 'undefined') return;
         MaterialEditor.open(material, async () => {
             await loadMaterials();
-        });
+        }, { subjectId });
     }
 
     /** Quita el material de esta materia (y lo elimina si queda huerfano). */
@@ -133,7 +165,13 @@ document.addEventListener('bt:ready', () => {
     async function loadMaterials() {
         Loader.skeletons(grid, 3);
         try {
-            const result = await apiService.get(`/subjects/${subjectId}/materials`, { q: searchInput?.value || '' });
+            const result = await apiService.get(`/subjects/${subjectId}/materials`, {
+                q: searchInput?.value || '',
+                tipo: typeFilter?.value || '',
+                category: categoryFilter?.value || '',
+                year: yearFilter?.value || '',
+                mandatory: mandatoryFilter?.checked ? 'true' : ''
+            });
             allMaterials = result.materials || [];
             currentPage = 1;
             applyAndRender();
@@ -191,9 +229,16 @@ document.addEventListener('bt:ready', () => {
         debounce = setTimeout(loadMaterials, 300);
     });
     sortSelect?.addEventListener('change', () => { currentPage = 1; applyAndRender(); });
+    [typeFilter, categoryFilter, yearFilter, mandatoryFilter].forEach(node => {
+        node?.addEventListener('change', () => { currentPage = 1; loadMaterials(); });
+    });
     clearButton?.addEventListener('click', () => {
         if (searchInput) searchInput.value = '';
         if (sortSelect) sortSelect.value = 'newest';
+        if (typeFilter) typeFilter.value = '';
+        if (categoryFilter) categoryFilter.value = '';
+        if (yearFilter) yearFilter.value = '';
+        if (mandatoryFilter) mandatoryFilter.checked = false;
         loadMaterials();
     });
 

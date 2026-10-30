@@ -62,6 +62,9 @@ module.exports = (container) => {
                 const filters = {
                     q: req.query.q || '',
                     tipo: req.query.tipo || null,
+                    category: req.query.category || null,
+                    uploadYear: req.query.year || req.query.uploadYear || null,
+                    mandatory: req.query.mandatory === 'true' || req.query.mandatory === '1',
                     tags: req.query.tags ? [].concat(req.query.tags) : []
                 };
                 const result = await materialService.getBySubject(req.params.id, filters, req.usuarioId);

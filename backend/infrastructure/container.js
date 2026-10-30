@@ -14,7 +14,9 @@ const MariaDBSubscriptionRepository = require('./repositories/MariaDBSubscriptio
 const MariaDBAuditLogRepository = require('./repositories/MariaDBAuditLogRepository');
 const MariaDBThematicTagRepository = require('./repositories/MariaDBThematicTagRepository');
 const MariaDBNotificationRepository = require('./repositories/MariaDBNotificationRepository');
+const MariaDBGamificationRepository = require('./repositories/MariaDBGamificationRepository');
 const ThematicTagService = require('../application/services/ThematicTagService');
+const GamificationService = require('../application/services/GamificationService');
 
 const AuditLogService = require('../application/services/AuditLogService');
 const AuthService = require('../application/services/AuthService');
@@ -41,10 +43,17 @@ function buildContainer() {
     const auditLogRepository = new MariaDBAuditLogRepository();
     const thematicTagRepository = new MariaDBThematicTagRepository();
     const notificationRepository = new MariaDBNotificationRepository();
+    const gamificationRepository = new MariaDBGamificationRepository();
 
     const languageManager = new LanguageManager();
     const auditLogService = new AuditLogService(auditLogRepository);
     const thematicTagService = new ThematicTagService(thematicTagRepository, auditLogService);
+    const gamificationService = new GamificationService({
+        gamificationRepository,
+        userRepository,
+        materialRepository,
+        notificationRepository
+    });
 
     return {
         // Repositorios (puertos de salida)
@@ -57,6 +66,7 @@ function buildContainer() {
         auditLogRepository,
         thematicTagRepository,
         notificationRepository,
+        gamificationRepository,
 
         // Infraestructura de soporte
         languageManager,
@@ -67,10 +77,11 @@ function buildContainer() {
         authService: new AuthService(userRepository, roleRepository, auditLogService, languageManager, require('../application/services/mail/MailerService').mailerService),
         careerService: new CareerService(careerRepository, auditLogService, languageManager),
         subjectService: new SubjectService(subjectRepository, userRepository, auditLogService, languageManager, careerRepository),
-        materialService: new MaterialService(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService, fileHelper, notificationRepository),
+        materialService: new MaterialService(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService, fileHelper, notificationRepository, gamificationService),
         subscriptionService: new SubscriptionService(subscriptionRepository, subjectRepository, userRepository, auditLogService, languageManager),
         notificationService: new NotificationService(notificationRepository),
-        thematicTagService
+        thematicTagService,
+        gamificationService
     };
 }
 

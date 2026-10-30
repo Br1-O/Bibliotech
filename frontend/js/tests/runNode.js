@@ -21,6 +21,7 @@ const FILES = [
     'careerTests.js',
     'subscriptionTests.js',
     'notificationTests.js',
+    'gamificationTests.js',
     'refinementTests.js',
     'adminTests.js',
     'sqlTests.js'

@@ -1,0 +1,20 @@
+/* ============================ Detalle de materia ============================ */
+.bt-headline {
+    position: relative;
+    overflow: hidden;
+    background: var(--glass-bg);
+    border: var(--border-width) solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    padding: clamp(1.4rem, 4vw, 2.4rem);
+    box-shadow: var(--shadow-md);
+}
+.bt-headline::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 6px;
+    background: linear-gradient(180deg, var(--brand-primary), var(--brand-secondary));
+}
+.bt-headline h1 { font-size: var(--font-size-2xl); margin-bottom: var(--space-2); }
+.bt-headline__actions { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+.bt-headline .bt-badge { margin-right: var(--space-2); }

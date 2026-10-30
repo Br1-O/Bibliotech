@@ -53,7 +53,7 @@ backend/
 └── server.js          # Punto de entrada.
 
 frontend/
-├── css/               # Sistema de diseno con variables.
+├── css/               # Sistema de diseno modular (shared/, components/, pages/).
 ├── html/              # Pantallas.
 ├── js/
 │   ├── components/    # Componentes de UI reutilizables.
@@ -65,9 +65,11 @@ frontend/
 
 ## Puesta en marcha
 
-1. **Base de datos**: ejecutar el script de inicializacion.
+1. **Base de datos**: ejecutar el script de inicializacion (o la migracion si la base ya existe).
    ```bash
    mysql -u root -p < backend/config/init.sql
+   # Base existente:
+   mysql -u root -p bibliotech < backend/config/migrate_requisitos.sql
    ```
 
 2. **Variables de entorno**: crear `backend/.env` a partir de `.env.example`.
@@ -96,8 +98,8 @@ frontend/
 
 La suite de pruebas de la API vive en `frontend/js/tests/` y se ejecuta desde la
 pantalla `http://localhost:3000/tests` (o `http://localhost:3000/` con
-`NODE_ENV=testing`). Cubre RF-01 a RF-05, validacion multilenguaje (RNF-06) y
-seguridad (inyeccion SQL).
+`NODE_ENV=testing`). Cubre RF-01 a RF-05, perfil/gamificacion, validacion
+multilenguaje (RNF-06) y seguridad (inyeccion SQL).
 
 | Archivo             | Cobertura                                             |
 | ------------------- | ----------------------------------------------------- |
@@ -107,6 +109,7 @@ seguridad (inyeccion SQL).
 | `materialTests.js`  | Subida, hash, vista global, moderacion y borrado.      |
 | `subscriptionTests.js` | Suscripcion (Observer) y baneo (RF-03 / RF-05).     |
 | `adminTests.js`     | Usuarios, auditoria y recuperacion de contrasena.      |
+| `gamificationTests.js` | Perfil publico, rango/foto, lectura XP, backlog con auto-completado, rachas y seguidores. |
 | `sqlTests.js`       | Intentos de inyeccion SQL.                             |
 
 Para correrla sin navegador (requiere el servidor levantado):

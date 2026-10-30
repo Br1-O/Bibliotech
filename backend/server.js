@@ -37,6 +37,8 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 // --- Rutas de la API (adaptadores de entrada) ---
 app.use('/api/auth', require('./routes/authRoutes')(container));
+app.use('/api', require('./routes/engagementRoutes')(container));
+app.use('/api/streaks', require('./routes/streakRoutes')(container));
 app.use('/api/careers', require('./routes/careerRoutes')(container));
 app.use('/api/subjects', require('./routes/subjectRoutes')(container));
 app.use('/api/materials', require('./routes/materialRoutes')(container));

@@ -117,10 +117,10 @@ testUtils.createTestButton('Test Refinamiento: Matriz de permisos de edicion', a
 
     const materiaAjena = await refinementSubject([], 'Materia Sin Profesor Permisos');
     const ajeno = await refinementProfessor('profesor-ajeno');
-    const denegadaAjena = await testUtils.request(`/materials/${sugerencia.data.material.id}`, {
-        method: 'PUT', token: ajeno.token, body: { descripcion: 'Intento ajeno' }
+    const editadaAjena = await testUtils.request(`/materials/${sugerencia.data.material.id}`, {
+        method: 'PUT', token: ajeno.token, body: { descripcion: 'Editada por otro profesor' }
     });
-    testUtils.assert(denegadaAjena.status === 403, 'Un profesor no asignado no debe editar la sugerencia');
+    testUtils.assert(editadaAjena.ok, 'Cualquier profesor debe poder editar materiales subidos por alumnos');
 
     const lote = new FormData();
     lote.append('links', `${testUtils.uniq('Material Admin Editable')} | https://github.com/bibliotech-test/${testUtils.uniq('repo')}`);
@@ -255,9 +255,9 @@ testUtils.createTestButton('Test Refinamiento: Edicion completa de material', as
     testUtils.assert(String(adminCambiaAArchivo.data.material.urlOrPath).startsWith('/uploads/'), 'El nuevo archivo del admin no se guardo');
 
     const adminEditaProfesor = await testUtils.request(`/materials/${propio.id}`, {
-        method: 'PUT', token: admin, body: { descripcion: 'El admin no debe editar material de profesores' }
+        method: 'PUT', token: admin, body: { descripcion: 'Editada por el Superadmin' }
     });
-    testUtils.assert(adminEditaProfesor.status === 403, 'El Superadmin no debe editar material de un profesor');
+    testUtils.assert(adminEditaProfesor.ok, 'El Superadmin debe poder editar material de profesores');
 
     const otroEditaProfesor = await testUtils.request(`/materials/${propio.id}`, {
         method: 'PUT', token: otro.token, body: { descripcion: 'Otro profesor no debe editar' }

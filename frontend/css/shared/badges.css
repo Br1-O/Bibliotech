@@ -1,0 +1,49 @@
+/* ============================ Chips / Badges ============================ */
+.bt-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    background-color: var(--brand-primary-soft);
+    color: var(--brand-primary-hover);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    line-height: 1.4;
+}
+.bt-chip--tag {
+    padding: 3px 9px;
+    border: 1px solid var(--border-color);
+    background-color: transparent;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.bt-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 11px;
+    border-radius: var(--radius-pill);
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.055em;
+    line-height: 1.3;
+    white-space: normal;
+    word-break: break-word;
+}
+.bt-badge--success { background: var(--color-success-soft); color: var(--color-success); }
+.bt-badge--warning { background: var(--color-warning-soft); color: var(--color-warning); }
+.bt-badge--danger  { background: var(--color-danger-soft);  color: var(--color-danger); }
+.bt-badge--info    { background: var(--color-info-soft);    color: var(--color-info); }
+.bt-badge--teacher { background: var(--badge-teacher-bg); color: var(--badge-teacher-color); }
+.bt-badge--subject { background: var(--badge-subject-bg); color: var(--badge-subject-color); }
+.bt-badge--pastel-mint { background: var(--brand-secondary-soft); color: var(--color-success); }
+.bt-badge--pastel-peach { background: var(--brand-accent-soft); color: var(--brand-accent-dark); }
+.bt-badge--pastel-sky { background: var(--brand-sky-soft); color: var(--color-info); }
+.bt-badge--new {
+    flex: 0 0 auto;
+    background: var(--brand-primary);
+    color: var(--text-on-brand);
+    box-shadow: var(--shadow-xs);
+}

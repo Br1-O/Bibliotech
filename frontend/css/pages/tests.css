@@ -1,0 +1,17 @@
+/* ============================ Suite de pruebas ============================ */
+.bt-test__console {
+    min-height: 320px;
+    max-height: 70vh;
+    overflow: auto;
+    font-family: var(--font-family-mono, monospace);
+    padding: var(--space-4);
+}
+.bt-test__log {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: var(--font-size-xs);
+    color: var(--color-success);
+}
+.bt-test__log.is-error { color: var(--color-danger); }
+.bt-test-btn { text-align: left; }

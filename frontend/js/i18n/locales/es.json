@@ -13,7 +13,9 @@
     "myPanel": "Mi panel",
     "menu": "Menu",
     "mySubscriptions": "Mis suscripciones",
-    "favorites": "Favoritos"
+    "favorites": "Favoritos",
+    "myContent": "Mi contenido",
+    "password": "Cambiar contrasena"
   },
   "notifications": {
     "title": "Notificaciones",
@@ -22,7 +24,12 @@
     "aria": "Notificaciones",
     "ariaUnread": "Notificaciones, {count} sin leer",
     "byProfessor": "Agregado por {name}",
-    "loading": "Cargando notificaciones..."
+    "loading": "Cargando notificaciones...",
+    "streakTitle": "Racha de lectura",
+    "streakBody": "Has leido {count} dias seguidos. Sigue asi!",
+    "badgeTitle": "Nueva insignia desbloqueada",
+    "readTitle": "Nuevo material leido",
+    "uploadTitle": "Nuevo material subido"
   },
   "roles": {
     "Superadmin": "Superadministrador",
@@ -112,7 +119,9 @@
     "showing": "Mostrando {count} materiales",
     "viewDetail": "Ver detalle",
     "by": "por",
-    "filterByYear": "Anio"
+    "filterByYear": "Anio",
+    "filterByCategory": "Filtrar por categoria",
+    "filterByUploadYear": "Filtrar por anio de publicacion"
   },
   "careers": {
     "title": "Carreras",
@@ -122,12 +131,6 @@
     "seeAllSubjects": "Ver todas las materias",
     "summary": "{subjects} materias · {years} anios",
     "none": "Todavia no hay carreras creadas."
-  },
-  "myUploads": {
-    "title": "Mis subidas",
-    "hint": "Material subido por ti, con busqueda, filtros y edicion.",
-    "hintStudent": "Consulta todo el material que compartiste y su estado.",
-    "empty": "Todavia no subiste material."
   },
   "author": {
     "materials": "Materiales publicados",
@@ -152,7 +155,10 @@
     "showing": "Mostrando {shown} de {total}",
     "loadMore": "Cargar mas",
     "allTypes": "Todos los tipos",
-    "allStates": "Todos los estados"
+    "allStates": "Todos los estados",
+    "allCategories": "Todas las categorias",
+    "allYears": "Todos los anios",
+    "onlyMandatory": "Solo obligatorios"
   },
   "pagination": {
     "label": "Paginacion de resultados",
@@ -277,7 +283,50 @@
     "associatedCareers": "Carreras",
     "associatedSubjects": "Materias",
     "noAssociations": "Este material aun no esta asociado a carreras ni materias.",
-    "noDescription": "Sin descripcion disponible."
+    "noDescription": "Sin descripcion disponible.",
+    "author": "Autor",
+    "authorPlaceholder": "Autor del material",
+    "category": "Categoria",
+    "mandatory": "Material obligatorio",
+    "currentPage": "Pagina actual",
+    "totalPages": "Total de paginas",
+    "saveProgress": "Guardar progreso",
+    "markRead": "Marcar como leido",
+    "markedRead": "Marcado como leido",
+    "markReadShort": "Leido",
+    "markedReadShort": "Leido",
+    "addBacklog": "Agregar al backlog",
+    "removeBacklog": "Quitar del backlog",
+    "backlog": "Backlog",
+    "inBacklog": "En backlog",
+    "categories": {
+      "fiction": "Ficcion",
+      "literature": "Literatura",
+      "poetry": "Poesia",
+      "drama": "Drama",
+      "technical": "Tecnico",
+      "science": "Ciencia",
+      "business": "Negocios",
+      "education": "Educacion",
+      "medicine": "Medicina",
+      "law": "Derecho",
+      "non-fiction": "No ficcion",
+      "self-help": "Autoayuda",
+      "biography": "Biografia",
+      "history": "Historia",
+      "philosophy": "Filosofia",
+      "religion": "Religion",
+      "arts": "Arte",
+      "hobbies": "Pasatiempos",
+      "travel": "Viajes",
+      "sports": "Deportes",
+      "cooking": "Cocina",
+      "kids": "Infantil",
+      "young-adult": "Juvenil"
+    },
+    "pages": "Paginas",
+    "pagesPlaceholder": "Opcional",
+    "pagesRequired": "Indica el total de paginas para guardar el progreso."
   },
   "student": {
     "panelTitle": "Mi panel de alumno",
@@ -393,7 +442,16 @@
     "careerUpdated": "Carrera actualizada correctamente.",
     "yearCreated": "Anio creado correctamente.",
     "yearUpdated": "Anio actualizado correctamente.",
-    "batchUploaded": "Carga masiva completada. Creados: {created}. Omitidos por duplicado: {skipped}."
+    "batchUploaded": "Carga masiva completada. Creados: {created}. Omitidos por duplicado: {skipped}.",
+    "profileUpdated": "Perfil actualizado correctamente.",
+    "markedRead": "Material marcado como leido. +100 XP.",
+    "unmarkedRead": "Material marcado como no leido.",
+    "addedBacklog": "Material agregado al backlog.",
+    "removedBacklog": "Material quitado del backlog.",
+    "progressSaved": "Progreso de lectura guardado.",
+    "followedUser": "Ahora sigues a este usuario.",
+    "unfollowedUser": "Dejaste de seguir a este usuario.",
+    "backlogCompletedRead": "Material completado y movido a Leidos."
   },
   "theme": {
     "toDark": "Activar tema oscuro",
@@ -442,5 +500,143 @@
       "Inicio Sesion": "Inicio de sesion",
       "Cierre Sesion": "Cierre de sesion"
     }
+  },
+  "profile": {
+    "xp": "{xp} XP",
+    "nextRank": "Te faltan {xp} XP para {rank}",
+    "maxRank": "Has alcanzado el rango maximo.",
+    "noRank": "Sin rango",
+    "streak": "Racha de lectura",
+    "streakDays": "{count} dias seguidos",
+    "rankUp": "Subiste al rango {rank}!",
+    "progressPercent": "{percent}% completado",
+    "completed": "Completado",
+    "inProgress": "En progreso",
+    "pageOf": "Pagina {page} de {total}",
+    "noPages": "Sin paginas registradas",
+    "continueReading": "Continuar lectura",
+    "markCompleted": "Marcar completado",
+    "markUnread": "Marcar como no leido",
+    "removeFromBacklog": "Quitar del backlog",
+    "viewProfile": "Ver perfil",
+    "noBadges": "Aun no tienes insignias",
+    "editProfile": "Editar perfil",
+    "editField": "Editar {field}",
+    "changePicture": "Cambiar foto de perfil",
+    "avatar": "Foto de perfil",
+    "choosePicture": "Elegir foto de perfil",
+    "choosePictureHint": "Las fotos de rango se desbloquean al alcanzar cada rango.",
+    "about": "Informacion",
+    "badges": "Insignias",
+    "follow": "Seguir",
+    "following": "Siguiendo",
+    "tabs": {
+      "uploads": "Subidas",
+      "favorites": "Favoritos",
+      "reads": "Leidos",
+      "backlog": "Backlog"
+    },
+    "empty": {
+      "uploads": "Este usuario aun no ha subido materiales.",
+      "favorites": "Este usuario aun no tiene favoritos.",
+      "reads": "Este usuario aun no ha marcado materiales como leidos.",
+      "backlog": "Este usuario no tiene materiales en su backlog."
+    },
+    "stats": {
+      "reads": "Leidos",
+      "favorites": "Favoritos",
+      "uploads": "Subidas",
+      "followers": "Seguidores",
+      "following": "Siguiendo",
+      "completed": "Completados",
+      "backlog": "Backlog"
+    },
+    "fields": {
+      "email": "Correo",
+      "age": "Edad",
+      "gender": "Genero",
+      "city": "Ciudad",
+      "country": "Pais",
+      "phone": "Telefono",
+      "github": "GitHub",
+      "instagram": "Instagram",
+      "memberSince": "Miembro desde",
+      "name": "Nombre",
+      "lastName": "Apellido",
+      "birthdate": "Fecha de nacimiento",
+      "genderCustom": "Genero personalizado",
+      "linkedin": "LinkedIn",
+      "career": "Carrera",
+      "institute": "Instituto",
+      "aboutMe": "Sobre mi"
+    },
+    "genders": {
+      "Male": "Masculino",
+      "Female": "Femenino",
+      "Non-Binary": "No binario",
+      "Other": "Otro"
+    }
+  },
+  "badges": {
+    "hello_world": {
+      "name": "Hello World",
+      "description": "Leiste tu primer material.",
+      "requirement": "Lee tu primer material"
+    },
+    "first_commit": {
+      "name": "First Commit",
+      "description": "Subiste tu primer material.",
+      "requirement": "Sube tu primer material"
+    },
+    "stack_overflow": {
+      "name": "Stack Overflow",
+      "description": "Subiste 10 materiales.",
+      "requirement": "Sube 10 materiales"
+    },
+    "shared_pointer": {
+      "name": "Shared Pointer",
+      "description": "Alcanzaste 5 seguidores.",
+      "requirement": "Consigue 5 seguidores"
+    },
+    "array_5": {
+      "name": "Array[5]",
+      "description": "Sigues a 5 usuarios.",
+      "requirement": "Sigue a 5 usuarios"
+    },
+    "linter_clean": {
+      "name": "Linter Clean",
+      "description": "Leiste 5 materiales.",
+      "requirement": "Lee 5 materiales"
+    },
+    "code_reviewer": {
+      "name": "Code Reviewer",
+      "description": "Guardaste 10 favoritos.",
+      "requirement": "Guarda 10 materiales en favoritos"
+    },
+    "full_stack_reader": {
+      "name": "Full Stack Reader",
+      "description": "Alcanzaste el rango 5.",
+      "requirement": "Alcanza el rango Constructor de Sistemas"
+    },
+    "early_return": {
+      "name": "Early Return",
+      "description": "Leiste entre las 05:00 y 09:59.",
+      "requirement": "Lee entre las 05:00 y 09:59"
+    },
+    "overtime": {
+      "name": "Overtime",
+      "description": "Leiste entre las 00:00 y 04:59.",
+      "requirement": "Lee entre las 00:00 y 04:59"
+    }
+  },
+  "password": {
+    "title": "Cambiar contrasena",
+    "hint": "Ingresa tu contrasena actual y elige una nueva.",
+    "current": "Contrasena actual",
+    "submit": "Guardar contrasena"
+  },
+  "myContent": {
+    "title": "Mi contenido",
+    "subtitle": "Tus subidas, favoritos, lecturas y backlog en un solo lugar."
   }
 }

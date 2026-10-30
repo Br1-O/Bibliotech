@@ -318,6 +318,29 @@ class AuthService {
         return { message: 'messages.passwordChanged' };
     }
 
+    /** Cambio de contrasena autenticado: exige la contrasena actual. */
+    async changePassword(userId, { currentPassword, password, passwordConfirm } = {}) {
+        const validator = new ValidationHandler(this.languageManager)
+            .with(new Required('currentPassword'))
+            .with(new Required('password'))
+            .with(new Password('password'))
+            .with(new SameAs('passwordConfirm', 'password'));
+        const payload = { currentPassword, password, passwordConfirm };
+        if (!validator.validateThis(payload)) throw validator.toError();
+
+        const user = await this.userRepository.findById(userId);
+        if (!user) throw new AppError('errors.notFound', { status: 404 });
+        if (!(await bcrypt.compare(String(currentPassword), user.password))) {
+            throw new AppError('validation.currentPassword', { status: 422 });
+        }
+
+        const hashed = await bcrypt.hash(password, 10);
+        await this.userRepository.updatePassword(user.id, hashed);
+        if (this.auditLogService) {
+            try { await this.auditLogService.record(AuditLog.OPERACIONES.CAMBIO_CLAVE, user.id, user.id); } catch (e) { /* audit no bloquea */ }
+        }
+        return { message: 'messages.passwordChanged' };
+    }
 
     async banUser(userId, usuarioId = null) {
         const user = await this.userRepository.findById(userId);

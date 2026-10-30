@@ -10,9 +10,13 @@ const Material = require('../../domain/entities/Material');
 
 const SELECT_MATERIAL = `
     SELECT m.id, m.autor_id AS autorId, CONCAT(u.nombre, ' ', u.apellido) AS autorNombre,
-           r.nombre AS autorRol, m.titulo, m.tipo, m.url_or_path AS urlOrPath,
+           r.nombre AS autorRol, m.uploaded_by AS uploadedBy,
+           COALESCE(CONCAT(ub.nombre, ' ', ub.apellido), CONCAT(u.nombre, ' ', u.apellido)) AS uploaderNombre,
+           COALESCE(ur.nombre, r.nombre) AS uploaderRol, m.author,
+           m.category_id AS categoryId, cat.slug AS categorySlug, cat.nombre AS categoryNombre,
+           m.titulo, m.tipo, m.url_or_path AS urlOrPath,
            m.portada, m.file_hash AS fileHash,
-           m.descripcion, m.categories, m.estado, m.es_favorito AS esFavorito, m.contador_favoritos AS contadorFavoritos, m.created_at AS createdAt,
+           m.descripcion, m.pages, m.categories, m.estado, m.es_favorito AS esFavorito, m.contador_favoritos AS contadorFavoritos, m.created_at AS createdAt,
            (SELECT GROUP_CONCAT(s.nombre SEPARATOR ',')
               FROM material_subjects ms JOIN subjects s ON s.id = ms.subject_id
              WHERE ms.material_id = m.id AND ms.estado_aprobacion = 'Aprobado') AS materias,
@@ -25,6 +29,9 @@ const SELECT_MATERIAL = `
     FROM materials m
     INNER JOIN users u ON u.id = m.autor_id
     INNER JOIN roles r ON r.id = u.role_id
+    LEFT JOIN users ub ON ub.id = m.uploaded_by
+    LEFT JOIN roles ur ON ur.id = ub.role_id
+    LEFT JOIN categories cat ON cat.id = m.category_id
 `;
 
 const split = value => (value ? String(value).split(',') : []);
@@ -45,10 +52,12 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
             ? material.categories.join(',')
             : (material.categories || '');
         const [res] = await db.execute(
-            `INSERT INTO materials (autor_id, titulo, tipo, url_or_path, portada, file_hash, descripcion, categories, estado)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [material.autorId, material.titulo, material.tipo, material.urlOrPath,
-             material.portada || null, material.fileHash, material.descripcion, categories, material.estado]
+            `INSERT INTO materials (autor_id, uploaded_by, author, category_id, titulo, tipo, url_or_path, portada, file_hash, descripcion, pages, categories, estado)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [material.autorId, material.uploadedBy || material.autorId, material.author || null,
+             material.categoryId || 5, material.titulo, material.tipo, material.urlOrPath,
+             material.portada || null, material.fileHash, material.descripcion,
+             material.pages || null, categories, material.estado]
         );
         material.id = res.insertId;
         if (!material.materias) material.materias = [];
@@ -72,13 +81,26 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         const clauses = [];
         const params = [];
         if (filters.q) {
-            clauses.push(`(${alias}.titulo LIKE ? OR ${alias}.categories LIKE ? OR ${alias}.descripcion LIKE ? OR u.nombre LIKE ? OR u.apellido LIKE ?)`);
+            clauses.push(`(${alias}.titulo LIKE ? OR ${alias}.author LIKE ? OR ${alias}.categories LIKE ? OR ${alias}.descripcion LIKE ? OR u.nombre LIKE ? OR u.apellido LIKE ?)`);
             const like = `%${filters.q}%`;
-            params.push(like, like, like, like, like);
+            params.push(like, like, like, like, like, like);
         }
         if (filters.tipo) {
             clauses.push(`${alias}.tipo = ?`);
             params.push(filters.tipo);
+        }
+        if (filters.category) {
+            if (/^\d+$/.test(String(filters.category))) {
+                clauses.push(`${alias}.category_id = ?`);
+                params.push(Number(filters.category));
+            } else {
+                clauses.push(`cat.slug = ?`);
+                params.push(filters.category);
+            }
+        }
+        if (filters.uploadYear) {
+            clauses.push(`YEAR(${alias}.created_at) = ?`);
+            params.push(Number(filters.uploadYear));
         }
         if (filters.subjects && filters.subjects.length) {
             const placeholders = filters.subjects.map(() => '?').join(',');
@@ -122,7 +144,7 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         if (!ids.length) return materials;
         const placeholders = ids.map(() => '?').join(',');
         const [rows] = await db.execute(`
-            SELECT ms.material_id AS materialId,
+            SELECT ms.material_id AS materialId, ms.is_mandatory AS isMandatory,
                    s.id AS subjectId, s.nombre AS subjectNombre,
                    c.id AS careerId, c.nombre AS careerNombre, c.color AS careerColor,
                    cy.id AS yearId, cy.nombre AS yearNombre
@@ -140,6 +162,7 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
             entry.subjects.push({
                 id: Number(row.subjectId),
                 nombre: row.subjectNombre,
+                isMandatory: Boolean(row.isMandatory),
                 carreraId: row.careerId ? Number(row.careerId) : null,
                 carreraNombre: row.careerNombre || null,
                 carreraColor: row.careerColor || null,
@@ -165,6 +188,7 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
             material.materiasDetalle = entry.subjects;
             material.materias = entry.subjects.map(subject => subject.nombre);
             material.materiasIds = entry.subjects.map(subject => subject.id);
+            material.isMandatory = entry.subjects.some(subject => subject.isMandatory);
             material.carreras = entry.careers;
         });
         return materials;
@@ -186,7 +210,8 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         const where = [
             `m.estado = 'Aprobado'`,
             `EXISTS (SELECT 1 FROM material_subjects msx WHERE msx.material_id = m.id
-                     AND msx.subject_id = ? AND msx.estado_aprobacion = 'Aprobado')`,
+                     AND msx.subject_id = ? AND msx.estado_aprobacion = 'Aprobado'
+                     ${filters.mandatory ? 'AND msx.is_mandatory = 1' : ''})`,
             ...clauses
         ];
         const [rows] = await db.execute(
@@ -223,13 +248,19 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
     async findPendingForProfessor(profesorId) {
         const [rows] = await db.execute(`
             SELECT m.id, m.autor_id AS autorId, CONCAT(u.nombre, ' ', u.apellido) AS autorNombre,
+                   m.uploaded_by AS uploadedBy,
+                   COALESCE(CONCAT(ub.nombre, ' ', ub.apellido), CONCAT(u.nombre, ' ', u.apellido)) AS uploaderNombre,
+                   COALESCE(ur.nombre, r.nombre) AS uploaderRol,
                    m.titulo, m.tipo, m.url_or_path AS urlOrPath, m.portada, m.file_hash AS fileHash,
-                   m.descripcion, m.categories, m.estado, m.es_favorito AS esFavorito, m.contador_favoritos AS contadorFavoritos, m.created_at AS createdAt,
+                   m.descripcion, m.pages, m.categories, m.estado, m.es_favorito AS esFavorito, m.contador_favoritos AS contadorFavoritos, m.created_at AS createdAt,
                    ms.subject_id AS subjectId, s.nombre AS subjectNombre
             FROM material_subjects ms
             INNER JOIN materials m ON m.id = ms.material_id
             INNER JOIN subjects s ON s.id = ms.subject_id
             INNER JOIN users u ON u.id = m.autor_id
+            INNER JOIN roles r ON r.id = u.role_id
+            LEFT JOIN users ub ON ub.id = m.uploaded_by
+            LEFT JOIN roles ur ON ur.id = ub.role_id
             WHERE ms.estado_aprobacion = 'Pendiente'
               AND EXISTS (SELECT 1 FROM subject_professors sp
                            WHERE sp.subject_id = s.id AND sp.profesor_id = ?)
@@ -323,6 +354,7 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         const params = [];
         if (changes.titulo !== undefined) { fields.push('titulo = ?'); params.push(changes.titulo); }
         if (changes.descripcion !== undefined) { fields.push('descripcion = ?'); params.push(changes.descripcion); }
+        if (changes.pages !== undefined) { fields.push('pages = ?'); params.push(changes.pages); }
         if (changes.portada !== undefined) { fields.push('portada = ?'); params.push(changes.portada); }
         if (changes.tipo !== undefined) { fields.push('tipo = ?'); params.push(changes.tipo); }
         if (changes.urlOrPath !== undefined) { fields.push('url_or_path = ?'); params.push(changes.urlOrPath); }
@@ -331,6 +363,8 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
             fields.push('categories = ?');
             params.push(Array.isArray(changes.categories) ? changes.categories.join(',') : changes.categories);
         }
+        if (changes.author !== undefined) { fields.push('author = ?'); params.push(changes.author); }
+        if (changes.categoryId !== undefined) { fields.push('category_id = ?'); params.push(changes.categoryId); }
         if (!fields.length) return false;
         params.push(materialId);
         const [res] = await db.execute(`UPDATE materials SET ${fields.join(', ')} WHERE id = ?`, params);
@@ -394,6 +428,57 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
             'SELECT COUNT(*) AS total FROM material_favorites WHERE material_id = ?', [materialId]
         );
         return Number(rows[0].total) || 0;
+    }
+
+    async setSubjectMandatory(materialId, subjectId, isMandatory) {
+        const [res] = await db.execute(
+            'UPDATE material_subjects SET is_mandatory = ? WHERE material_id = ? AND subject_id = ?',
+            [isMandatory ? 1 : 0, materialId, subjectId]
+        );
+        return res.affectedRows > 0;
+    }
+
+    async getSubjectMandatory(materialId, subjectId) {
+        const [rows] = await db.execute(
+            'SELECT is_mandatory AS isMandatory FROM material_subjects WHERE material_id = ? AND subject_id = ?',
+            [materialId, subjectId]
+        );
+        return rows.length ? Boolean(rows[0].isMandatory) : null;
+    }
+
+    async countApprovedByUploader(uploaderId) {
+        const [rows] = await db.execute(
+            `SELECT COUNT(*) AS total FROM materials WHERE uploaded_by = ? AND estado = 'Aprobado'`,
+            [uploaderId]
+        );
+        return Number(rows[0].total) || 0;
+    }
+
+    async findByIds(ids = []) {
+        const unique = [...new Set(ids.map(Number).filter(Boolean))];
+        if (!unique.length) return [];
+        const placeholders = unique.map(() => '?').join(',');
+        const [rows] = await db.execute(
+            `${SELECT_MATERIAL} WHERE m.id IN (${placeholders}) ORDER BY m.created_at DESC`,
+            unique
+        );
+        return this.attachCareers(rows.map(mapMaterial));
+    }
+
+    async findFilterOptions() {
+        const [years] = await db.execute(
+            `SELECT DISTINCT YEAR(created_at) AS year FROM materials
+              WHERE estado = 'Aprobado' ORDER BY year DESC`
+        );
+        const [categories] = await db.execute(
+            `SELECT id, slug, nombre FROM categories ORDER BY nombre`
+        );
+        return {
+            years: years.map(row => Number(row.year)).filter(Boolean),
+            categories: categories.map(row => ({
+                id: Number(row.id), slug: row.slug, nombre: row.nombre
+            }))
+        };
     }
 }
 

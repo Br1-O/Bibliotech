@@ -1,0 +1,54 @@
+/* ============================ Formularios ============================ */
+.bt-field { margin-bottom: var(--space-4); min-width: 0; }
+.bt-label {
+    display: block;
+    margin-bottom: var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+.bt-input, .bt-select, .bt-textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 11px 14px;
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--glass-bg-strong);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: var(--font-size-md);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.40);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+.bt-textarea { min-height: 110px; resize: vertical; }
+.bt-select { cursor: pointer; }
+.bt-input::placeholder, .bt-textarea::placeholder { color: var(--text-muted); opacity: 0.85; }
+.bt-input:hover, .bt-select:hover, .bt-textarea:hover { border-color: var(--border-strong); }
+.bt-input:focus, .bt-select:focus, .bt-textarea:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: var(--focus-ring);
+    background-color: var(--surface-1);
+}
+.bt-input[aria-invalid="true"],
+.bt-select[aria-invalid="true"],
+.bt-textarea[aria-invalid="true"] { border-color: var(--color-danger); }
+.bt-error-text {
+    display: block;
+    margin-top: var(--space-1);
+    color: var(--color-danger);
+    font-size: var(--font-size-xs);
+    min-height: 1.1em;
+}
+.bt-error-text:empty { min-height: 0; }
+.bt-form-alert {
+    display: none;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--color-danger-soft);
+    border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+    color: var(--color-danger);
+    font-size: var(--font-size-sm);
+}
+.bt-form-alert:not(:empty) { display: block; }
+

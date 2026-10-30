@@ -5,7 +5,8 @@
 const RepositoryInterface = require('./RepositoryInterface');
 
 class NotificationRepositoryInterface extends RepositoryInterface {
-    async createForSubscribers(subjectId, materialId, alumnoIds) { return this._notImplemented('createForSubscribers'); }
+    async createMany(userIds, data)                              { return this._notImplemented('createMany'); }
+    async createForSubscribers(subjectId, materialId, alumnoIds, options) { return this._notImplemented('createForSubscribers'); }
     async findByUser(userId)                                     { return this._notImplemented('findByUser'); }
     async countUnread(userId)                                    { return this._notImplemented('countUnread'); }
     async markRead(id, userId)                                   { return this._notImplemented('markRead'); }

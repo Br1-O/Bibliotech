@@ -11,6 +11,8 @@ document.addEventListener('bt:ready', () => {
     if (!authHelper.requireAuth()) return;
     if (!authHelper.isRole('Superadmin')) { window.location.href = authHelper.panelRoute(); return; }
 
+    ProfileSummary.mount(document.getElementById('profileSummary'));
+
     const usersTable = document.getElementById('usersTable');
     const usersPagination = document.getElementById('usersPagination');
     const auditTable = document.getElementById('auditLog');
@@ -36,6 +38,7 @@ document.addEventListener('bt:ready', () => {
     const batchForm = document.getElementById('batchMaterialForm');
     const batchFilesInput = document.getElementById('batchFiles');
     const batchFilesMeta = document.getElementById('batchFilesMeta');
+    const batchCategorySelect = document.getElementById('batchCategory');
 
     const userSearch = document.getElementById('adminUserSearch');
     const userRole = document.getElementById('adminUserRole');
@@ -56,8 +59,29 @@ document.addEventListener('bt:ready', () => {
     let userDebounce;
     let tagDebounce;
     let batchFileEntries = [];
+    const CATEGORY_SLUGS = [
+        'fiction', 'literature', 'poetry', 'drama', 'technical', 'science', 'business',
+        'education', 'medicine', 'law', 'non-fiction', 'self-help', 'biography', 'history',
+        'philosophy', 'religion', 'arts', 'hobbies', 'travel', 'sports', 'cooking', 'kids',
+        'young-adult'
+    ];
 
     const tr = (key, params = {}) => LanguageManager.tr(key, params);
+
+    function categoryOptions(selected = 'technical') {
+        return CATEGORY_SLUGS.map(slug => el('option', {
+            value: slug,
+            text: LanguageManager.t(`material.categories.${slug}`),
+            attrs: slug === selected ? { selected: '' } : {}
+        }));
+    }
+
+    function hydrateBatchCategory() {
+        if (!batchCategorySelect) return;
+        const current = batchCategorySelect.value || 'technical';
+        render(batchCategorySelect, categoryOptions(current));
+        batchCategorySelect.value = current;
+    }
 
     function batchTitleFromFilename(filename) {
         const name = String(filename || 'Material');
@@ -89,6 +113,20 @@ document.addEventListener('bt:ready', () => {
             });
             coverInput.addEventListener('change', () => { entry.cover = coverInput.files?.[0] || null; });
 
+            const categorySelect = el('select', {
+                className: 'bt-select',
+                attrs: { 'aria-label': LanguageManager.t('material.category') }
+            }, categoryOptions(entry.category || 'technical'));
+            categorySelect.value = entry.category || 'technical';
+            categorySelect.addEventListener('change', () => { entry.category = categorySelect.value; });
+
+            const pagesInput = el('input', {
+                className: 'bt-input',
+                attrs: { type: 'number', min: '1', step: '1', 'aria-label': LanguageManager.t('material.pages') },
+                value: entry.pages || ''
+            });
+            pagesInput.addEventListener('input', () => { entry.pages = pagesInput.value ? Number(pagesInput.value) : null; });
+
             return el('div', { className: 'bt-batch-file' }, [
                 el('span', {
                     className: 'bt-batch-file__name',
@@ -99,6 +137,14 @@ document.addEventListener('bt:ready', () => {
                     titleInput
                 ]),
                 el('div', { className: 'bt-field' }, [
+                    el('label', { className: 'bt-label', text: LanguageManager.t('material.category') }),
+                    categorySelect
+                ]),
+                el('div', { className: 'bt-field' }, [
+                    el('label', { className: 'bt-label', text: LanguageManager.t('material.pages') }),
+                    pagesInput
+                ]),
+                el('div', { className: 'bt-field' }, [
                     el('label', { className: 'bt-label', text: LanguageManager.t('admin.batchCover') }),
                     coverInput
                 ])
@@ -106,10 +152,15 @@ document.addEventListener('bt:ready', () => {
         }));
     }
 
+    hydrateBatchCategory();
+    renderBatchFilesMeta();
+
     batchFilesInput?.addEventListener('change', () => {
         batchFileEntries = Array.from(batchFilesInput.files || []).map(file => ({
             file,
             titulo: batchTitleFromFilename(file.name),
+            category: batchCategorySelect?.value || 'technical',
+            pages: null,
             cover: null
         }));
         renderBatchFilesMeta();
@@ -749,10 +800,15 @@ document.addEventListener('bt:ready', () => {
         batchFileEntries.forEach((entry, index) => {
             payload.append(`archivo_${index}`, entry.file);
             if (entry.cover) payload.append(`portada_${index}`, entry.cover);
-            metadata.push({ titulo: entry.titulo.trim() || batchTitleFromFilename(entry.file.name) });
+            metadata.push({
+                titulo: entry.titulo.trim() || batchTitleFromFilename(entry.file.name),
+                category: entry.category || 'technical',
+                pages: entry.pages || null
+            });
         });
         payload.append('metadata', JSON.stringify(metadata));
         payload.append('links', linksInput?.value || '');
+        payload.append('category', batchCategorySelect?.value || 'technical');
         payload.append('categories', tagsInput?.value || '');
 
         const btn = batchForm.querySelector('bt-button');

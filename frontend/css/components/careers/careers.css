@@ -1,0 +1,64 @@
+/* ============================ Carreras ============================ */
+.bt-career-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: var(--space-3);
+}
+.bt-career-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    background: var(--glass-bg-strong);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.bt-career-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.bt-career-card.is-selected,
+.bt-career-card[aria-pressed="true"] {
+    border-color: var(--career-color, var(--brand-primary));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--career-color, var(--brand-primary)) 18%, transparent);
+}
+.bt-career-card__dot {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--career-color, var(--brand-primary));
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--career-color, var(--brand-primary)) 18%, transparent);
+}
+.bt-career-card__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bt-career-card__body strong { line-height: 1.3; overflow-wrap: anywhere; }
+.bt-career-card__body span { color: var(--text-muted); font-size: var(--font-size-xs); }
+.bt-career-strip {
+    display: flex;
+    gap: var(--space-3);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding: var(--space-2) var(--space-1) var(--space-3);
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+}
+.bt-career-strip::-webkit-scrollbar { height: 8px; }
+.bt-career-strip::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: var(--radius-pill);
+}
+.bt-career-strip .bt-career-card {
+    flex: 0 0 min(250px, 82vw);
+    scroll-snap-align: start;
+}
+.bt-career-admin { border-left: 5px solid var(--career-color, var(--brand-primary)); }
+.bt-admin-year {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+}
+.bt-admin-year .bt-input { min-width: 130px; }

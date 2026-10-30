@@ -40,6 +40,9 @@ module.exports = (container) => {
     router.get(['/confirmar-cuenta', '/verify-account'], (req, res) => res.redirect('/login'));
     router.get('/materia/:id', page('subject.html'));
     router.get('/autor/:id', page('author.html'));
+    router.get('/perfil', page('profile.html'));
+    router.get('/perfil/:id', page('profile.html'));
+    router.get('/mi-contenido', page('my-content.html'));
     router.get('/alumno', page('dashboard-alumno.html'));
     router.get('/profesor', page('dashboard-profesor.html'));
     router.get('/admin', page('dashboard-admin.html'));

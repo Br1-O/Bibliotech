@@ -6,10 +6,28 @@
     <meta name="theme-color" content="#f5f2ff">
     <script src="/js/theme.js"></script>
     <title>Bibliotech · Panel del profesor</title>
-    <link rel="stylesheet" href="/css/variables.css">
-    <link rel="stylesheet" href="/css/base.css">
-    <link rel="stylesheet" href="/css/components.css">
-    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/shared/variables.css">
+    <link rel="stylesheet" href="/css/shared/base.css">
+    <link rel="stylesheet" href="/css/shared/forms.css">
+    <link rel="stylesheet" href="/css/components/passwordField/passwordField.css">
+    <link rel="stylesheet" href="/css/shared/badges.css">
+    <link rel="stylesheet" href="/css/components/button/button.css">
+    <link rel="stylesheet" href="/css/components/cards/cards.css">
+    <link rel="stylesheet" href="/css/components/pagination/pagination.css">
+    <link rel="stylesheet" href="/css/components/navbar/navbar.css">
+    <link rel="stylesheet" href="/css/components/loader/loader.css">
+    <link rel="stylesheet" href="/css/components/modal/modal.css">
+    <link rel="stylesheet" href="/css/components/materialEditor/materialEditor.css">
+    <link rel="stylesheet" href="/css/components/materialViewer/materialViewer.css">
+    <link rel="stylesheet" href="/css/components/toast/toast.css">
+    <link rel="stylesheet" href="/css/components/table/table.css">
+    <link rel="stylesheet" href="/css/components/tagInput/tagInput.css">
+    <link rel="stylesheet" href="/css/components/careers/careers.css">
+    <link rel="stylesheet" href="/css/components/profileSummary/profileSummary.css">
+    <link rel="stylesheet" href="/css/components/contentTabs/contentTabs.css">
+    <link rel="stylesheet" href="/css/components/passwordChange/passwordChange.css">
+    <link rel="stylesheet" href="/css/shared/utilities.css">
+    <link rel="stylesheet" href="/css/pages/dashboard.css">
 </head>
 <body>
     <div id="btPageLoader" class="bt-page-loader" role="status" aria-live="polite" aria-label="Cargando...">
@@ -20,6 +38,7 @@
 
     <main id="teacherDashboard" class="bt-page bt-container bt-stack">
         <h1 data-i18n="teacher.panelTitle">Panel del profesor</h1>
+        <div id="profileSummary"></div>
 
         <section class="bt-panel bt-stack">
             <h2 data-i18n="teacher.uploadMaterial">Subir material</h2>
@@ -41,6 +60,32 @@
                         <option value="Youtube" data-i18n="material.types.Youtube">Video de YouTube</option>
                         <option value="Repositorio" data-i18n="material.types.Repositorio">Repositorio GitHub</option>
                     </select>
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="tAuthor" data-i18n="material.author">Autor</label>
+                    <input id="tAuthor" class="bt-input" type="text" name="author" maxlength="150"
+                           data-i18n-placeholder="material.authorPlaceholder" placeholder="Autor del material">
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="tCategory" data-i18n="material.category">Categoria</label>
+                    <select id="tCategory" class="bt-select" name="category">
+                        <option value="technical" data-i18n="material.categories.technical">Tecnico</option>
+                    </select>
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-label" for="tPages" data-i18n="material.pages">Paginas</label>
+                    <input id="tPages" class="bt-input" type="number" name="pages" min="1" step="1"
+                           data-i18n-placeholder="material.pagesPlaceholder" placeholder="Opcional">
+                </div>
+
+                <div class="bt-field">
+                    <label class="bt-check" for="tMandatory">
+                        <input id="tMandatory" type="checkbox" name="isMandatory" value="true">
+                        <span data-i18n="material.mandatory">Material obligatorio</span>
+                    </label>
                 </div>
 
                 <div class="bt-field" data-mode="file">
@@ -87,12 +132,6 @@
         </section>
 
         <section class="bt-stack">
-            <h2 data-i18n="myUploads.title">Mis subidas</h2>
-            <p class="bt-text-muted" data-i18n="myUploads.hint">Material subido por ti, con busqueda, filtros y edicion.</p>
-            <div id="myUploads"></div>
-        </section>
-
-        <section class="bt-stack">
             <h2 data-i18n="teacher.mySubjects">Mis materias</h2>
             <div id="mySubjects" class="bt-grid"></div>
             <div id="mySubjectsPagination"></div>
@@ -104,19 +143,20 @@
     <script src="/js/i18n/LanguageManager.js"></script>
     <script src="/js/utils/authHelper.js"></script>
     <script src="/js/utils/validator.js"></script>
-    <script src="/js/components/icons.js"></script>
-    <script src="/js/components/passwordField.js"></script>
-    <script src="/js/components/button.js"></script>
-    <script src="/js/components/loader.js"></script>
-    <script src="/js/components/toast.js"></script>
-    <script src="/js/components/modal.js"></script>
-    <script src="/js/components/materialViewer.js"></script>
-    <script src="/js/components/tagInput.js"></script>
-    <script src="/js/components/cards.js"></script>
-    <script src="/js/components/materialEditor.js"></script>
-    <script src="/js/components/myUploads.js"></script>
-    <script src="/js/components/navbar.js"></script>
-    <script src="/js/components/pagination.js"></script>
+    <script src="/js/components/icons/icons.js"></script>
+    <script src="/js/components/passwordField/passwordField.js"></script>
+    <script src="/js/components/button/button.js"></script>
+    <script src="/js/components/loader/loader.js"></script>
+    <script src="/js/components/toast/toast.js"></script>
+    <script src="/js/components/modal/modal.js"></script>
+    <script src="/js/components/materialViewer/materialViewer.js"></script>
+    <script src="/js/components/tagInput/tagInput.js"></script>
+    <script src="/js/components/cards/cards.js"></script>
+    <script src="/js/components/materialEditor/materialEditor.js"></script>
+    <script src="/js/components/profileSummary/profileSummary.js"></script>
+    <script src="/js/components/passwordChange/passwordChange.js"></script>
+    <script src="/js/components/navbar/navbar.js"></script>
+    <script src="/js/components/pagination/pagination.js"></script>
     <script src="/js/services/apiService.js"></script>
     <script src="/js/frontControllers/teacherDashboardFrontController.js"></script>
     <script src="/js/app.js"></script>

@@ -24,7 +24,16 @@
     "materias": "Subjects",
     "materiaId": "Subject",
     "subjectId": "Subject",
-    "alumnoId": "Student"
+    "alumnoId": "Student",
+    "birthdate": "Birthdate",
+    "gender": "Gender",
+    "genderCustom": "Custom gender",
+    "linkedin": "LinkedIn",
+    "career": "Career",
+    "institute": "Institute",
+    "aboutMe": "About me",
+    "pages": "Pages",
+    "currentPassword": "Current password"
   },
   "validation": {
     "required": "{field} is required.",
@@ -44,7 +53,12 @@
     "emailTaken": "The email address is already registered.",
     "roleTaken": "The role is already registered.",
     "invalidData": "The submitted data is invalid.",
-    "duplicateMaterial": "Another material already uses the same file or link."
+    "duplicateMaterial": "Another material already uses the same file or link.",
+    "birthdate": "The birthdate is not valid.",
+    "gender": "The selected gender is not valid.",
+    "genderCustom": "Custom gender must contain between 3 and 10 letters.",
+    "materialPagesMissing": "This material has no page count. Enter the total pages manually.",
+    "currentPassword": "The current password is incorrect."
   },
   "messages": {
     "registerSuccess": "Account created. Check your email and open the activation link before signing in.",

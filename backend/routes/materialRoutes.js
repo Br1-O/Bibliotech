@@ -14,6 +14,7 @@ module.exports = (container) => {
     const Role = require('../domain/entities/Role');
 
     router.get('/global', optionalAuth, controller.global);
+    router.get('/filters', optionalAuth, controller.filters);
     router.get('/author/:id', optionalAuth, controller.author);
     router.get('/mine', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR, Role.SUPERADMIN), controller.mine);
     router.get('/pending', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), controller.pending);

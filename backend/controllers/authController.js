@@ -81,6 +81,13 @@ module.exports = (container) => {
             } catch (error) { return next(error); }
         },
 
+        async changePassword(req, res, next) {
+            try {
+                const result = await authService.changePassword(req.usuarioId, req.body || {});
+                return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
         /** Superadmin: crea cuentas de profesor (RF-01). */
         async createProfessor(req, res, next) {
             try {

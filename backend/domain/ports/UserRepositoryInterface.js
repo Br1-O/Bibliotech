@@ -18,6 +18,8 @@ class UserRepositoryInterface extends RepositoryInterface {
     async softDelete(id)                          { return this._notImplemented('softDelete'); }
     async findAll()                               { return this._notImplemented('findAll'); }
     async findByRole(nombreRol)                   { return this._notImplemented('findByRole'); }
+    async updateProfile(id, data)                 { return this._notImplemented('updateProfile'); }
+    async addXp(id, amount)                       { return this._notImplemented('addXp'); }
 }
 
 module.exports = UserRepositoryInterface;

@@ -11,9 +11,12 @@ document.addEventListener('bt:ready', () => {
     if (!authHelper.requireAuth()) return;
     if (!authHelper.isRole('Profesor', 'Superadmin')) { window.location.href = authHelper.panelRoute(); return; }
 
+    ProfileSummary.mount(document.getElementById('profileSummary'));
+
     const me = authHelper.getUser() || {};
     const form = document.getElementById('teacherMaterialForm');
     const subjectsSelect = document.getElementById('teacherMaterialSubjects');
+    const categorySelect = document.getElementById('tCategory');
     const mySubjectsNode = document.getElementById('mySubjects');
     const mySubjectsPagination = document.getElementById('mySubjectsPagination');
     const reviewNode = document.getElementById('pendingReview');
@@ -22,7 +25,6 @@ document.addEventListener('bt:ready', () => {
     if (tTagsInput && window.BTTagInput) window.BTTagInput(tTagsInput);
     let mySubjects = [];
     let subjectPage = 1;
-    let myUploadsControl = null;
     const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     const ACCEPT_BY_TYPE = {
         PDF: '.pdf,application/pdf',
@@ -31,6 +33,7 @@ document.addEventListener('bt:ready', () => {
         Presentacion: '.ppt,.pptx,.odp'
     };
 
+    populateCategories();
     setupTypeToggle(form);
 
     /** Muestra archivo o enlace segun el tipo elegido (solo se envia uno). */
@@ -55,6 +58,19 @@ document.addEventListener('bt:ready', () => {
         };
         tipo.addEventListener('change', sync);
         sync();
+    }
+
+    async function populateCategories() {
+        if (!categorySelect) return;
+        try {
+            const options = await apiService.get('/materials/filters');
+            const current = categorySelect.value || 'technical';
+            render(categorySelect, (options.categories || []).map(category => el('option', {
+                value: category.slug,
+                text: LanguageManager.t(`material.categories.${category.slug}`)
+            })));
+            categorySelect.value = current;
+        } catch (error) { /* La categoria tecnica sigue disponible por defecto. */ }
     }
 
     async function loadSubjects() {
@@ -199,6 +215,10 @@ document.addEventListener('bt:ready', () => {
         const payload = new FormData();
         payload.append('titulo', data.get('titulo'));
         payload.append('tipo', data.get('tipo'));
+        payload.append('author', data.get('author') || '');
+        payload.append('category', data.get('category') || 'technical');
+        payload.append('pages', data.get('pages') || '');
+        payload.append('isMandatory', data.get('isMandatory') ? 'true' : 'false');
         payload.append('descripcion', data.get('descripcion') || '');
         payload.append('categories', data.get('categories') || '');
         payload.append('subjects', selected.join(','));
@@ -213,15 +233,12 @@ document.addEventListener('bt:ready', () => {
             Toast.success(LanguageManager.tr(result.message));
             form.reset();
             loadSubjects();
-            if (myUploadsControl) myUploadsControl.reload();
         } catch (error) {
             if (!Validator.applyServerErrors(form, error)) Toast.error(error.message);
         } finally {
             btn.setLoading(false);
         }
     });
-
-    myUploadsControl = MyUploads.mount({ container: document.getElementById('myUploads') });
 
     (async () => {
         await loadSubjects();
@@ -230,6 +247,5 @@ document.addEventListener('bt:ready', () => {
     LanguageManager.onChange(() => {
         loadSubjects();
         loadReview();
-        myUploadsControl = MyUploads.mount({ container: document.getElementById('myUploads') });
     });
 });

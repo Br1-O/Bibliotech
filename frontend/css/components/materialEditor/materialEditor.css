@@ -1,0 +1,43 @@
+/* Editor completo de material */
+.bt-edit-form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.bt-edit-source {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--surface-1);
+}
+.bt-edit-source .bt-label { margin-bottom: 0; }
+.bt-edit-source a { overflow-wrap: anywhere; }
+.bt-edit-cover-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-3);
+}
+.bt-edit-cover-row > .bt-stack {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+.bt-edit-cover {
+    width: 120px;
+    height: 80px;
+    flex: 0 0 auto;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+}
+.bt-edit-cover--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2);
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    text-align: center;
+}
+.bt-modal__message { margin: 0 0 var(--space-4); color: var(--text-secondary); }

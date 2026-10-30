@@ -6,10 +6,28 @@
     <meta name="theme-color" content="#f5f2ff">
     <script src="/js/theme.js"></script>
     <title>Bibliotech · Panel del superadministrador</title>
-    <link rel="stylesheet" href="/css/variables.css">
-    <link rel="stylesheet" href="/css/base.css">
-    <link rel="stylesheet" href="/css/components.css">
-    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/shared/variables.css">
+    <link rel="stylesheet" href="/css/shared/base.css">
+    <link rel="stylesheet" href="/css/shared/forms.css">
+    <link rel="stylesheet" href="/css/components/passwordField/passwordField.css">
+    <link rel="stylesheet" href="/css/shared/badges.css">
+    <link rel="stylesheet" href="/css/components/button/button.css">
+    <link rel="stylesheet" href="/css/components/cards/cards.css">
+    <link rel="stylesheet" href="/css/components/pagination/pagination.css">
+    <link rel="stylesheet" href="/css/components/navbar/navbar.css">
+    <link rel="stylesheet" href="/css/components/loader/loader.css">
+    <link rel="stylesheet" href="/css/components/modal/modal.css">
+    <link rel="stylesheet" href="/css/components/materialEditor/materialEditor.css">
+    <link rel="stylesheet" href="/css/components/materialViewer/materialViewer.css">
+    <link rel="stylesheet" href="/css/components/toast/toast.css">
+    <link rel="stylesheet" href="/css/components/table/table.css">
+    <link rel="stylesheet" href="/css/components/tagInput/tagInput.css">
+    <link rel="stylesheet" href="/css/components/careers/careers.css">
+    <link rel="stylesheet" href="/css/components/profileSummary/profileSummary.css">
+    <link rel="stylesheet" href="/css/components/contentTabs/contentTabs.css">
+    <link rel="stylesheet" href="/css/components/passwordChange/passwordChange.css">
+    <link rel="stylesheet" href="/css/shared/utilities.css">
+    <link rel="stylesheet" href="/css/pages/dashboard.css">
 </head>
 <body>
     <div id="btPageLoader" class="bt-page-loader" role="status" aria-live="polite" aria-label="Cargando...">
@@ -20,6 +38,7 @@
 
     <main id="adminDashboard" class="bt-page bt-container bt-stack">
         <h1 data-i18n="admin.panelTitle">Panel del superadministrador</h1>
+        <div id="profileSummary"></div>
 
         <div class="bt-stats">
             <div class="bt-stat">
@@ -50,7 +69,13 @@
                     <label class="bt-label" for="batchLinks" data-i18n="admin.batchLinks">Enlaces (uno por linea)</label>
                     <textarea id="batchLinks" class="bt-textarea" name="links" rows="4"
                               data-i18n-placeholder="admin.batchLinksPlaceholder"
-                              placeholder="Titulo | https://github.com/usuario/repositorio"></textarea>
+                              placeholder="Titulo | https://github.com/usuario/repositorio | paginas"></textarea>
+                </div>
+                <div class="bt-field">
+                    <label class="bt-label" for="batchCategory" data-i18n="material.category">Categoria</label>
+                    <select id="batchCategory" class="bt-select" name="category">
+                        <option value="technical" data-i18n="material.categories.technical">Tecnico</option>
+                    </select>
                 </div>
                 <div class="bt-field">
                     <label class="bt-label" for="batchTags" data-i18n="material.tags">Etiquetas tematicas</label>
@@ -247,17 +272,19 @@
     <script src="/js/i18n/LanguageManager.js"></script>
     <script src="/js/utils/authHelper.js"></script>
     <script src="/js/utils/validator.js"></script>
-    <script src="/js/components/icons.js"></script>
-    <script src="/js/components/passwordField.js"></script>
-    <script src="/js/components/button.js"></script>
-    <script src="/js/components/loader.js"></script>
-    <script src="/js/components/toast.js"></script>
-    <script src="/js/components/modal.js"></script>
-    <script src="/js/components/materialViewer.js"></script>
-    <script src="/js/components/cards.js"></script>
-    <script src="/js/components/navbar.js"></script>
-    <script src="/js/components/pagination.js"></script>
+    <script src="/js/components/icons/icons.js"></script>
+    <script src="/js/components/passwordField/passwordField.js"></script>
+    <script src="/js/components/button/button.js"></script>
+    <script src="/js/components/loader/loader.js"></script>
+    <script src="/js/components/toast/toast.js"></script>
+    <script src="/js/components/modal/modal.js"></script>
+    <script src="/js/components/materialViewer/materialViewer.js"></script>
+    <script src="/js/components/cards/cards.js"></script>
+    <script src="/js/components/passwordChange/passwordChange.js"></script>
+    <script src="/js/components/navbar/navbar.js"></script>
+    <script src="/js/components/pagination/pagination.js"></script>
     <script src="/js/services/apiService.js"></script>
+    <script src="/js/components/profileSummary/profileSummary.js"></script>
     <script src="/js/frontControllers/adminDashboardFrontController.js"></script>
     <script src="/js/app.js"></script>
 </body>

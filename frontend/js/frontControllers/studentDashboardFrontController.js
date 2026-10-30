@@ -11,11 +11,14 @@ document.addEventListener('bt:ready', () => {
     if (!authHelper.requireAuth()) return;
     if (!authHelper.isRole('Alumno')) { window.location.href = authHelper.panelRoute(); return; }
 
+    ProfileSummary.mount(document.getElementById('profileSummary'));
+
     const pendingList = document.getElementById('pendingList');
     const subscriptionsList = document.getElementById('subscriptionsList');
     const subscriptionsPagination = document.getElementById('subscriptionsPagination');
     const form = document.getElementById('materialForm');
     const subjectsSelect = document.getElementById('materialSubjects');
+    const categorySelect = document.getElementById('matCategory');
     const tagsInput = document.getElementById('matTags');
     if (tagsInput && window.BTTagInput) window.BTTagInput(tagsInput);
 
@@ -28,9 +31,9 @@ document.addEventListener('bt:ready', () => {
     };
     let allSubscriptions = [];
     let subscriptionPage = 1;
-    let myUploadsControl = null;
 
     populateSubjects();
+    populateCategories();
     setupTypeToggle(form);
 
     /** Muestra archivo o enlace segun el tipo elegido (solo se envia uno). */
@@ -55,6 +58,19 @@ document.addEventListener('bt:ready', () => {
         };
         tipo.addEventListener('change', sync);
         sync();
+    }
+
+    async function populateCategories() {
+        if (!categorySelect) return;
+        try {
+            const options = await apiService.get('/materials/filters');
+            const current = categorySelect.value || 'technical';
+            render(categorySelect, (options.categories || []).map(category => el('option', {
+                value: category.slug,
+                text: LanguageManager.t(`material.categories.${category.slug}`)
+            })));
+            categorySelect.value = current;
+        } catch (error) { /* La categoria tecnica sigue disponible por defecto. */ }
     }
 
     async function populateSubjects() {
@@ -192,6 +208,9 @@ document.addEventListener('bt:ready', () => {
         const payload = new FormData();
         payload.append('titulo', data.get('titulo'));
         payload.append('tipo', data.get('tipo'));
+        payload.append('author', data.get('author') || '');
+        payload.append('category', data.get('category') || 'technical');
+        payload.append('pages', data.get('pages') || '');
         payload.append('descripcion', data.get('descripcion') || '');
         payload.append('categories', data.get('categories') || '');
         payload.append('subjects', selectedSubjects.join(','));
@@ -206,21 +225,17 @@ document.addEventListener('bt:ready', () => {
             Toast.success(LanguageManager.tr(result.message));
             form.reset();
             loadPending();
-            if (myUploadsControl) myUploadsControl.reload();
         } catch (error) {
             if (!Validator.applyServerErrors(form, error)) Toast.error(error.message);
         } finally {
             btn.setLoading(false);
         }
     });
-
-    myUploadsControl = MyUploads.mount({ container: document.getElementById('myUploads') });
     loadPending();
     loadSubscriptions();
     // Refresca el panel cuando cambia el idioma.
     LanguageManager.onChange(() => {
         loadPending();
         loadSubscriptions();
-        myUploadsControl = MyUploads.mount({ container: document.getElementById('myUploads') });
     });
 });

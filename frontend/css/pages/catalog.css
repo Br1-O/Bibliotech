@@ -1,0 +1,48 @@
+/* ============================ Toolbar ============================ */
+.bt-toolbar {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    align-items: flex-end;
+    padding: var(--space-4);
+    background: var(--glass-bg);
+    border: var(--border-width) solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+.bt-toolbar .bt-field { margin-bottom: 0; flex: 1 1 190px; }
+.bt-toolbar > .bt-input,
+.bt-toolbar > .bt-select { flex: 1 1 165px; min-width: 145px; }
+.bt-toolbar > .bt-taginput { position: relative; flex: 1 1 190px; min-width: 170px; }
+.bt-toolbar > .bt-taginput .bt-taginput__suggestions {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: var(--z-dropdown);
+    padding: var(--space-2);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    background: var(--glass-bg-strong);
+    box-shadow: var(--shadow-md);
+}
+.bt-toolbar > .bt-btn { flex: 0 0 auto; }
+
+/* ============================ Favoritos ============================ */
+.bt-page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.bt-page-header h1 { margin: 0 0 var(--space-1); }
+.bt-page-header p { margin: 0; }
+
+/* ============================ Ajustes finos ============================ */
+.bt-taginput__suggestions .bt-chip { cursor: pointer; }
+#pendingLimit, #pendingLimitInfo { margin: 0; }
+#observerPanel:empty, #favoritesPagination:empty, #auditPagination:empty { display: none; }
+
+@media (max-width: 720px) {
+    .bt-hero { margin-top: var(--space-4); border-radius: var(--radius-lg); }
+    .bt-auth { min-height: calc(100vh - var(--navbar-height) - 8px); padding: var(--space-5) var(--space-3); }
+    .bt-auth__card { border-radius: var(--radius-lg); }
+    .bt-auth__help { flex-direction: column; align-items: flex-start; }
+    .bt-panel { padding: var(--space-4); }
+    .bt-headline { border-radius: var(--radius-lg); }
+}

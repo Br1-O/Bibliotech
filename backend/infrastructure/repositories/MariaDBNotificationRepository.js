@@ -7,32 +7,41 @@ const db = require('../../config/db');
 const NotificationRepositoryInterface = require('../../domain/ports/NotificationRepositoryInterface');
 
 class MariaDBNotificationRepository extends NotificationRepositoryInterface {
-    async createForSubscribers(subjectId, materialId, alumnoIds) {
-        const ids = [...new Set((alumnoIds || []).map(Number).filter(Boolean))];
+    async createMany(userIds, { subjectId = null, materialId = null, type = 'material', message = null, actorId = null } = {}) {
+        const ids = [...new Set((userIds || []).map(Number).filter(Boolean))];
         if (!ids.length) return 0;
 
-        const values = ids.map(() => '(?, ?, ?)').join(', ');
+        const values = ids.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
         const params = [];
-        ids.forEach(alumnoId => params.push(alumnoId, subjectId, materialId));
+        ids.forEach(usuarioId => params.push(usuarioId, actorId, subjectId, materialId, type, message));
 
         const [result] = await db.query(
-            `INSERT INTO notifications (usuario_id, subject_id, material_id)
+            `INSERT INTO notifications (usuario_id, actor_id, subject_id, material_id, type, message)
              VALUES ${values}
-             ON DUPLICATE KEY UPDATE created_at = CURRENT_TIMESTAMP, read_at = NULL`,
+             ON DUPLICATE KEY UPDATE created_at = CURRENT_TIMESTAMP, read_at = NULL, message = VALUES(message)`,
             params
         );
         return result.affectedRows;
     }
 
+    async createForSubscribers(subjectId, materialId, alumnoIds, options = {}) {
+        return this.createMany(alumnoIds, { subjectId, materialId, type: 'material', ...options });
+    }
+
     async findByUser(userId) {
         const [rows] = await db.query(
-            `SELECT n.id, n.subject_id AS subjectId, s.nombre AS subjectNombre,
+            `SELECT n.id, n.type, n.message,
+                    n.subject_id AS subjectId, s.nombre AS subjectNombre,
                     n.material_id AS materialId, m.titulo AS materialTitulo,
+                    n.actor_id AS actorId,
+                    CONCAT(a.nombre, ' ', a.apellido) AS actorNombre,
+                    a.profile_picture AS actorPicture,
                     n.created_at AS createdAt, n.read_at AS readAt,
                     CONCAT(p.nombre, ' ', p.apellido) AS profesorNombre
              FROM notifications n
-             INNER JOIN subjects s ON s.id = n.subject_id
-             INNER JOIN materials m ON m.id = n.material_id
+             LEFT JOIN subjects s ON s.id = n.subject_id
+             LEFT JOIN materials m ON m.id = n.material_id
+             LEFT JOIN users a ON a.id = n.actor_id
              LEFT JOIN users p ON p.id = s.profesor_id
              WHERE n.usuario_id = ?
              ORDER BY n.created_at DESC, n.id DESC

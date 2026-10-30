@@ -1,0 +1,42 @@
+/* ============================ Utilidades de panel ============================ */
+.bt-input--color {
+    width: 48px;
+    min-width: 48px;
+    height: 42px;
+    padding: 3px;
+    cursor: pointer;
+}
+.bt-input--number { max-width: 110px; }
+.bt-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-pill);
+    background: var(--surface-1);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+.bt-icon-btn:hover { color: var(--brand-primary); background: var(--brand-primary-soft); border-color: var(--brand-primary); }
+.bt-icon-btn--danger:hover { color: var(--color-danger); background: var(--color-danger-soft); border-color: var(--color-danger); }
+.bt-icon-btn svg { width: 18px; height: 18px; }
+.bt-scroll-list {
+    max-height: 560px;
+    overflow-y: auto;
+    padding-right: var(--space-2);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+}
+.bt-scroll-list::-webkit-scrollbar { width: 8px; }
+.bt-scroll-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--radius-pill); }
+
+@media (max-width: 640px) {
+    .bt-card__cover { aspect-ratio: 4 / 3; }
+    .bt-career-grid { grid-template-columns: 1fr; }
+    .bt-icon-btn { width: 34px; height: 34px; }
+}

@@ -12,6 +12,8 @@ document.addEventListener('bt:ready', () => {
     const careerFilter = document.getElementById('catalogCareerFilter');
     const yearFilter = document.getElementById('catalogYearFilter');
     const typeFilter = document.getElementById('catalogTypeFilter');
+    const categoryFilter = document.getElementById('catalogCategoryFilter');
+    const uploadYearFilter = document.getElementById('catalogUploadYearFilter');
     const tagFilter = document.getElementById('catalogTagFilter');
     const sortSelect = document.getElementById('catalogSort');
     const clearButton = document.getElementById('catalogClear');
@@ -29,13 +31,18 @@ document.addEventListener('bt:ready', () => {
     let debounce;
     let tagFilterControl = null;
     let selectedCareerId = params.get('career') ? Number(params.get('career')) : null;
-    let selectedYearId = params.get('year') ? Number(params.get('year')) : null;
+    let selectedYearId = params.get('yearId') ? Number(params.get('yearId')) : null;
     let selectedType = params.get('tipo') || '';
+    let selectedCategory = params.get('category') || '';
+    let selectedUploadYear = params.get('year') || '';
+    let filterOptions = { years: [], categories: [] };
     const isAdmin = authHelper.isRole('Superadmin');
-    const currentUser = authHelper.getUser() || {};
     const canFavorite = authHelper.isAuthenticated();
 
     if (tagFilter && params.get('tags')) tagFilter.value = params.get('tags');
+    if (searchInput && (params.get('q') || params.get('author'))) {
+        searchInput.value = params.get('q') || params.get('author');
+    }
 
     function populateTypeFilter() {
         if (!typeFilter) return;
@@ -49,12 +56,14 @@ document.addEventListener('bt:ready', () => {
 
     async function loadFilters() {
         try {
-            const [careerResult, subjectResult] = await Promise.all([
+            const [careerResult, subjectResult, optionsResult] = await Promise.all([
                 apiService.get('/careers'),
-                apiService.get('/subjects')
+                apiService.get('/subjects'),
+                apiService.get('/materials/filters')
             ]);
             allCareers = careerResult.careers || [];
             allSubjects = subjectResult.subjects || [];
+            filterOptions = optionsResult || { years: [], categories: [] };
             const validCareer = allCareers.find(career => Number(career.id) === Number(selectedCareerId));
             if (!validCareer) {
                 selectedCareerId = null;
@@ -86,6 +95,28 @@ document.addEventListener('bt:ready', () => {
             ]);
             yearFilter.value = selectedYearId ? String(selectedYearId) : '';
             yearFilter.disabled = !currentCareer;
+        }
+
+        if (categoryFilter) {
+            const current = categoryFilter.value;
+            render(categoryFilter, [
+                el('option', { value: '', text: LanguageManager.t('filters.allCategories') }),
+                ...(filterOptions.categories || []).map(category => el('option', {
+                    value: category.slug,
+                    text: LanguageManager.t(`material.categories.${category.slug}`)
+                }))
+            ]);
+            if ([...categoryFilter.options].some(option => option.value === selectedCategory || option.value === current)) {
+                categoryFilter.value = selectedCategory || current;
+            }
+        }
+
+        if (uploadYearFilter) {
+            render(uploadYearFilter, [
+                el('option', { value: '', text: LanguageManager.t('filters.allYears') }),
+                ...(filterOptions.years || []).map(year => el('option', { value: String(year), text: String(year) }))
+            ]);
+            uploadYearFilter.value = selectedUploadYear ? String(selectedUploadYear) : '';
         }
 
         if (subjectFilter) {
@@ -121,6 +152,8 @@ document.addEventListener('bt:ready', () => {
                 careerId: selectedCareerId || '',
                 yearId: selectedYearId || '',
                 tipo: selectedType,
+                category: selectedCategory,
+                year: selectedUploadYear,
                 tags: currentTagQuery()
             });
             allMaterials = result.materials || [];
@@ -173,9 +206,7 @@ document.addEventListener('bt:ready', () => {
     }
 
     function canEditMaterial(material) {
-        if (!isAdmin || Cards.isInactive(material)) return false;
-        if (Number(material.autorId) === Number(currentUser.id)) return true;
-        return material.autorRol === 'Alumno';
+        return Cards.canEdit(material);
     }
 
     function materialCard(material) {
@@ -232,6 +263,8 @@ document.addEventListener('bt:ready', () => {
         loadMaterials();
     });
     typeFilter?.addEventListener('change', () => { selectedType = typeFilter.value; loadMaterials(); });
+    categoryFilter?.addEventListener('change', () => { selectedCategory = categoryFilter.value; loadMaterials(); });
+    uploadYearFilter?.addEventListener('change', () => { selectedUploadYear = uploadYearFilter.value; loadMaterials(); });
     tagFilter?.addEventListener('input', scheduleMaterialLoad);
     sortSelect?.addEventListener('change', () => { materialPage = 1; applyAndRender(); });
 
@@ -239,10 +272,14 @@ document.addEventListener('bt:ready', () => {
         if (searchInput) searchInput.value = '';
         if (subjectFilter) subjectFilter.value = '';
         if (typeFilter) typeFilter.value = '';
+        if (categoryFilter) categoryFilter.value = '';
+        if (uploadYearFilter) uploadYearFilter.value = '';
         if (tagFilterControl) tagFilterControl.clear(false);
         else if (tagFilter) tagFilter.value = '';
         if (sortSelect) sortSelect.value = 'newest';
         selectedType = '';
+        selectedCategory = '';
+        selectedUploadYear = '';
         selectedCareerId = null;
         selectedYearId = null;
         clearTimeout(debounce);

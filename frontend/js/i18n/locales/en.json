@@ -13,7 +13,9 @@
     "myPanel": "My panel",
     "menu": "Menu",
     "mySubscriptions": "My subscriptions",
-    "favorites": "Favorites"
+    "favorites": "Favorites",
+    "myContent": "My content",
+    "password": "Change password"
   },
   "notifications": {
     "title": "Notifications",
@@ -22,7 +24,12 @@
     "aria": "Notifications",
     "ariaUnread": "Notifications, {count} unread",
     "byProfessor": "Added by {name}",
-    "loading": "Loading notifications..."
+    "loading": "Loading notifications...",
+    "streakTitle": "Reading streak",
+    "streakBody": "You have read {count} days in a row. Keep it up!",
+    "badgeTitle": "New badge unlocked",
+    "readTitle": "New material read",
+    "uploadTitle": "New material uploaded"
   },
   "roles": {
     "Superadmin": "Superadmin",
@@ -112,7 +119,9 @@
     "showing": "Showing {count} materials",
     "viewDetail": "View detail",
     "by": "by",
-    "filterByYear": "Year"
+    "filterByYear": "Year",
+    "filterByCategory": "Filter by category",
+    "filterByUploadYear": "Filter by upload year"
   },
   "careers": {
     "title": "Careers",
@@ -122,12 +131,6 @@
     "seeAllSubjects": "See all subjects",
     "summary": "{subjects} subjects · {years} years",
     "none": "No careers have been created yet."
-  },
-  "myUploads": {
-    "title": "My uploads",
-    "hint": "Material you uploaded, with search, filters and editing.",
-    "hintStudent": "Check all the material you shared and its status.",
-    "empty": "You have not uploaded any material yet."
   },
   "author": {
     "materials": "Published materials",
@@ -144,7 +147,10 @@
     "showing": "Showing {shown} of {total}",
     "loadMore": "Load more",
     "allTypes": "All types",
-    "allStates": "All states"
+    "allStates": "All states",
+    "allCategories": "All categories",
+    "allYears": "All years",
+    "onlyMandatory": "Mandatory only"
   },
   "pagination": {
     "label": "Pagination of results",
@@ -269,7 +275,50 @@
     "associatedCareers": "Careers",
     "associatedSubjects": "Subjects",
     "noAssociations": "This material is not associated with any career or subject yet.",
-    "noDescription": "No description available."
+    "noDescription": "No description available.",
+    "author": "Author",
+    "authorPlaceholder": "Material author",
+    "category": "Category",
+    "mandatory": "Mandatory material",
+    "currentPage": "Current page",
+    "totalPages": "Total pages",
+    "saveProgress": "Save progress",
+    "markRead": "Mark as read",
+    "markedRead": "Marked as read",
+    "markReadShort": "Read",
+    "markedReadShort": "Read",
+    "addBacklog": "Add to backlog",
+    "removeBacklog": "Remove from backlog",
+    "backlog": "Backlog",
+    "inBacklog": "In backlog",
+    "categories": {
+      "fiction": "Fiction",
+      "literature": "Literature",
+      "poetry": "Poetry",
+      "drama": "Drama",
+      "technical": "Technical",
+      "science": "Science",
+      "business": "Business",
+      "education": "Education",
+      "medicine": "Medicine",
+      "law": "Law",
+      "non-fiction": "Non-fiction",
+      "self-help": "Self-help",
+      "biography": "Biography",
+      "history": "History",
+      "philosophy": "Philosophy",
+      "religion": "Religion",
+      "arts": "Arts",
+      "hobbies": "Hobbies",
+      "travel": "Travel",
+      "sports": "Sports",
+      "cooking": "Cooking",
+      "kids": "Kids",
+      "young-adult": "Young adult"
+    },
+    "pages": "Pages",
+    "pagesPlaceholder": "Optional",
+    "pagesRequired": "Enter the total number of pages to save progress."
   },
   "student": {
     "panelTitle": "Student panel",
@@ -385,7 +434,16 @@
     "careerUpdated": "Career updated successfully.",
     "yearCreated": "Year created successfully.",
     "yearUpdated": "Year updated successfully.",
-    "batchUploaded": "Batch upload completed. Created: {created}. Skipped duplicates: {skipped}."
+    "batchUploaded": "Batch upload completed. Created: {created}. Skipped duplicates: {skipped}.",
+    "profileUpdated": "Profile updated successfully.",
+    "markedRead": "Material marked as read. +100 XP.",
+    "unmarkedRead": "Material marked as unread.",
+    "addedBacklog": "Material added to backlog.",
+    "removedBacklog": "Material removed from backlog.",
+    "progressSaved": "Reading progress saved.",
+    "followedUser": "You are now following this user.",
+    "unfollowedUser": "You unfollowed this user.",
+    "backlogCompletedRead": "Material completed and moved to Read."
   },
   "favorites": {
     "title": "My favorites",
@@ -442,5 +500,143 @@
       "Inicio Sesion": "Signed in",
       "Cierre Sesion": "Signed out"
     }
+  },
+  "profile": {
+    "xp": "{xp} XP",
+    "nextRank": "{xp} XP left to reach {rank}",
+    "maxRank": "You have reached the highest rank.",
+    "noRank": "No rank",
+    "streak": "Reading streak",
+    "streakDays": "{count} days in a row",
+    "rankUp": "You ranked up to {rank}!",
+    "progressPercent": "{percent}% completed",
+    "completed": "Completed",
+    "inProgress": "In progress",
+    "pageOf": "Page {page} of {total}",
+    "noPages": "No pages recorded",
+    "continueReading": "Continue reading",
+    "markCompleted": "Mark completed",
+    "markUnread": "Mark as unread",
+    "removeFromBacklog": "Remove from backlog",
+    "viewProfile": "View profile",
+    "noBadges": "No badges yet",
+    "editProfile": "Edit profile",
+    "editField": "Edit {field}",
+    "changePicture": "Change profile picture",
+    "avatar": "Profile picture",
+    "choosePicture": "Choose profile picture",
+    "choosePictureHint": "Rank pictures unlock as you reach each rank.",
+    "about": "About",
+    "badges": "Badges",
+    "follow": "Follow",
+    "following": "Following",
+    "tabs": {
+      "uploads": "Uploads",
+      "favorites": "Favorites",
+      "reads": "Reads",
+      "backlog": "Backlog"
+    },
+    "empty": {
+      "uploads": "This user has not uploaded any materials yet.",
+      "favorites": "This user has no favorites yet.",
+      "reads": "This user has not marked any materials as read yet.",
+      "backlog": "This user has no backlog items."
+    },
+    "stats": {
+      "reads": "Read",
+      "favorites": "Favorites",
+      "uploads": "Uploads",
+      "followers": "Followers",
+      "following": "Following",
+      "completed": "Completed",
+      "backlog": "Backlog"
+    },
+    "fields": {
+      "email": "Email",
+      "age": "Age",
+      "gender": "Gender",
+      "city": "City",
+      "country": "Country",
+      "phone": "Phone",
+      "github": "GitHub",
+      "instagram": "Instagram",
+      "memberSince": "Member since",
+      "name": "First name",
+      "lastName": "Last name",
+      "birthdate": "Birthdate",
+      "genderCustom": "Custom gender",
+      "linkedin": "LinkedIn",
+      "career": "Career",
+      "institute": "Institute",
+      "aboutMe": "About me"
+    },
+    "genders": {
+      "Male": "Male",
+      "Female": "Female",
+      "Non-Binary": "Non-binary",
+      "Other": "Other"
+    }
+  },
+  "badges": {
+    "hello_world": {
+      "name": "Hello World",
+      "description": "You read your first material.",
+      "requirement": "Read your first material"
+    },
+    "first_commit": {
+      "name": "First Commit",
+      "description": "You uploaded your first material.",
+      "requirement": "Upload your first material"
+    },
+    "stack_overflow": {
+      "name": "Stack Overflow",
+      "description": "You uploaded 10 materials.",
+      "requirement": "Upload 10 materials"
+    },
+    "shared_pointer": {
+      "name": "Shared Pointer",
+      "description": "You reached 5 followers.",
+      "requirement": "Get 5 followers"
+    },
+    "array_5": {
+      "name": "Array[5]",
+      "description": "You follow 5 users.",
+      "requirement": "Follow 5 users"
+    },
+    "linter_clean": {
+      "name": "Linter Clean",
+      "description": "You read 5 materials.",
+      "requirement": "Read 5 materials"
+    },
+    "code_reviewer": {
+      "name": "Code Reviewer",
+      "description": "You saved 10 favorites.",
+      "requirement": "Save 10 favorites"
+    },
+    "full_stack_reader": {
+      "name": "Full Stack Reader",
+      "description": "You reached rank 5.",
+      "requirement": "Reach rank 5"
+    },
+    "early_return": {
+      "name": "Early Return",
+      "description": "You read between 05:00 and 09:59.",
+      "requirement": "Read between 05:00 and 09:59"
+    },
+    "overtime": {
+      "name": "Overtime",
+      "description": "You read between 00:00 and 04:59.",
+      "requirement": "Read between 00:00 and 04:59"
+    }
+  },
+  "password": {
+    "title": "Change password",
+    "hint": "Enter your current password and choose a new one.",
+    "current": "Current password",
+    "submit": "Save password"
+  },
+  "myContent": {
+    "title": "My content",
+    "subtitle": "Your uploads, favorites, reads and backlog in one place."
   }
 }

@@ -9,13 +9,15 @@ testUtils.createTestButton('Test Subir Material como Profesor (201)', async () =
     const token = await testUtils.login(testUtils.accounts.profesor.email, testUtils.accounts.profesor.password);
     const subjectId = await testUtils.professorSubject();
     const form = testUtils.pdfForm({
-        titulo: testUtils.uniq('Material Profesor'), tipo: 'PDF', subjects: String(subjectId), categories: 'algoritmos,intro'
+        titulo: testUtils.uniq('Material Profesor'), tipo: 'PDF', subjects: String(subjectId),
+        categories: 'algoritmos,intro', pages: '120'
     }, testUtils.uniq('pdf-profesor'));
 
     const r = await testUtils.request('/materials/upload', { method: 'POST', token, form });
     testUtils.log({ status: r.status, message: r.data && r.data.message, material: r.data && r.data.material });
     testUtils.assert(r.status === 201, 'Se esperaba 201');
     testUtils.assert(r.data.material.estado === 'Aprobado', 'El material de profesor debe quedar Aprobado');
+    testUtils.assert(Number(r.data.material.pages) === 120, 'Las paginas deben guardarse');
 });
 
 // --- Control de unicidad por hash (RD-05) ---

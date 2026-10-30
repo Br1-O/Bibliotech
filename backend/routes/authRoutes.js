@@ -24,6 +24,7 @@ module.exports = (container) => {
     router.get('/roles', controller.listRoles);
 
     router.get('/me', verifyToken, controller.me);
+    router.put('/password', verifyToken, controller.changePassword);
     router.post('/professors', verifyToken, requireRole(Role.SUPERADMIN), controller.createProfessor);
     router.get('/users', verifyToken, requireRole(Role.SUPERADMIN), controller.listUsers);
     router.put('/users/:id/ban', verifyToken, requireRole(Role.SUPERADMIN), controller.banUser);

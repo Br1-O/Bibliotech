@@ -1,0 +1,851 @@
+# Bibliotech — Professor Sequence Diagrams
+
+**Project:** Bibliotech  
+**Document:** Runtime sequences for the main professor actions  
+**Generated:** 2026-10-29  
+**Scope:** Professor login/dashboard, publishing material, reviewing student suggestions, associating existing material, editing material, managing observers, removing material from a subject, the API-only subject-association request, and gamification side effects of professor actions.
+
+> All API calls made by the frontend use `apiService`, which adds `Authorization: Bearer <JWT>` when a session exists. Protected routes also run `verifyToken` and `requireRole`. The diagrams omit that header on each arrow to keep them readable.
+
+---
+
+## 1. Action Map
+
+| Professor action | UI entry point | API route | Main service method | Audit label |
+|---|---|---|---|---|
+| Log in and open dashboard | `/login` → `/profesor` | `POST /api/auth/login`, `GET /api/subjects`, `GET /api/materials/pending-review` | `AuthService.login`, `SubjectService.getAllSubjects`, `MaterialService.getPendingForProfessor` | none on login |
+| Publish new material | Teacher dashboard form (author, category, pages, mandatory) | `POST /api/materials/upload` | `MaterialService.uploadOrSuggestMaterial` → `GamificationService.onMaterialApproved` | `Subida Material` (new) / `Asociacion Material` (duplicate); badge evaluation |
+| Review student suggestions | Pending review panel | `GET /api/materials/pending-review`, then `POST /api/materials/:id/approve` or `/reject` | `getPendingForProfessor`, `approveMaterial`, `rejectMaterial` | `Aprobacion Material` / `Cancelacion Material` |
+| Add existing material to own subjects | Material card → “Add to subjects” modal | `POST /api/materials/:id/associate` | `MaterialService.associateMaterialToSubjects` | `Asociacion Material` |
+| Edit material | Subject page → editor (author, category, pages, mandatory) | `PUT /api/materials/:id` | `MaterialService.update` | `Modificacion Material` |
+| View observers and ban a student | “Observers” on a subject | `GET /api/subscriptions/subject/:subjectId/observers`, `POST /api/subscriptions/ban/:alumnoId/:subjectId` | `SubscriptionService.getObservers`, `banStudent` | `Baneo Alumno` |
+| Remove material from one subject | Subject detail → remove | `DELETE /api/materials/:id/subjects/:subjectId` | `MaterialService.delete(..., subjectId)` | `Desasociacion Material` |
+| Request a subject association | API only; no current page control | `POST /api/subjects/:id/request-association` | `SubjectService.requestAssociation` | `Solicitud Materia` |
+| Confirm a subject association | Admin dashboard (the professor waits) | `POST /api/subjects/:id/confirm-association` | `SubjectService.confirmAssociation` | `Asociacion Materia` |
+
+**Professor-only preconditions**
+
+- The professor must have been `Activo` when the JWT was issued. `verifyToken` does not re-check account state, so a later ban or soft delete does not invalidate an existing token before expiry.
+- The professor must be assigned to the subject through `subject_professors`.
+- `subjects.profesor_id` alone is not sufficient; `Subject.hasProfessor()` uses `subject_professors` with a fallback to `profesor_id`.
+- A fresh database has 23 subjects but **no professor assignments**, so a professor dashboard will be empty until an administrator assigns subjects.
+
+---
+
+## 2. Login and Dashboard Initialization
+
+### Preconditions
+
+- A professor account exists and is `Activo`.
+- The account has a password hash.
+- The professor is assigned to at least one subject (otherwise the dashboard loads empty).
+- The browser has no valid session, or the user intentionally logs in again.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Professor
+    participant UI as Login page
+    participant API as Express /api
+    participant C as authController
+    participant AS as AuthService
+    participant UR as UserRepository
+    participant DB as MariaDB
+    participant DASH as Teacher dashboard
+    participant SS as SubjectService
+    participant MS as MaterialService
+
+    P->>UI: Enter email and password
+    UI->>UI: Client-side required/email/password checks
+    UI->>API: POST /api/auth/login
+    API->>C: login(req.body)
+    C->>AS: login(email, password)
+    AS->>AS: Validate required fields
+    AS->>UR: findByEmail(email)
+    UR->>DB: SELECT users JOIN roles
+    DB-->>UR: user row + role name
+    UR-->>AS: User entity
+    AS->>AS: bcrypt.compare(password, hash)
+
+    alt Credentials valid and account active
+        AS->>AS: Check estado is Activo
+        AS->>AS: jwt.sign({ id, role }, 2h)
+        AS-->>C: { token, user }
+        C-->>API: 200 { message, token, user }
+        API-->>UI: JSON response
+        UI->>UI: authHelper.saveSession(token, user)
+        UI->>UI: authHelper.panelRoute() → /profesor
+        UI-->>P: Navigate to /profesor
+        DASH->>DASH: requireAuth + role guard (Profesor/Superadmin)
+        DASH->>API: GET /api/subjects
+        API->>SS: getAllSubjects(filters={})
+        SS-->>API: subjects with professors and counts
+        API-->>DASH: { subjects }
+        DASH->>DASH: Filter with Cards.isSubjectProfessor()
+        DASH->>API: GET /api/materials/pending-review
+        API->>MS: getPendingForProfessor(me.id)
+        MS-->>API: pending associations
+        API-->>DASH: { materials }
+        DASH-->>P: Render subjects and review queue
+    else Missing or invalid credentials
+        AS-->>C: 401 / 422 error
+        C-->>UI: localized error
+        UI-->>P: Show alert/toast
+    else Pending, inactive or banned account
+        AS-->>C: 403 account error
+        C-->>UI: localized error
+        UI-->>P: Show account-state message
+    end
+```
+
+### Postconditions
+
+- The JWT is stored by `authHelper` with the safe user object.
+- The dashboard has loaded subjects, pending review rows and the professor's uploads.
+- Login itself does **not** create an audit row.
+- If the professor has no assignments, `mySubjects` is empty and the dashboard shows the “no subjects” state.
+
+### Failure notes
+
+- `GET /api/subjects` is public/optional-auth; the dashboard filters client-side.
+- `GET /api/materials/pending-review` is restricted to `Profesor`/`Superadmin`. For a `Superadmin`, the repository still filters by `subject_professors.profesor_id = currentUserId`, so an unassigned admin normally sees an empty list.
+- Any later 401 from `apiService` clears the session and redirects to `/login`.
+
+---
+
+## 3. Publish New Material
+
+### Preconditions
+
+- Professor is authenticated and assigned to at least one subject.
+- The form contains a title, a type, one or more subject IDs, and either one file or one external URL.
+- A cover image is optional.
+- The file type is consistent with the selected type.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Professor
+    participant DASH as Teacher dashboard
+    participant API as Express /api
+    participant MW as verifyToken + requireRole + rate limit
+    participant MUL as multer materialUpload
+    participant C as materialController
+    participant MV as mediaValidator + hashHelper
+    participant MS as MaterialService
+    participant MR as MaterialRepository
+    participant SR as SubjectRepository
+    participant SUB as SubscriptionRepository
+    participant NR as NotificationRepository
+    participant OBS as Subject + StudentObserver
+    participant TS as ThematicTagService
+    participant AUD as AuditLogService
+    participant FS as File storage
+    participant DB as MariaDB
+
+    P->>DASH: Submit material form
+    DASH->>DASH: Validate title, subjects and file/link
+    DASH->>API: POST /api/materials/upload (multipart)
+    API->>MW: Authenticate and authorize Alumno/Profesor
+    MW->>MUL: Parse multipart fields/files
+    MUL-->>C: req.body + req.files
+
+    C->>C: Read archivo, portada, subjects, categories
+    alt Cover supplied
+        C->>MV: validateCover(cover)
+        MV-->>C: ok / invalid
+        C->>FS: Store cover
+        FS-->>C: /uploads/cover...
+    end
+
+    alt File supplied
+        C->>MV: Infer type from filename and validate file
+        C->>FS: Store file
+        FS-->>C: /uploads/file...
+        C->>MV: SHA-256(file)
+        MV-->>C: fileHash
+    else External link supplied
+        C->>MV: Infer type from URL and validate link
+        MV-->>C: valid / invalid
+        C->>MV: SHA-256(url)
+        MV-->>C: fileHash
+    end
+
+    C->>MS: uploadOrSuggestMaterial(dto, ctx)
+    MS->>MS: Validate titulo (2..150) and tipo
+    MS->>MS: Validate link format if applicable
+    MS->>MS: Normalize subjects and require at least one
+    MS->>SR: findById(each subject)
+    SR-->>MS: subject + professors
+    MS->>MS: assertProfessorOwnsSubjects()
+    MS->>MR: findByHash(fileHash)
+    MR->>DB: SELECT material by file_hash
+    DB-->>MR: existing or null
+
+    alt Duplicate hash and professor
+        MS->>MR: associateToSubject(existing.id, subject, Aprobado)
+        MR->>DB: INSERT ... ON DUPLICATE KEY UPDATE
+        MS->>SR: findById(subject)
+        MS->>SUB: getObservers(subject.id)
+        SUB->>DB: SELECT subscribed students
+        SUB-->>MS: observer rows
+        MS->>OBS: Build transient Subject and StudentObservers
+        OBS-->>MS: in-memory notifications
+        MS->>NR: createForSubscribers(subject, material, alumnoIds)
+        NR->>DB: UPSERT notifications
+        MS->>AUD: record(Asociacion Material)
+        AUD->>DB: INSERT audit_logs
+        MS-->>C: { message: duplicateProfessor, material: existing }
+    else New content
+        MS->>MR: save(material with estado Aprobado)
+        MR->>DB: INSERT materials
+        loop Each selected subject
+            MS->>MR: associateToSubject(material.id, subject, Aprobado)
+            MR->>DB: INSERT material_subjects
+            MS->>SR: findById(subject)
+            MS->>SUB: getObservers(subject.id)
+            MS->>OBS: notifyObservers(material)
+            MS->>NR: createForSubscribers(...)
+            NR->>DB: UPSERT notifications
+        end
+        MS->>TS: create(tag, general) for each category
+        TS->>DB: SELECT existing tag / INSERT tag
+        MS->>AUD: record(Subida Material)
+        AUD->>DB: INSERT audit_logs
+        MS-->>C: { message: materialUploaded, material }
+    end
+
+    C-->>API: 201 JSON
+    API-->>DASH: { message, material }
+    DASH->>DASH: Toast success, reset form, reload subjects/uploads
+    DASH-->>P: New material visible in own subject(s)
+```
+
+### Alternative and error paths
+
+| Condition | Result | Cleanup |
+|---|---|---|
+| Missing title, type, subject, or file/link | `422` validation error | Controller deletes any files already written in local mode. |
+| File extension/MIME does not match `tipo` | `422 validation.fileType` | Same. |
+| Invalid cover | `422 validation.coverType` | Same. |
+| Invalid YouTube/Drive/repository link | `422 validation.invalidLink` | Same. |
+| Professor does not teach one of the selected subjects | `403` | Same. |
+| Duplicate title/file from another author | Not blocked by title; duplicate **file hash** follows the duplicate flow. | Existing material is associated; the newly uploaded duplicate file/cover remains in storage because the controller cleans up only on errors (and only local files are deleted). |
+| Too many upload requests | `429` from `uploadRateLimit` | No service call. |
+| Thematic tag is banned | `ThematicTagService.create()` fails; the error is ignored so the material still publishes. | — |
+| Notification persistence fails | Logged by `MaterialService`; upload still succeeds. | Notification may be missing. |
+
+### Postconditions
+
+- `materials` row exists with `estado = 'Aprobado'`.
+- One `material_subjects` row per selected subject with `estado_aprobacion = 'Aprobado'`.
+- Subscribers receive durable notification rows.
+- Audit row `Subida Material` (new) or `Asociacion Material` (duplicate).
+- The file/cover is stored in the configured storage backend.
+- **Duplicate caveat:** the duplicate branch only upserts the association. It does **not** change the existing material's global `estado`; if the existing material is still `Pendiente`, the professor's approved association alone does not make it visible on subject pages.
+
+---
+
+## 4. Review Pending Student Suggestions
+
+### Preconditions
+
+- A `material_subjects` row is in `estado_aprobacion = 'Pendiente'`.
+- The material is usually `Pendiente`, but it can already be `Aprobado` when a student suggested a duplicate of an approved resource.
+- The professor is assigned to the subject through `subject_professors`.
+- The professor is authenticated.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Professor
+    participant DASH as Teacher dashboard
+    participant API as Express /api
+    participant MC as materialController
+    participant MS as MaterialService
+    participant MR as MaterialRepository
+    participant SR as SubjectRepository
+    participant SUB as SubscriptionRepository
+    participant OBS as Subject + StudentObserver
+    participant NR as NotificationRepository
+    participant AUD as AuditLogService
+    participant FS as File storage
+    participant DB as MariaDB
+
+    DASH->>API: GET /api/materials/pending-review
+    API->>MC: pendingReview()
+    MC->>MS: getPendingForProfessor(me.id)
+    MS->>MR: findPendingForProfessor(me.id)
+    MR->>DB: SELECT pending material_subjects
+    Note right of DB: EXISTS subject_professors<br/>WHERE profesor_id = me.id
+    DB-->>MR: rows with subjectId + subjectNombre
+    MR-->>MS: material rows
+    MS-->>MC: materials
+    MC-->>DASH: { materials }
+    DASH-->>P: Render each suggestion with Approve/Reject
+
+    alt Professor approves one subject
+        P->>DASH: Click Approve
+        DASH->>API: POST /api/materials/:id/approve { subjectId }
+        API->>MC: approve()
+        MC->>MS: approveMaterial(materialId, subjectId, ctx)
+        MS->>SR: findById(subjectId)
+        SR-->>MS: subject with professors
+        MS->>MS: Check Superadmin or hasProfessor(me)
+        MS->>MR: updateAssociationState(id, subjectId, Aprobado)
+        MR->>DB: UPDATE material_subjects
+        MS->>MR: updateEstado(id, Aprobado)
+        MR->>DB: UPDATE materials SET estado='Aprobado'
+        MS->>MR: findById(materialId)
+        MR-->>MS: material
+        MS->>SUB: getObservers(subjectId)
+        SUB->>DB: SELECT subscribed students
+        SUB-->>MS: observers
+        MS->>OBS: notifyObservers(material)
+        MS->>NR: createForSubscribers(subjectId, materialId, alumnoIds)
+        NR->>DB: UPSERT notifications
+        MS->>AUD: record(Aprobacion Material)
+        AUD->>DB: INSERT audit_logs
+        MS-->>MC: { message: materialApproved }
+        MC-->>DASH: 200
+        DASH->>DASH: Reload pending review and subjects
+    else Professor rejects one subject
+        P->>DASH: Click Reject
+        DASH->>API: POST /api/materials/:id/reject { subjectId }
+        API->>MC: reject()
+        MC->>MS: rejectMaterial(materialId, subjectId, ctx)
+        MS->>SR: findById(subjectId)
+        MS->>MS: Check Superadmin or hasProfessor(me)
+        MS->>MR: findById(materialId)
+        MS->>MR: deleteAssociation(materialId, subjectId)
+        MR->>DB: DELETE material_subjects row
+        MS->>MR: countAssociations(materialId)
+        MR->>DB: SELECT COUNT(*)
+        alt No associations remain and material is Pendiente
+            MS->>MR: rejectPendingUpload(materialId)
+            MR->>DB: UPDATE materials SET estado='Rechazado', file fields NULL
+            MS->>FS: delete urlOrPath and portada
+        end
+        MS->>AUD: record(Cancelacion Material)
+        AUD->>DB: INSERT audit_logs
+        MS-->>MC: { message: associationRejected, rejected }
+        MC-->>DASH: 200
+        DASH->>DASH: Reload pending review and subjects
+    end
+```
+
+### Alternative and error paths
+
+| Condition | Result |
+|---|---|
+| Subject does not exist | `404` |
+| Professor does not teach the subject and is not Superadmin | `403` |
+| Material does not exist (reject path) | `404` |
+| Approve is called for an association that no longer exists | Current code updates/creates no association but still marks the material `Aprobado`; the UI normally prevents this. |
+| Rejection is the last association of a pending material | Material becomes `Rechazado`; files are deleted; `rejected=true`. |
+| Rejection leaves other associations | Material remains visible for those subjects; `rejected=false`. |
+| Rejection removes the last association but material is already `Aprobado` | Association is deleted; material stays `Aprobado` with no subject associations, files are kept, and `rejected=false`. |
+| Notification persistence fails | Logged; approval/rejection still succeeds. |
+
+### Postconditions
+
+- Approve: association `Aprobado`; material `Aprobado`; subscribers notified; audit `Aprobacion Material`.
+- Reject: association deleted; if it was the last one and the material was pending, material `Rechazado` and files removed; audit `Cancelacion Material`.
+- The pending-review query returns only associations that are still pending and belong to the professor's subjects; it does not require the material itself to be `Pendiente`.
+
+---
+
+## 5. Add an Existing Material to Own Subjects
+
+### Preconditions
+
+- The material is already visible to the professor (usually approved).
+- The professor teaches the target subjects.
+- The material is not already associated with those subjects (the UI hides existing ones, but the backend uses an upsert).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Professor
+    participant UI as Material card / modal
+    participant API as Express /api
+    participant MC as materialController
+    participant MS as MaterialService
+    participant MR as MaterialRepository
+    participant SR as SubjectRepository
+    participant SUB as SubscriptionRepository
+    participant OBS as Subject + StudentObserver
+    participant NR as NotificationRepository
+    participant AUD as AuditLogService
+    participant DB as MariaDB
+
+    P->>UI: Click “Add to subjects”
+    UI->>UI: Open modal with owned, not-yet-linked subjects
+    P->>UI: Select one or more subjects and confirm
+    UI->>API: POST /api/materials/:id/associate { subjectIds: [...] }
+    API->>MC: associate()
+    MC->>MS: associateMaterialToSubjects(id, subjectIds, ctx)
+    MS->>MS: Require role Profesor
+    MS->>MR: findById(materialId)
+    MR->>DB: SELECT material
+    MR-->>MS: material
+    MS->>MS: normalizeSubjectIds()
+    MS->>SR: findById(each subject)
+    SR-->>MS: subjects with professors
+    MS->>MS: Ensure professor owns every subject
+    loop Each subject
+        MS->>MR: associateToSubject(materialId, subjectId, Aprobado)
+        MR->>DB: INSERT ... ON DUPLICATE KEY UPDATE
+        MS->>SUB: getObservers(subjectId)
+        SUB->>DB: SELECT subscribed students
+        MS->>OBS: notifyObservers(material)
+        MS->>NR: createForSubscribers(subjectId, materialId, alumnoIds)
+        NR->>DB: UPSERT notifications
+    end
+    MS->>AUD: record(Asociacion Material)
+    AUD->>DB: INSERT audit_logs
+    MS-->>MC: { message: materialAssociated, subjectIds }
+    MC-->>UI: 200 JSON
+    UI->>UI: Update card labels and toast
+    UI-->>P: Material now listed in the selected subjects
+```
+
+### Alternative and error paths
+
+| Condition | Result |
+|---|---|
+| Material not found | `404` |
+| Caller is not a professor | `403` (route also enforces this) |
+| Missing/empty/invalid `subjectIds` | `422` |
+| Any selected subject does not exist or is not taught by the caller | `403` (the service stops before associating) |
+| Subject already linked | Upsert succeeds; count remains one row per pair. |
+| Notification persistence fails | Logged; association still succeeds. |
+
+### Postconditions
+
+- New `material_subjects` rows with `Aprobado`.
+- An existing `(material, subject)` pair is upserted to `estado_aprobacion = 'Aprobado'` rather than duplicated; other pairs are unchanged.
+- Subscribers of each selected subject receive a notification, even when the `materials` row itself is still `Pendiente`.
+- Audit `Asociacion Material`.
+- The `materials` row itself is not modified or duplicated.
+- If the existing material is still `Pendiente`, this endpoint adds an `Aprobado` association but does not change the material's global state; it remains invisible on subject pages until approved.
+
+---
+
+## 6. Edit a Material
+
+### Preconditions
+
+- The material exists and is not cancelled/rejected for professor callers.
+- A Superadmin can edit any material. A professor can edit materials they uploaded and materials uploaded by any student, regardless of subject assignment. A professor cannot edit another professor's or an administrator's material.
+- The frontend shows the edit action only when `Cards.canEdit` allows it; the backend re-checks.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Professor
+    participant UI as Material editor
+    participant API as Express /api
+    participant MW as verifyToken + requireRole
+    participant MUL as multer materialUpload
+    participant MC as materialController
+    participant MV as mediaValidator + hashHelper
+    participant MS as MaterialService
+    participant MR as MaterialRepository
+    participant SR as SubjectRepository
+    participant TS as ThematicTagService
+    participant AUD as AuditLogService
+    participant FS as File storage
+    participant DB as MariaDB
+
+    P->>UI: Open editor and change fields
+    UI->>API: PUT /api/materials/:id (multipart or JSON-like fields)
+    API->>MW: Authenticate and authorize Profesor/Superadmin
+    MW->>MUL: Parse optional file and cover
+    MUL-->>MC: req.body + req.files
+
+    MC->>MC: Build dto from titulo, descripcion, tipo, categories
+    alt New cover
+        MC->>MV: validateCover()
+        MC->>FS: Store cover
+        MC->>MC: dto.portada = new path
+    else removePortada=true
+        MC->>MC: dto.portada = null
+    end
+    alt New file
+        MC->>MV: Infer/validate file type
+        MC->>FS: Store file
+        MC->>MV: SHA-256(file)
+        MC->>MC: dto.urlOrPath + dto.fileHash
+    else New link
+        MC->>MC: dto.urlOrPath = link
+    end
+
+    MC->>MS: update(materialId, dto, ctx)
+    MS->>MR: findById(materialId)
+    MR->>DB: SELECT material + associations
+    MS->>MS: assertCanManage(material, ctx)
+    MS->>SR: findById(associated subjects)
+    Note right of MS: Author → allow<br/>Non-student author and not author → 403<br/>Admin → allow only student author<br/>Professor → allow only student author in taught subject
+
+    MS->>MS: Build allowed changes
+    MS->>MS: Validate titulo (2..150) and tipo
+    MS->>MS: Enforce file/link/type transitions
+    MS->>MV: Validate new link if applicable
+    MS->>MR: findByHash(new hash)
+    MR->>DB: SELECT existing by hash
+    alt Hash belongs to another material
+        MS-->>MC: 409 duplicateMaterial
+    else Hash is free or unchanged
+        MS->>MR: update(materialId, changes)
+        MR->>DB: UPDATE materials
+        MS->>TS: create new categories
+        MS->>FS: Delete replaced file/cover
+        MS->>AUD: record(Modificacion Material)
+        AUD->>DB: INSERT audit_logs
+        MS->>MR: findById(materialId)
+        MS-->>MC: { message, material }
+        MC-->>UI: 200 JSON
+        UI-->>P: Toast + refreshed card
+    end
+```
+
+### Editable fields and rules
+
+| Field | Rule |
+|---|---|
+| `titulo` | Trimmed; required if supplied; 2–150 characters. |
+| `descripcion` | Trimmed; empty becomes `NULL`. |
+| `categories` | Array or comma-separated input; trimmed; case-insensitive deduplication. New tags are created in the catalog. |
+| `tipo` | Must be one of `PDF`, `EPUB`, `Word`, `Presentacion`, `Link_Drive`, `Youtube`, `Repositorio`. |
+| `archivo` | Only for file types; required when changing from a link to a file type or when changing file type. |
+| `urlOrPath` | Required for link types; validated by type. |
+| `portada` | Optional image; `removePortada=true` clears it. |
+| `fileHash` | Derived by the controller; not accepted directly from the client. |
+
+### Permission matrix
+
+| Caller | Target | Result |
+|---|---|---|
+| Author (Professor/Superadmin) | Own material | Allowed |
+| Author (Student) | Own material | Route rejects with `403`; student authors use cancel instead |
+| Professor | Another professor's material | `403` |
+| Professor | Student suggestion in a subject they teach | Allowed |
+| Professor | Student suggestion in a subject they do not teach | `403` |
+| Superadmin | Student material | Allowed |
+| Superadmin | Another professor's/admin's material | `403`: `assertCanManage` rejects any material whose author is not an `Alumno` before checking the admin role. Only the author can edit it. |
+| Student | Any material | Route rejects with `403`; students use cancel, not edit. |
+
+### Alternative and error paths
+
+| Condition | Result |
+|---|---|
+| Material not found | `404` |
+| No actual changes | `422 invalidData` |
+| Invalid type transition | `422 fileType` / `invalidData` |
+| New file hash already used by another material | `409 duplicateMaterial` |
+| Invalid link | `422 invalidLink` |
+| Cover invalid | `422 coverType` |
+| Old file/cover deletion fails | Logged; update still succeeds. |
+
+### Postconditions
+
+- Updated `materials` row.
+- Replaced files removed from storage where possible.
+- New tags created if needed.
+- Audit `Modificacion Material`.
+
+---
+
+## 7. View Observers and Ban a Student
+
+### Preconditions
+
+- The professor is authenticated.
+- For viewing: any Professor/Admin can call the route; the service does not verify subject ownership.
+- For banning: the caller must teach the subject or be Superadmin.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Professor
+    participant DASH as Teacher dashboard
+    participant API as Express /api
+    participant SC as subscriptionController
+    participant SS as SubscriptionService
+    participant SR as SubjectRepository
+    participant SUBR as SubscriptionRepository
+    participant AUD as AuditLogService
+    participant DB as MariaDB
+
+    P->>DASH: Click “Observers” on a subject
+    DASH->>API: GET /api/subscriptions/subject/:subjectId/observers
+    API->>SC: observers()
+    SC->>SS: getObservers(subjectId)
+    SS->>SUBR: getObservers(subjectId)
+    SUBR->>DB: SELECT subscriptions JOIN users WHERE estado='Suscrito'
+    DB-->>SUBR: observer rows
+    SUBR-->>SS: observers
+    SS-->>SC: observers
+    SC-->>DASH: { observers }
+    DASH-->>P: Render names, emails and Ban buttons
+
+    alt Professor bans a student
+        P->>DASH: Click Ban
+        DASH->>API: POST /api/subscriptions/ban/:alumnoId/:subjectId
+        API->>SC: ban()
+        SC->>SS: banStudent(alumnoId, subjectId, ctx)
+        SS->>SR: findById(subjectId)
+        SR-->>SS: subject + professors
+        SS->>SS: Check Superadmin or hasProfessor(me)
+        SS->>SUBR: findByAlumnoAndMateria(alumnoId, subjectId)
+        SUBR->>DB: SELECT subscription
+        alt No subscription row exists
+            SS->>SUBR: save(new Subscription(estado='Baneado'))
+            SUBR->>DB: INSERT subscriptions
+        else Subscription exists
+            SS->>SUBR: banStudent(alumnoId, subjectId)
+            SUBR->>DB: UPDATE subscriptions SET estado='Baneado'
+        end
+        SS->>AUD: record(Baneo Alumno)
+        AUD->>DB: INSERT audit_logs
+        SS-->>SC: { message: banned }
+        SC-->>DASH: 200
+        DASH->>DASH: Reload observer list
+        DASH-->>P: Banned student disappears from active observers
+    end
+```
+
+### Alternative and error paths
+
+| Condition | Result |
+|---|---|
+| Subject not found | `404` |
+| Professor does not teach the subject (and is not Superadmin) | `403` |
+| Student has no subscription row | A `Baneado` row is created; the student cannot subscribe. |
+| Student was already subscribed | Row is updated to `Baneado`. |
+| Banned student calls subscribe | `403 errors.forbidden` |
+| Viewing observers for a subject the professor does not teach | **Allowed** by the current service; this is a privacy gap to consider. |
+
+### Postconditions
+
+- Subscription state is `Baneado`.
+- Banned student no longer appears in `getObservers` (which filters `Suscrito`).
+- Student cannot re-subscribe while the banned row exists.
+- Audit `Baneo Alumno` points to the student user id, not the subject.
+
+---
+
+## 8. Remove Material from One Subject
+
+### Preconditions
+
+- Material is associated with the subject.
+- The caller is a professor of that subject or a Superadmin.
+- The route is the subject-specific delete, not the global admin delete.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Professor
+    participant UI as Subject detail
+    participant API as Express /api
+    participant MC as materialController
+    participant MS as MaterialService
+    participant MR as MaterialRepository
+    participant SR as SubjectRepository
+    participant AUD as AuditLogService
+    participant DB as MariaDB
+
+    P->>UI: Click “Remove from subject”
+    UI->>UI: Confirm dialog
+    UI->>API: DELETE /api/materials/:id/subjects/:subjectId
+    API->>MC: remove()
+    MC->>MC: Read subjectId from params or query
+    MC->>MS: delete(materialId, ctx, subjectId)
+    MS->>MR: findById(materialId)
+    MR->>DB: SELECT material
+    MS->>MS: Reject Alumno role
+    MS->>SR: findById(subjectId)
+    SR-->>MS: subject + professors
+    MS->>MS: Check Superadmin or hasProfessor(me)
+    MS->>MR: deleteAssociation(materialId, subjectId)
+    MR->>DB: DELETE material_subjects row
+    MS->>AUD: record(Desasociacion Material)
+    AUD->>DB: INSERT audit_logs
+    MS-->>MC: { message: materialRemovedFromSubject, deleted: false }
+    MC-->>UI: 200 JSON
+    UI->>UI: Remove card from this subject view
+    UI-->>P: Toast
+```
+
+### Alternative and error paths
+
+| Condition | Result |
+|---|---|
+| Material not found | `404` |
+| Subject not found | `404` |
+| Caller is not a professor of that subject and not Superadmin | `403` |
+| Caller is a student | Route rejects with `403` |
+| Association does not exist | Delete affects 0 rows but still returns success and writes an audit row. |
+
+### Postconditions
+
+- Only the `(material_id, subject_id)` association is removed.
+- The material remains in the global catalog and in its other subjects.
+- The material is not deleted and its files are not removed.
+- Audit `Desasociacion Material`.
+- This differs from rejection, which may reject and clear a pending material.
+
+---
+
+## 9. Request Subject Association and Admin Confirmation
+
+This flow exists in the API and tests, but the current frontend has **no professor-facing control** for requesting an association. It is included because it is a professor action defined by the domain.
+
+### Preconditions
+
+- A subject exists (optionally without the professor, for example after admin creation).
+- The professor is authenticated.
+- The administrator reviews the request.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Professor
+    actor A as Administrator
+    participant API as Express /api
+    participant SC as subjectController
+    participant SS as SubjectService
+    participant SR as SubjectRepository
+    participant AUD as AuditLogService
+    participant DB as MariaDB
+
+    P->>API: POST /api/subjects/:id/request-association
+    API->>SC: requestAssociation()
+    SC->>SS: requestAssociation(subjectId, me.id)
+    SS->>SR: findById(subjectId)
+    SR-->>SS: subject
+    alt Subject missing
+        SS-->>SC: 404
+    else Subject exists
+        SS->>SR: requestAssociation(subjectId, me.id)
+        SR->>DB: INSERT subject_professors
+        SR->>DB: UPDATE subjects SET profesor_id=me, estado_asociacion='Pendiente'
+        SS->>AUD: record(Solicitud Materia)
+        AUD->>DB: INSERT audit_logs
+        SS-->>SC: { message: associationRequested }
+        SC-->>P: 200 JSON
+    end
+
+    Note over P,A: The request is now visible to the administrator.
+
+    A->>API: POST /api/subjects/:id/confirm-association { profesorId? }
+    API->>SC: confirmAssociation()
+    SC->>SS: confirmAssociation(subjectId, profesorId, admin.id)
+    SS->>SR: findById(subjectId)
+    alt Subject missing
+        SS-->>SC: 404
+    else Subject exists
+        opt profesorId supplied
+            SS->>SR: addProfessor(subjectId, profesorId)
+            SR->>DB: INSERT subject_professors
+        end
+        SS->>SR: confirmAssociation(subjectId, profesorId)
+        SR->>DB: UPDATE subjects SET estado_asociacion='Activa'
+        SR->>DB: Sync subjects.profesor_id to first professor
+        SS->>AUD: record(Asociacion Materia)
+        AUD->>DB: INSERT audit_logs
+        SS-->>SC: { message: associationConfirmed }
+        SC-->>A: 200 JSON
+    end
+
+    alt Administrator rejects instead
+        A->>API: POST /api/subjects/:id/reject-association
+        API->>SC: rejectAssociation()
+        SC->>SS: rejectAssociation(subjectId, admin.id)
+        SS->>SR: rejectAssociation(subjectId)
+        SR->>DB: DELETE all subject_professors for subject
+        SR->>DB: UPDATE subjects SET profesor_id=NULL (Pendiente only if already pending)
+        SS->>AUD: record(Solicitud Materia)
+        AUD->>DB: INSERT audit_logs
+        SS-->>SC: { message: associationRejected }
+        SC-->>A: 200 JSON
+    end
+```
+
+### Alternative and error paths
+
+| Condition | Result |
+|---|---|
+| Subject not found | `404` |
+| Requesting user is not a professor | Route rejects with `403` |
+| Request is duplicated | The `subject_professors` upsert keeps one row; the subject remains pending. |
+| Admin confirms without `profesorId` | Existing assignment is kept and the subject becomes active. |
+| Admin confirms with a valid non-professor `profesorId` | The id is inserted because this path does not re-check the `Profesor` role; only the user FK is enforced. |
+| Admin rejects | All assignments removed. The subject becomes unassigned; it stays `Pendiente` only if it was already pending, otherwise it remains `Activa` with no professors. |
+| Professor tries to request a subject that already has another professor | The current service adds the caller as an additional professor; there is no exclusivity rule. |
+
+### Postconditions
+
+- Request: `subject_professors` row, cached `profesor_id`, `estado_asociacion = 'Pendiente'`, audit `Solicitud Materia`.
+- Confirm: subject `Activa`, cached professor synchronized, audit `Asociacion Materia`.
+- Reject: no professors, `profesor_id = NULL`; `estado_asociacion` becomes `Pendiente` only if it was already pending, otherwise it remains `Activa`. Audit `Solicitud Materia`.
+
+---
+
+## 10. Cross-Cutting Notes
+
+| Topic | Behavior |
+|---|---|
+| Authentication | JWT expires after 2 hours; `apiService` clears the session on 401. |
+| Authorization | Route role checks plus service ownership checks. Frontend role checks are convenience only. |
+| Subject ownership | Based on `subject_professors`; `subjects.profesor_id` is a cached fallback. |
+| Notifications | Material notifications are created for `Suscrito` students only. Gamification adds `follow`, `favorite`, `badge` and `streak` types; uniqueness is `(usuario_id, type, subject_id, material_id)`. |
+| Audit | Write services record labels such as `Subida Material`, `Aprobacion Material`, `Modificacion Material`, `Asociacion Material`, `Desasociacion Material`, `Cancelacion Material`, `Baneo Alumno`. |
+| File cleanup | On request failure, controllers delete newly written files only in `FILES_MODE=local`; cloud uploads are not removed by that fallback. Services clean up replaced/deleted files through the storage helper. Disk cleanup errors are logged, not fatal. |
+| Duplicate uploads | SHA-256 file hash is unique. A professor duplicate adds the existing material to their subject; a student duplicate creates a pending association. The duplicate file/cover uploaded in that request is left in storage (orphan) because cleanup runs only on errors in local mode. |
+| Pending limit | Students may have at most 3 materials in `Pendiente` state. |
+| Response messages | Services return translation keys; controllers/`ok()` localize them. |
+| Client pagination | API list responses are not paginated, except favorites' internal `limit`/`offset`; the frontend paginates locally (default 6 items). |
+| Professor UI scope | The teacher dashboard also allows `Superadmin`, but professor-specific data still depends on actual `subject_professors` assignments. |
+| Gamification side effects | Successful new-material approval calls `GamificationService.onMaterialApproved`, which evaluates `first_commit`, `stack_overflow`, `early_return` and `overtime` badges. Reads, backlog, follows and streaks are handled by the student/profile flows. |
+| Profile link | Uploader names in material cards navigate to `/perfil/<uploadedBy>`; the info modal still shows the author with a `/catalogo?q=<author>#catalogo` link; category links navigate to `/catalogo?category=<slug>#catalogo`. |
+
+---
+
+## 11. Gamification Side Effects (professor-triggered)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Professor
+    participant UI as Upload/Editor form
+    participant API as Express /api
+    participant MC as materialController
+    participant MS as MaterialService
+    participant GS as GamificationService
+    participant MR as MaterialRepository
+    participant GR as GamificationRepository
+    participant NR as NotificationRepository
+    participant DB as MariaDB
+
+    P->>UI: Submit material with author/category/mandatory
+    UI->>API: POST /api/materials/upload (multipart)
+    API->>MC: upload()
+    MC->>MS: uploadOrSuggestMaterial(...)
+    MS->>MR: save(material) + associateToSubject(...)
+    MR->>DB: INSERT materials / material_subjects
+    MS->>GS: onMaterialApproved(authorId)
+    GS->>GR: count uploads + list ranks
+    GR->>DB: SELECT counts, ranks
+    GS->>GR: addBadge(...) for newly met badges
+    GR->>DB: INSERT IGNORE user_badges
+    GS->>NR: createMany(userIds, type='badge', message=...)
+    NR->>DB: INSERT notifications
+    GS-->>MS: badge evaluation complete
+    MS-->>MC: saved material
+    MC-->>UI: 201 JSON
+```
+
+**Failure handling:** the service evaluates gamification only after the material is persisted. There is no transaction spanning both operations, so a gamification/notification error does not roll back the material row, but the request may still surface an error. `isMandatory` is forced to `false` for student suggestions and only honored for Professor/Superadmin uploads. Batch uploads call the same `onMaterialApproved` hook once per created material.

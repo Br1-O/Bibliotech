@@ -43,9 +43,12 @@ const parseBatchLinks = (raw) => {
         if (!line) return null;
         const separator = line.indexOf('|');
         if (separator === -1) return { titulo: '', urlOrPath: line };
+        const rest = line.slice(separator + 1);
+        const second = rest.indexOf('|');
         return {
             titulo: line.slice(0, separator).trim(),
-            urlOrPath: line.slice(separator + 1).trim()
+            urlOrPath: (second === -1 ? rest : rest.slice(0, second)).trim(),
+            pages: second === -1 ? null : Number(rest.slice(second + 1).trim()) || null
         };
     }).filter(Boolean);
 };
@@ -61,6 +64,8 @@ module.exports = (container) => {
                     subjects: parseList(req.query.subjects).map(Number).filter(Boolean),
                     tags: parseList(req.query.tags),
                     tipo: req.query.tipo || null,
+                    category: req.query.category || null,
+                    uploadYear: req.query.year || req.query.uploadYear || null,
                     careers: req.query.careerId ? [Number(req.query.careerId)] : [],
                     years: req.query.yearId ? [Number(req.query.yearId)] : []
                 };
@@ -111,7 +116,11 @@ module.exports = (container) => {
                     urlOrPath,
                     portada,
                     fileHash,
+                    author: req.body.author,
+                    category: req.body.category || 'technical',
+                    isMandatory: req.body.isMandatory,
                     descripcion: (req.body.descripcion || '').trim() || null,
+                    pages: req.body.pages,
                     categories: parseList(req.body.categories),
                     subjects: parseList(req.body.subjects)
                 };
@@ -193,7 +202,10 @@ module.exports = (container) => {
                         urlOrPath,
                         portada,
                         fileHash: hashOf(file),
-                        categories
+                        author: meta.author || null,
+                        category: meta.category || req.body.category || categories[0] || 'technical',
+                        pages: meta.pages ?? null,
+                        categories: meta.categories ? parseList(meta.categories) : categories
                     };
                 });
 
@@ -207,6 +219,9 @@ module.exports = (container) => {
                         tipo,
                         urlOrPath: entry.urlOrPath,
                         fileHash: hashHelper.hashString(entry.urlOrPath),
+                        author: entry.author || null,
+                        category: entry.category || req.body.category || categories[0] || 'technical',
+                        pages: entry.pages ?? null,
                         categories
                     });
                 });
@@ -222,6 +237,13 @@ module.exports = (container) => {
                 }
                 return next(error);
             }
+        },
+
+        async filters(req, res, next) {
+            try {
+                const options = await materialService.getFilterOptions();
+                return ok(req, res, options);
+            } catch (error) { return next(error); }
         },
 
         async mine(req, res, next) {
@@ -316,8 +338,13 @@ module.exports = (container) => {
                 const dto = {
                     titulo: req.body.titulo,
                     descripcion: req.body.descripcion,
+                    pages: req.body.pages !== undefined ? req.body.pages : undefined,
                     tipo: req.body.tipo !== undefined ? String(req.body.tipo).trim() : undefined,
-                    categories: req.body.categories !== undefined ? parseList(req.body.categories) : undefined
+                    categories: req.body.categories !== undefined ? parseList(req.body.categories) : undefined,
+                    author: req.body.author,
+                    category: req.body.category,
+                    isMandatory: req.body.isMandatory,
+                    subjectId: req.body.subjectId
                 };
 
                 if (cover) {

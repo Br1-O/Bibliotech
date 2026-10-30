@@ -1,0 +1,48 @@
+flowchart LR
+    subgraph Client["Browser"]
+        Page["Page or Web Component"]
+        API["apiService<br/>fetch + JWT"]
+        State["Client state<br/>full arrays, filters, i18n"]
+    end
+
+    subgraph Server["Express process"]
+        Route["Route + middleware"]
+        Ctrl["Controller"]
+        Service["Application service"]
+        Repo["Repository"]
+        Mail["MailerService"]
+        Files["File storage helper"]
+    end
+
+    DB[("MariaDB")]
+    Disk[("Local uploads")]
+    Cloud["Cloudinary"]
+    SMTP["SMTP"]
+
+    Page --> State
+    State --> API
+    API -->|"JSON + Bearer token"| Route
+    Route --> Ctrl
+    Ctrl --> Service
+    Service --> Repo
+    Repo --> DB
+    Service --> Mail
+    Mail --> SMTP
+    Service --> Files
+    Files --> Disk
+    Files --> Cloud
+    Ctrl -->|"some direct reads"| Repo
+
+    DB -.->|"rows"| Repo
+    Repo -.-> Service
+    Service -.-> Ctrl
+    Ctrl -.->|"ok/error envelope"| API
+    API -.-> State
+    State -.-> Page
+
+    classDef client fill:#e8f0fe,stroke:#3157a4,color:#172b4d
+    classDef server fill:#fff4e5,stroke:#b26a00,color:#4a2c00
+    classDef data fill:#e8f5e9,stroke:#2e7d32,color:#1b3d1d
+    class Page,API,State client
+    class Route,Ctrl,Service,Repo,Mail,Files server
+    class DB,Disk,Cloud,SMTP data

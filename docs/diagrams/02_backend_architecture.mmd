@@ -1,0 +1,60 @@
+flowchart TB
+    subgraph Input["Input adapters"]
+        ViewRoutes["viewRoutes<br/>HTML pages"]
+        ApiRoutes["API routers"]
+        MW["Middleware<br/>auth, language, errors, rate limit"]
+        Ctrl["Controllers"]
+        Val["ValidationHandler<br/>and rules"]
+    end
+
+    subgraph App["Application services"]
+        Auth["AuthService"]
+        Career["CareerService"]
+        Subject["SubjectService"]
+        Material["MaterialService"]
+        Subscription["SubscriptionService"]
+        Notification["NotificationService"]
+        Audit["AuditLogService"]
+        Tags["ThematicTagService"]
+        Game["GamificationService"]
+    end
+
+    subgraph Domain["Domain"]
+        Entities["Entities"]
+        Observer["Observable + StudentObserver"]
+        Ports["Repository ports"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        Repos["MariaDB repositories"]
+        Pool["mysql2 pool"]
+        Mailer["MailerService"]
+        Files["fileHelper, hashHelper, mediaValidator"]
+        Multer["multerConfig"]
+        DI["buildContainer"]
+    end
+
+    ViewRoutes --> Ctrl
+    ApiRoutes --> MW
+    MW --> Ctrl
+    Ctrl --> Val
+    Ctrl --> App
+    Ctrl -. "direct reads" .-> Repos
+    App --> Domain
+    App --> Ports
+    Ports -. "implemented by" .-> Repos
+    Repos --> Pool
+    App --> Mailer
+    App --> Files
+    Ctrl --> Multer
+    DI --> App
+    DI --> Repos
+
+    classDef input fill:#e8f0fe,stroke:#3157a4,color:#172b4d
+    classDef app fill:#fff4e5,stroke:#b26a00,color:#4a2c00
+    classDef domain fill:#f3e8fd,stroke:#6a3d9a,color:#2f1a4a
+    classDef infra fill:#e8f5e9,stroke:#2e7d32,color:#1b3d1d
+    class ViewRoutes,ApiRoutes,MW,Ctrl,Val input
+    class Auth,Career,Subject,Material,Subscription,Notification,Audit,Tags,Game app
+    class Entities,Observer,Ports domain
+    class Repos,Pool,Mailer,Files,Multer,DI infra

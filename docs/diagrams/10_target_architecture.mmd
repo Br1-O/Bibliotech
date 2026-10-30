@@ -1,0 +1,54 @@
+flowchart TB
+    subgraph Edge["Edge"]
+        Proxy["TLS reverse proxy<br/>rate limit, security headers"]
+    end
+
+    subgraph App["Application"]
+        API["HTTP API<br/>versioned, OpenAPI"]
+        Auth["Auth and policy layer"]
+        UseCases["Use-case services<br/>transactions"]
+        Query["Query services<br/>read DTOs"]
+        Outbox["Outbox publisher"]
+        Worker["Background worker<br/>notifications, email, audit"]
+    end
+
+    subgraph Data["Data and storage"]
+        Primary[("MariaDB primary")]
+        Replica[("Read replica<br/>optional")]
+        Redis[("Redis<br/>cache, rate limit, sessions")]
+        Object[("Object storage<br/>uploads")]
+        Search[("Search index<br/>FULLTEXT first")]
+    end
+
+    subgraph Obs["Observability"]
+        Logs["Structured logs"]
+        Metrics["Metrics and traces"]
+        Alerts["Alerts and SLOs"]
+    end
+
+    Proxy --> API
+    API --> Auth
+    Auth --> UseCases
+    API --> Query
+    UseCases --> Primary
+    Query --> Replica
+    Query --> Redis
+    UseCases --> Outbox
+    Outbox --> Worker
+    Worker --> Primary
+    Worker --> Object
+    UseCases --> Object
+    Query --> Search
+    API --> Logs
+    UseCases --> Metrics
+    Worker --> Metrics
+    Metrics --> Alerts
+
+    classDef edge fill:#e8f0fe,stroke:#3157a4,color:#172b4d
+    classDef app fill:#fff4e5,stroke:#b26a00,color:#4a2c00
+    classDef data fill:#e8f5e9,stroke:#2e7d32,color:#1b3d1d
+    classDef obs fill:#f3e8fd,stroke:#6a3d9a,color:#2f1a4a
+    class Proxy edge
+    class API,Auth,UseCases,Query,Outbox,Worker app
+    class Primary,Replica,Redis,Object,Search data
+    class Logs,Metrics,Alerts obs

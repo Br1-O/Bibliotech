@@ -1,0 +1,27 @@
+flowchart LR
+    Browser["Browser"]
+    Proxy["Reverse proxy / TLS<br/>not included in repository"]
+    Node["Node.js process<br/>Express 5<br/>API + static frontend"]
+    DB[("MariaDB<br/>InnoDB")]
+    Disk[("Local uploads<br/>backend/uploads")]
+    Cloud["Cloudinary<br/>optional"]
+    Mail["SMTP / email provider"]
+
+    Browser -->|"HTTPS"| Proxy
+    Proxy -->|"HTTP"| Node
+    Node -->|"mysql2 pool<br/>connectionLimit 10"| DB
+    Node -->|"FILES_MODE=local"| Disk
+    Node -->|"FILES_MODE=cloud"| Cloud
+    Node -->|"Nodemailer"| Mail
+
+    note["Single process by default.<br/>No container, health endpoint,<br/>or graceful shutdown in the repo."]
+    Node -.-> note
+
+    classDef edge fill:#e8f0fe,stroke:#3157a4,color:#172b4d
+    classDef app fill:#fff4e5,stroke:#b26a00,color:#4a2c00
+    classDef data fill:#e8f5e9,stroke:#2e7d32,color:#1b3d1d
+    classDef warn fill:#fdecea,stroke:#c62828,color:#5a1a16
+    class Browser,Proxy edge
+    class Node app
+    class DB,Disk,Cloud,Mail data
+    class note warn

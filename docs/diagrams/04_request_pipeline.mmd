@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant E as Express
+    participant C as CORS and body parsers
+    participant L as languageMiddleware
+    participant A as authMiddleware
+    participant R as Router
+    participant H as Controller
+    participant V as Validator
+    participant S as Application service
+    participant P as Repository port
+    participant D as MariaDB
+
+    B->>E: HTTP request + Bearer JWT + lang
+    E->>C: cors(), json(), urlencoded()
+    C->>L: resolve language
+    L->>L: set shared language and build req.t
+    L->>A: next()
+    A->>A: jwt.verify(token, SECRET_KEY)
+    A-->>R: req.usuarioId, req.rol
+    R->>H: action
+    H->>V: validate payload
+    V-->>H: ok or ValidationError
+    H->>S: use case
+    S->>P: repository calls
+    P->>D: SQL
+    D-->>P: rows
+    P-->>S: entity or row object
+    S-->>H: result
+    H-->>E: ok(req, res, payload)
+    E-->>B: JSON
+
+    Note over A,D: No transaction is opened here.<br/>Multi-step use cases run as independent autocommit statements.

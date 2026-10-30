@@ -1,0 +1,36 @@
+stateDiagram-v2
+    [*] --> Pendiente: student upload or suggestion
+    [*] --> Aprobado: professor upload
+    [*] --> Aprobado: admin batch upload
+
+    Pendiente --> Aprobado: professor approves one association
+    Pendiente --> Rechazado: last association rejected
+    Pendiente --> Cancelado: student cancels pending upload
+    Aprobado --> Aprobado: associate to more subjects
+    Aprobado --> Aprobado: remove one subject association
+    Aprobado --> [*]: admin global delete
+
+    state Pendiente {
+        [*] --> PendingAssociation
+        PendingAssociation --> PendingAssociation: duplicate student association
+        PendingAssociation --> ApprovedAssociation: professor approves subject
+    }
+
+    state Aprobado {
+        [*] --> ApprovedAssociation
+        ApprovedAssociation --> ApprovedAssociation: professor associates subject
+        ApprovedAssociation --> ApprovedAssociation: professor removes subject
+    }
+
+    note right of Pendiente
+        Global materials.estado and
+        material_subjects.estado_aprobacion
+        are updated by separate statements.
+        The invariant is not enforced.
+    end note
+
+    note right of Aprobado
+        A material can be globally Aprobado
+        while another subject association
+        remains Pendiente.
+    end note

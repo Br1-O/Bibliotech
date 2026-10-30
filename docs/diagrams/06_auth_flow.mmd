@@ -1,0 +1,22 @@
+flowchart TD
+    Start["Register"] --> Pending["PendienteVerificacion"]
+    Pending -->|"valid activation token"| Active["Activo"]
+    Pending -->|"resend verification"| Pending
+    Active -->|"login"| JWT["JWT issued<br/>id, role, exp 2h"]
+    JWT --> Requests["Authenticated requests"]
+    Active -->|"admin ban"| Banned["Baneado"]
+    Banned -->|"admin unban"| Active
+    Active -->|"soft delete"| Inactive["Inactivo"]
+
+    Requests -->|"jwt.verify only"| Requests
+    Banned -.->|"existing token still valid"| Requests
+    Inactive -.->|"existing token still valid"| Requests
+
+    Reset["Password reset/change"] -.->|"does not invalidate JWT"| Requests
+
+    classDef good fill:#e8f5e9,stroke:#2e7d32,color:#1b3d1d
+    classDef warn fill:#fff4e5,stroke:#b26a00,color:#4a2c00
+    classDef bad fill:#fdecea,stroke:#c62828,color:#5a1a16
+    class Active,JWT good
+    class Pending,Reset warn
+    class Banned,Inactive bad

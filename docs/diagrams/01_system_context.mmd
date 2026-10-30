@@ -1,0 +1,28 @@
+flowchart LR
+    Visitor["Visitor"]
+    Student["Student"]
+    Professor["Professor"]
+    Admin["Superadmin"]
+
+    Browser["Browser<br/>HTML, CSS, vanilla JS"]
+    App["Bibliotech<br/>Express API + static frontend"]
+    DB[("MariaDB<br/>InnoDB")]
+    Uploads[("Local uploads<br/>or Cloudinary")]
+    Mail["Email provider<br/>SMTP"]
+
+    Visitor --> Browser
+    Student --> Browser
+    Professor --> Browser
+    Admin --> Browser
+
+    Browser -->|"HTTPS<br/>pages and /api"| App
+    App -->|"SQL<br/>mysql2 pool"| DB
+    App -->|"files"| Uploads
+    App -->|"transactional email"| Mail
+
+    classDef person fill:#e8f0fe,stroke:#3157a4,color:#172b4d
+    classDef system fill:#fff4e5,stroke:#b26a00,color:#4a2c00
+    classDef data fill:#e8f5e9,stroke:#2e7d32,color:#1b3d1d
+    class Visitor,Student,Professor,Admin person
+    class Browser,App system
+    class DB,Uploads,Mail data

@@ -1,0 +1,44 @@
+flowchart TB
+    Catalog["Catalog / subject pages"]
+    Profile["Profile"]
+    AuditPage["Admin audit"]
+    Pending["Professor pending review"]
+    Notifications["Notification inbox"]
+    Batch["Batch upload"]
+
+    Materials[("materials")]
+    MS[("material_subjects")]
+    Subjects[("subjects")]
+    SP[("subject_professors")]
+    Fav[("material_favorites")]
+    Reads[("material_reads")]
+    Backlog[("reading_backlog")]
+    Subs[("subscriptions")]
+    Audit[("audit_logs")]
+    Notif[("notifications")]
+    Users[("users")]
+
+    Catalog -->|"state + created_at"| Materials
+    Catalog -->|"3 correlated subqueries"| MS
+    Catalog -->|"career join"| Subjects
+    Catalog -->|"favorite IDs"| Fav
+    Catalog -->|"read/backlog flags"| Reads
+    Catalog --> Backlog
+
+    Profile -->|"6 count subqueries"| Users
+    Profile --> Fav
+    Profile --> Reads
+    Profile --> Backlog
+    Profile --> Subs
+
+    AuditPage -->|"6 polymorphic joins"| Audit
+    Pending -->|"state + professor"| MS
+    Pending --> SP
+    Notifications -->|"inbox + unread"| Notif
+    Batch -->|"loop of lookups/inserts"| Materials
+    Batch -->|"per item"| MS
+
+    classDef hot fill:#fdecea,stroke:#c62828,color:#5a1a16
+    classDef data fill:#e8f5e9,stroke:#2e7d32,color:#1b3d1d
+    class Catalog,Profile,AuditPage,Pending,Notifications,Batch hot
+    class Materials,MS,Subjects,SP,Fav,Reads,Backlog,Subs,Audit,Notif,Users data

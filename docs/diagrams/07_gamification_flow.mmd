@@ -1,0 +1,39 @@
+flowchart LR
+    Viewer["MaterialViewer"]
+    Progress["PUT /reads/:id/progress"]
+    Toggle["POST /reads/:id/toggle"]
+    Heartbeat["POST /api/streaks/heartbeat"]
+
+    Backlog[("reading_backlog")]
+    Reads[("material_reads")]
+    Streak[("reading_streaks")]
+    XP[("users.xp / rank_level")]
+    Sessions[("in-memory<br/>readingSessions")]
+    Badges[("user_badges")]
+    Notif[("notifications")]
+
+    Viewer --> Progress
+    Viewer --> Toggle
+    Viewer --> Heartbeat
+
+    Progress -->|"client page/total"| Backlog
+    Progress -->|"completed"| Reads
+    Progress -->|"first completion"| XP
+    Progress --> Badges
+    Progress --> Notif
+
+    Toggle -->|"mark read"| Reads
+    Toggle -->|"award 100 XP"| XP
+    Toggle -->|"unmark"| Reads
+    Toggle -.->|"XP not reversed"| XP
+
+    Heartbeat -->|"trusted activeSeconds"| Sessions
+    Heartbeat -->|"register activity"| Streak
+    Heartbeat --> Notif
+
+    classDef client fill:#e8f0fe,stroke:#3157a4,color:#172b4d
+    classDef write fill:#fff4e5,stroke:#b26a00,color:#4a2c00
+    classDef risk fill:#fdecea,stroke:#c62828,color:#5a1a16
+    class Viewer client
+    class Progress,Toggle,Heartbeat write
+    class Sessions risk

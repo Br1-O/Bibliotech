@@ -43,7 +43,8 @@ async function createGroupedSubject(prefix) {
 testUtils.createTestButton('Test Carreras y anios (listar, crear, editar y permisos)', async () => {
     const publicList = await testUtils.request('/careers');
     testUtils.assert(publicList.ok && publicList.data.careers.length >= 1, 'No se listaron carreras');
-    testUtils.assert(publicList.data.careers[0].years.length >= 1, 'La carrera semilla no tiene anios');
+    const careerWithYears = publicList.data.careers.find(career => Array.isArray(career.years) && career.years.length >= 1);
+    testUtils.assert(careerWithYears, 'La carrera semilla no tiene anios');
 
     const token = await adminToken();
     const created = await testUtils.request('/careers', {
@@ -81,7 +82,7 @@ testUtils.createTestButton('Test Materia agrupada y busqueda por carrera/anio', 
     const form = testUtils.pdfForm({
         titulo, tipo: 'PDF', subjects: String(group.subjectId)
     }, testUtils.uniq('pdf-carrera'));
-    form.append('portada', new Blob(['portada de prueba'], { type: 'image/png' }), 'portada.png');
+    form.append('portada', testUtils.pngBlob('portada de prueba'), 'portada.png');
     const upload = await testUtils.request('/materials/upload', { method: 'POST', token: profesor, form });
     testUtils.assert(upload.status === 201, 'No se pudo subir material con portada');
     testUtils.assert(String(upload.data.material.portada || '').startsWith('/uploads/'), 'La portada no se guardo');

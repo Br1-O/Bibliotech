@@ -15,7 +15,7 @@ document.addEventListener('bt:ready', () => {
     }
 
     const PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
-    const state = { tab: 'uploads', materials: [], page: 1 };
+    const state = { tab: 'uploads', materials: [], page: 1, total: 0 };
     const tr = (key, params) => LanguageManager.t(key, params);
 
     function shell() {
@@ -55,9 +55,11 @@ document.addEventListener('bt:ready', () => {
         Loader.skeletons(parts.grid, 3);
         parts.pagination.replaceChildren();
         try {
+            const pagination = { page: state.page, pageSize: PAGE_SIZE };
             if (state.tab === 'backlog') {
-                const { items } = await apiService.get(`/users/${userId}/backlog`);
-                renderBacklog(parts.grid, items || []);
+                const result = await apiService.get(`/users/${userId}/backlog`, pagination);
+                state.total = Number(result.pagination?.total ?? (result.items || []).length);
+                renderBacklog(parts, result.items || []);
                 return;
             }
             const endpoint = {
@@ -65,9 +67,14 @@ document.addEventListener('bt:ready', () => {
                 favorites: `/users/${userId}/favorites`,
                 reads: `/users/${userId}/reads`
             }[state.tab];
-            const result = await apiService.get(endpoint);
+            const result = await apiService.get(endpoint, pagination);
             state.materials = result.materials || [];
-            state.page = 1;
+            state.total = Number(result.pagination?.total ?? state.materials.length);
+            const totalPages = Math.max(1, Math.ceil(state.total / PAGE_SIZE));
+            if (state.page > totalPages) {
+                state.page = totalPages;
+                return loadTab(parts);
+            }
             renderMaterials(parts);
         } catch (error) {
             render(parts.grid, Cards.empty(error.message));
@@ -75,16 +82,13 @@ document.addEventListener('bt:ready', () => {
     }
 
     function renderMaterials(parts) {
-        const total = state.materials.length;
+        const total = state.total;
         if (!total) {
             render(parts.grid, Cards.empty(tr(`profile.empty.${state.tab}`)));
+            parts.pagination.replaceChildren();
             return;
         }
-        const totalPages = Pagination.totalPages(total, PAGE_SIZE);
-        if (state.page > totalPages) state.page = totalPages;
-        const start = (state.page - 1) * PAGE_SIZE;
-        const shown = state.materials.slice(start, start + PAGE_SIZE);
-        render(parts.grid, shown.map(material => Cards.material(material, {
+        render(parts.grid, state.materials.map(material => Cards.material(material, {
             onToggleFavorite: () => Cards.toggleFavorite(material),
             onEdit: Cards.canEdit(material) ? editMaterial : null
         })));
@@ -92,31 +96,38 @@ document.addEventListener('bt:ready', () => {
             page: state.page,
             total,
             pageSize: PAGE_SIZE,
-            onChange: page => { state.page = page; renderMaterials(parts); }
+            onChange: page => { state.page = page; loadTab(parts); }
         });
     }
 
-    function renderBacklog(grid, items) {
-        if (!items.length) {
-            render(grid, Cards.empty(tr('profile.empty.backlog')));
+    function renderBacklog(parts, items) {
+        if (!state.total) {
+            render(parts.grid, Cards.empty(tr('profile.empty.backlog')));
+            parts.pagination.replaceChildren();
             return;
         }
-        render(grid, items.map(item => Cards.backlogCard(item, {
+        render(parts.grid, items.map(item => Cards.backlogCard(item, {
             onOpen: (material, page) => openInViewer(material, page),
             onRead: async () => {
-                const parts = shell();
-                renderTabs(parts);
-                await loadTab(parts);
+                const fresh = shell();
+                renderTabs(fresh);
+                await loadTab(fresh);
             },
             onRemove: async material => {
                 try {
                     await apiService.del(`/backlog/${material.id}`);
-                    const parts = shell();
-                    renderTabs(parts);
-                    await loadTab(parts);
+                    const fresh = shell();
+                    renderTabs(fresh);
+                    await loadTab(fresh);
                 } catch (error) { Toast.error(error.message); }
             }
         })).filter(Boolean));
+        Pagination.render(parts.pagination, {
+            page: state.page,
+            total: state.total,
+            pageSize: PAGE_SIZE,
+            onChange: page => { state.page = page; loadTab(parts); }
+        });
     }
 
     function editMaterial(material) {
@@ -139,7 +150,10 @@ document.addEventListener('bt:ready', () => {
                 }
             });
         } else {
-            window.open(material.urlOrPath, '_blank', 'noopener');
+            const fallback = typeof MaterialViewer !== 'undefined'
+                ? (MaterialViewer.downloadHref(material) || material.urlOrPath)
+                : material.urlOrPath;
+            window.open(fallback, '_blank', 'noopener');
         }
     }
 

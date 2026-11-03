@@ -8,15 +8,16 @@
 * Los enlaces externos (Drive / YouTube / GitHub) no usan este middleware.
 * Soporte para FILES_MODE local | cloud (Cloudinary) para despliegue en Vercel.
 */
-require('dotenv').config();
-
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
 const { PassThrough } = require('stream');
+const { getConfig } = require('./env');
 
-const FILES_MODE = process.env.FILES_MODE || 'local';
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+const config = getConfig();
+const FILES_MODE = config.upload.mode;
+const MAX_FILE_SIZE = config.upload.maxFileBytes;
+const MAX_FILES = config.upload.maxFiles;
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 const DOCUMENT_MIME = [
@@ -32,9 +33,8 @@ const DOCUMENT_MIME = [
 
 let storage;
 
-if (process.env.FILES_MODE === 'cloud') {
+if (FILES_MODE === 'cloud') {
     const cloudinary = require('cloudinary').v2;
-    const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
     cloudinary.config({
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -44,19 +44,54 @@ if (process.env.FILES_MODE === 'cloud') {
 
     // Cloudinary no expone el contenido del archivo, por lo que calculamos el
     // hash SHA-256 mientras Multer lo transmite para detectar duplicados (RD-05).
-    class HashingCloudinaryStorage extends CloudinaryStorage {
+    class HashingCloudinaryStorage {
+        constructor(options) {
+            if (!options || !options.cloudinary) throw new Error('cloudinary option required');
+            this.cloudinary = options.cloudinary;
+            this.params = options.params || {};
+        }
+
         _handleFile(req, file, callback) {
             const hasher = crypto.createHash('sha256');
+            const headerChunks = [];
+            let headerSize = 0;
             const pass = new PassThrough();
-            file.stream.on('data', chunk => hasher.update(chunk));
-            file.stream.pipe(pass);
-            const uploadFile = Object.assign({}, file, { stream: pass });
-
-            super._handleFile(req, uploadFile, (error, info) => {
-                if (error) return callback(error);
-                info.fileHash = hasher.digest('hex');
-                callback(undefined, info);
+            file.stream.on('data', chunk => {
+                hasher.update(chunk);
+                if (headerSize < 32) {
+                    headerChunks.push(chunk.subarray(0, 32 - headerSize));
+                    headerSize += Math.min(chunk.length, 32 - headerSize);
+                }
             });
+            file.stream.pipe(pass);
+
+            Promise.resolve(typeof this.params === 'function' ? this.params(req, file) : this.params)
+                .then(options => {
+                    const uploadOptions = Object.assign({}, options);
+                    if (typeof uploadOptions.public_id === 'function') {
+                        uploadOptions.public_id = uploadOptions.public_id(req, file);
+                    }
+                    file.resourceType = uploadOptions.resource_type;
+                    const stream = this.cloudinary.uploader.upload_stream(uploadOptions, (error, info) => {
+                        if (error) return callback(error);
+                        callback(undefined, {
+                            path: info.secure_url,
+                            size: info.bytes,
+                            filename: info.public_id,
+                            resourceType: uploadOptions.resource_type,
+                            fileHash: hasher.digest('hex'),
+                            fileHeader: Buffer.concat(headerChunks)
+                        });
+                    });
+                    pass.pipe(stream);
+                })
+                .catch(callback);
+        }
+
+        _removeFile(req, file, callback) {
+            const options = { invalidate: true };
+            if (file.resourceType) options.resource_type = file.resourceType;
+            this.cloudinary.uploader.destroy(file.filename, options, callback);
         }
     }
 
@@ -103,7 +138,12 @@ const fileFilter = (req, file, cb) => {
 const uploader = multer({
     storage,
     fileFilter,
-    limits: { fileSize: MAX_FILE_SIZE, files: 220 }
+    limits: {
+        fileSize: MAX_FILE_SIZE,
+        files: MAX_FILES,
+        fields: 60,
+        parts: MAX_FILES + 60
+    }
 });
 
 const materialUpload = uploader.fields([
@@ -115,4 +155,4 @@ const materialUpload = uploader.fields([
 // conservar la relacion entre cada archivo, su titulo y su portada.
 const batchUpload = uploader.any();
 
-module.exports = { materialUpload, batchUpload, MAX_FILE_SIZE };
+module.exports = { materialUpload, batchUpload, MAX_FILE_SIZE, MAX_FILES, UPLOAD_DIR };

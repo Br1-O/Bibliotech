@@ -56,6 +56,17 @@ testUtils.createTestButton('Test Notificacion al Subir Material a Materia Suscri
     const updated = after.data.notifications.find(n => Number(n.id) === Number(item.id));
     testUtils.assert(updated && updated.readAt !== null, 'La notificacion no quedo marcada como leida');
     testUtils.assert(after.data.unreadCount === 0, 'El contador de no leidas deberia quedar en cero');
+
+    const asociar = await testUtils.request(`/materials/${material.id}/associate`, {
+        method: 'POST', token: await testUtils.login(testUtils.accounts.profesor.email, testUtils.accounts.profesor.password),
+        body: { subjectId }
+    });
+    testUtils.assert(asociar.ok, 'No se pudo repetir la asociacion del material');
+
+    const repetida = await testUtils.request('/notifications', { token: alumno.token });
+    const preserved = repetida.data.notifications.find(n => Number(n.id) === Number(item.id));
+    testUtils.assert(preserved && preserved.readAt !== null, 'Repetir el evento no debe marcar la notificacion como no leida');
+    testUtils.assert(repetida.data.unreadCount === 0, 'Repetir el evento no debe aumentar el contador de no leidas');
 });
 
 testUtils.createTestButton('Test Notificacion al Asociar Material a Materia Suscrita', async () => {

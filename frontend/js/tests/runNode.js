@@ -24,6 +24,7 @@ const FILES = [
     'gamificationTests.js',
     'refinementTests.js',
     'adminTests.js',
+    'securityTests.js',
     'sqlTests.js'
 ];
 
@@ -65,7 +66,7 @@ for (const file of FILES) {
 sandbox.testUtils.apiBase = process.env.BT_API_BASE || 'http://localhost:3000/api';
 
 (async () => {
-    const results = await sandbox.testUtils.runAll();
+    const results = await sandbox.testUtils.runAll(process.env.BT_TEST_FILTER || '');
     const ok = results.filter(r => r.ok).length;
     console.log('\n================ RESULTADOS ================');
     results.forEach(r => {

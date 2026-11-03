@@ -4,7 +4,9 @@
 * Centraliza las reglas para archivos, enlaces y portadas.
 */
 
+const fs = require('fs');
 const path = require('path');
+const { getConfig } = require('../config/env');
 
 const FILE_TYPES = {
     PDF: {
@@ -39,7 +41,72 @@ Object.entries(FILE_TYPES).forEach(([tipo, config]) => {
 });
 
 const ALLOWED_COVER_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-const MAX_COVER_SIZE = 5 * 1024 * 1024;
+const MAX_COVER_SIZE = getConfig().upload.maxCoverBytes;
+const HEADER_BYTES = 32;
+
+
+const SIGNATURES = {
+    pdf: buffer => buffer.length >= 5 && buffer.subarray(0, 5).toString('ascii') === '%PDF-',
+    zip: buffer => buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4B
+        && [0x03, 0x05, 0x07].includes(buffer[2]) && [0x04, 0x06, 0x08].includes(buffer[3]),
+    ole: buffer => buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])),
+    jpeg: buffer => buffer.length >= 3 && buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF,
+    png: buffer => buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])),
+    gif: buffer => buffer.length >= 6 && ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii')),
+    webp: buffer => buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF'
+        && buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+};
+
+function detectSignature(buffer) {
+    if (!buffer || !buffer.length) return null;
+    for (const [kind, test] of Object.entries(SIGNATURES)) {
+        if (test(buffer)) return kind;
+    }
+    return null;
+}
+
+async function readFileHeader(file) {
+    if (!file) return null;
+    if (Buffer.isBuffer(file.fileHeader) && file.fileHeader.length) return file.fileHeader;
+    if (Buffer.isBuffer(file.buffer) && file.buffer.length) return file.buffer.subarray(0, HEADER_BYTES);
+    if (!file.path) return null;
+    const handle = await fs.promises.open(file.path, 'r');
+    try {
+        const buffer = Buffer.alloc(HEADER_BYTES);
+        const { bytesRead } = await handle.read(buffer, 0, HEADER_BYTES, 0);
+        return buffer.subarray(0, bytesRead);
+    } finally {
+        await handle.close();
+    }
+}
+
+function expectedKind(tipo, extension) {
+    if (tipo === 'PDF') return 'pdf';
+    if (tipo === 'EPUB') return 'zip';
+    if (tipo === 'Word') return extension === '.doc' ? 'ole' : 'zip';
+    if (tipo === 'Presentacion') return extension === '.ppt' ? 'ole' : 'zip';
+    return null;
+}
+
+async function validateFileSignature(file, tipo) {
+    if (!file || !isFileType(tipo)) return { ok: false, detected: null };
+    const extension = extensionOf(file.originalname || file.filename);
+    const expected = expectedKind(tipo, extension);
+    const header = await readFileHeader(file);
+    const detected = detectSignature(header);
+    return { ok: Boolean(expected && detected === expected), detected, expected };
+}
+
+async function validateCoverSignature(file) {
+    if (!file) return { ok: false, detected: null };
+    const extension = extensionOf(file.originalname || file.filename);
+    const expected = {
+        '.jpg': 'jpeg', '.jpeg': 'jpeg', '.png': 'png', '.webp': 'webp', '.gif': 'gif'
+    }[extension] || null;
+    const header = await readFileHeader(file);
+    const detected = detectSignature(header);
+    return { ok: Boolean(expected && detected === expected), detected, expected };
+}
 
 function extensionOf(filename) {
     return path.extname(String(filename || '')).toLowerCase();
@@ -144,6 +211,10 @@ module.exports = {
     FILE_TYPES,
     LINK_TYPES,
     MAX_COVER_SIZE,
+    SIGNATURES,
+    detectSignature,
+    validateFileSignature,
+    validateCoverSignature,
     isFileType,
     isLinkType,
     inferTypeFromFilename,

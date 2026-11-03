@@ -20,6 +20,7 @@ document.addEventListener('bt:ready', () => {
     const grid = document.getElementById('subjectMaterials');
     const PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     let allMaterials = [];
+    let materialTotal = 0;
     let currentPage = 1;
     let debounce;
     let canManage = false;
@@ -162,7 +163,8 @@ document.addEventListener('bt:ready', () => {
         }
     }
 
-    async function loadMaterials() {
+    async function loadMaterials(resetPage = true) {
+        if (resetPage) currentPage = 1;
         Loader.skeletons(grid, 3);
         try {
             const result = await apiService.get(`/subjects/${subjectId}/materials`, {
@@ -170,36 +172,22 @@ document.addEventListener('bt:ready', () => {
                 tipo: typeFilter?.value || '',
                 category: categoryFilter?.value || '',
                 year: yearFilter?.value || '',
-                mandatory: mandatoryFilter?.checked ? 'true' : ''
+                mandatory: mandatoryFilter?.checked ? 'true' : '',
+                sort: sortSelect?.value || 'newest',
+                page: currentPage,
+                pageSize: PAGE_SIZE
             });
             allMaterials = result.materials || [];
-            currentPage = 1;
+            materialTotal = Number(result.pagination?.total ?? allMaterials.length);
             applyAndRender();
         } catch (error) {
             render(grid, Cards.empty(error.message));
         }
     }
 
-    function sortMaterials(items) {
-        const mode = sortSelect?.value || 'newest';
-        const copy = [...items];
-        if (mode === 'oldest') {
-            copy.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        } else if (mode === 'title') {
-            copy.sort((a, b) => String(a.titulo).localeCompare(String(b.titulo)));
-        } else {
-            copy.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        }
-        return copy;
-    }
-
     function applyAndRender() {
-        const sorted = sortMaterials(allMaterials);
-        const total = sorted.length;
-        const totalPages = Pagination.totalPages(total, PAGE_SIZE);
-        if (currentPage > totalPages) currentPage = totalPages;
-        const start = (currentPage - 1) * PAGE_SIZE;
-        const shown = sorted.slice(start, start + PAGE_SIZE);
+        const shown = allMaterials;
+        const total = materialTotal;
 
         if (resultsLabel) {
             resultsLabel.textContent = total ? LanguageManager.t('filters.showing', { shown: shown.length, total }) : '';
@@ -220,7 +208,7 @@ document.addEventListener('bt:ready', () => {
             page: currentPage,
             total,
             pageSize: PAGE_SIZE,
-            onChange: (page) => { currentPage = page; applyAndRender(); }
+            onChange: (page) => { currentPage = page; loadMaterials(false); }
         });
     }
 
@@ -228,7 +216,7 @@ document.addEventListener('bt:ready', () => {
         clearTimeout(debounce);
         debounce = setTimeout(loadMaterials, 300);
     });
-    sortSelect?.addEventListener('change', () => { currentPage = 1; applyAndRender(); });
+    sortSelect?.addEventListener('change', () => loadMaterials());
     [typeFilter, categoryFilter, yearFilter, mandatoryFilter].forEach(node => {
         node?.addEventListener('change', () => { currentPage = 1; loadMaterials(); });
     });

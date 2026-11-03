@@ -26,11 +26,16 @@ The existing documents cover routes, classes, entity relationships, and professo
 | [`code_analysis.md`](code_analysis.md) | What is wrong or risky in the code: security, correctness, design, API, frontend, operations, and maintainability. Each finding has evidence, impact, and a concrete recommendation. | Developers, reviewers, technical debt planning |
 | [`database_performance.md`](database_performance.md) | How the database is queried, why it will degrade, which indexes and rewrites are needed, and which MariaDB engine and operational strategies apply. | Backend and database engineers, SREs |
 | [`refactoring_roadmap.md`](refactoring_roadmap.md) | In what order to fix the findings, with phases, dependencies, acceptance criteria, and migration strategy. | Tech leads, product owners, sprint planning |
+| [`phase0_acceptance.md`](phase0_acceptance.md) | What was implemented for Phase 0, how it was verified, and which residual risks remain. | Reviewers, operators, release owners |
+| [`phase1_acceptance.md`](phase1_acceptance.md) | What was implemented for Phase 1, how it was verified, and which residual risks remain. | Reviewers, operators, release owners |
+| [`phase2_acceptance.md`](phase2_acceptance.md) | What was implemented for Phase 2, how it was verified, and which residual performance risks remain. | Reviewers, operators, release owners |
 | [`routes.txt`](routes.txt) / [`routes.pdf`](routes.pdf) | Complete HTTP route inventory (82 API endpoints and 24 frontend routes), inputs, outputs, access rules, and side effects. | API consumers, QA, security review |
 | [`class_diagram.txt`](class_diagram.txt) / [`class_diagram.pdf`](class_diagram.pdf) | Domain, application, infrastructure, adapter, and frontend class/component model. | Developers, design reviews |
 | [`database_diagram.txt`](database_diagram.txt) / [`database_diagram.pdf`](database_diagram.pdf) | ER model and data dictionary for the 20 tables and 30 foreign keys. | Backend and database work |
 | [`professor_sequence_diagrams.txt`](professor_sequence_diagrams.txt) / [`professor_sequence_diagrams.pdf`](professor_sequence_diagrams.pdf) | Runtime sequences for the main professor workflows. | QA, onboarding, workflow analysis |
 | [`diagrams/`](diagrams/) | Mermaid sources and rendered PDFs for context, layers, deployment, request pipeline, material lifecycle, authentication, gamification, database hotspots, data flow, and target architecture. | Architecture communication |
+
+> Phases 0, 1 and 2 of the roadmap are implemented. See [`phase0_acceptance.md`](phase0_acceptance.md), [`phase1_acceptance.md`](phase1_acceptance.md) and [`phase2_acceptance.md`](phase2_acceptance.md) for evidence and residual risks; the findings below describe the pre-refactor baseline.
 
 ---
 

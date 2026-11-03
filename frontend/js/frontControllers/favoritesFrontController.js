@@ -12,22 +12,32 @@ document.addEventListener('bt:ready', () => {
 
     const PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     let favorites = [];
+    let total = 0;
     let page = 1;
 
     function updateCounter() {
         if (!counter) return;
-        counter.textContent = favorites.length
-            ? LanguageManager.t('favorites.count', { count: favorites.length })
+        counter.textContent = total
+            ? LanguageManager.t('favorites.count', { count: total })
             : '';
-        counter.classList.toggle('bt-hidden', !favorites.length);
+        counter.classList.toggle('bt-hidden', !total);
     }
 
-    async function load() {
+    async function load(resetPage = true) {
+        if (resetPage) page = 1;
         Loader.skeletons(grid, 6);
         try {
-            const result = await apiService.get('/materials/favorites/mine');
-            favorites = result.favorites || [];
-            page = 1;
+            const result = await apiService.get('/materials/favorites/mine', {
+                page,
+                pageSize: PAGE_SIZE
+            });
+            favorites = result.favorites || result.materials || [];
+            total = Number(result.pagination?.total ?? favorites.length);
+            const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+            if (page > totalPages) {
+                page = totalPages;
+                return load(false);
+            }
             renderPage();
         } catch (error) {
             render(grid, Cards.empty(error.message));
@@ -36,22 +46,16 @@ document.addEventListener('bt:ready', () => {
 
     function renderPage() {
         updateCounter();
-        if (!favorites.length) {
+        if (!total) {
             render(grid, Cards.empty(LanguageManager.t('favorites.empty')));
             Pagination.render(paginationNode, { total: 0, pageSize: PAGE_SIZE });
             return;
         }
 
-        const totalPages = Pagination.totalPages(favorites.length, PAGE_SIZE);
-        if (page > totalPages) page = totalPages;
-        const start = (page - 1) * PAGE_SIZE;
-        const items = favorites.slice(start, start + PAGE_SIZE);
-
-        render(grid, items.map(material => Cards.material(material, {
+        render(grid, favorites.map(material => Cards.material(material, {
             onToggleFavorite: (target) => Cards.toggleFavorite(target).then((res) => {
                 if (!res.favorited) {
-                    favorites = favorites.filter(f => Number(f.id) !== Number(target.id));
-                    renderPage();
+                    load(false);
                 }
                 return res;
             })
@@ -59,9 +63,9 @@ document.addEventListener('bt:ready', () => {
 
         Pagination.render(paginationNode, {
             page,
-            total: favorites.length,
+            total,
             pageSize: PAGE_SIZE,
-            onChange: (next) => { page = next; renderPage(); }
+            onChange: (next) => { page = next; load(false); }
         });
     }
 

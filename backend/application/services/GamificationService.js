@@ -3,6 +3,7 @@
 * GamificationService: perfil, lecturas, progreso, rachas, insignias, backlog y seguidores.
 */
 
+const db = require('../../config/db');
 const AppError = require('../../utils/AppError');
 
 const BADGES = {
@@ -19,6 +20,9 @@ const BADGES = {
 };
 
 const STREAK_REQUIRED_SECONDS = 300;
+const MAX_HEARTBEAT_GAP_SECONDS = 120;
+const SESSION_STALE_SECONDS = 300;
+const MAX_SESSION_SECONDS = 24 * 60 * 60;
 const GENDERS = ['Male', 'Female', 'Non-Binary', 'Other'];
 const NAME_PATTERN = /^[\p{L}\s]+$/u;
 const HANDLE_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{1,98})$/;
@@ -27,6 +31,19 @@ const LINK_FIELDS = {
     github: /^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9._-]+\/?$/i,
     instagram: /^https?:\/\/(www\.)?instagram\.com\/[A-Za-z0-9._-]+\/?$/i,
     linkedin: /^https?:\/\/(www\.)?linkedin\.com\/(in|company)\/[A-Za-z0-9._-]+\/?$/i
+};
+
+/**
+ * El servidor es la unica autoridad sobre el tiempo de lectura. El cliente
+ * solo aporta la senal de que el visor sigue abierto.
+ */
+const nextActiveSeconds = (currentSeconds, lastHeartbeatAt, now = Date.now()) => {
+    const current = Math.max(0, Number(currentSeconds) || 0);
+    const last = lastHeartbeatAt ? new Date(lastHeartbeatAt).getTime() : NaN;
+    if (!Number.isFinite(last)) return 0;
+    const elapsed = Math.floor((now - last) / 1000);
+    if (elapsed < 0 || elapsed > SESSION_STALE_SECONDS) return 0;
+    return Math.min(MAX_SESSION_SECONDS, current + Math.min(MAX_HEARTBEAT_GAP_SECONDS, elapsed));
 };
 
 const normalizeBirthdate = value => {
@@ -48,7 +65,6 @@ class GamificationService {
         this.userRepository = userRepository;
         this.materialRepository = materialRepository;
         this.notificationRepository = notificationRepository;
-        this.readingSessions = new Map();
     }
 
     async getProfile(userId, viewerId = null) {
@@ -68,7 +84,7 @@ class GamificationService {
         const nextRank = ranks.find(rank => rank.minXp > user.xp) || null;
         const isSelf = Number(viewerId) === user.id;
 
-        const profile = user.toSafeJSON();
+        const profile = isSelf ? user.toSafeJSON() : user.toPublicJSON();
         profile.rank = currentRank;
         profile.nextRank = nextRank;
         profile.rankProgress = nextRank && currentRank
@@ -186,82 +202,134 @@ class GamificationService {
     }
 
     async toggleRead(userId, materialId) {
-        const material = await this.materialRepository.findById(Number(materialId));
-        if (!material) throw new AppError('errors.notFound', { status: 404 });
+        return db.transaction(async () => {
+            const before = await this.userRepository.lockById(userId);
+            if (!before) throw new AppError('errors.notFound', { status: 404 });
+            const material = await this.materialRepository.findBasicById(Number(materialId));
+            if (!material) throw new AppError('errors.notFound', { status: 404 });
 
-        const existing = await this.gamificationRepository.getRead(userId, material.id);
-        if (existing) {
-            await this.gamificationRepository.deleteRead(userId, material.id);
-            const user = await this.userRepository.findById(userId);
-            return { read: false, xp: user.xp, rankLevel: user.rankLevel, rankTitle: user.rankTitle };
-        }
+            const state = await this.gamificationRepository.getReadState(userId, material.id);
+            if (state.read) {
+                await this.gamificationRepository.deleteRead(userId, material.id);
+                return { read: false, xp: before.xp, rankLevel: before.rankLevel, rankTitle: null };
+            }
 
-        await this.gamificationRepository.addRead(userId, material.id);
-        await this.gamificationRepository.removeBacklog(userId, material.id);
-        const xp = await this.userRepository.addXp(userId, 100);
-        await this.evaluateBadges(userId, { hour: new Date().getHours() });
-        await this.notifyFollowers(userId, {
-            type: 'read',
-            materialId: material.id,
-            message: material.titulo
+            const { inserted } = await this.gamificationRepository.addRead(userId, material.id);
+            if (state.inBacklog) await this.gamificationRepository.removeBacklog(userId, material.id);
+            let xp = before.xp;
+            let rankLevel = before.rankLevel;
+            let rankTitle = null;
+            if (inserted) {
+                const progress = await this.userRepository.addXpOnce(userId, 100, 'read', material.id, before);
+                xp = progress.xp;
+                rankLevel = progress.rankLevel;
+                if (progress.rankLevel > before.rankLevel) rankTitle = progress.rankTitle;
+                const badges = await this.evaluateBadges(userId, { hour: new Date().getHours(), user: { rankLevel } });
+                if (badges.followers > 0) {
+                    await this.notifyFollowers(userId, {
+                        type: 'read',
+                        materialId: material.id,
+                        message: material.titulo
+                    });
+                }
+            }
+            return { read: true, xp, rankLevel, rankTitle };
         });
-        const user = await this.userRepository.findById(userId);
-        return { read: true, xp, rankLevel: user.rankLevel, rankTitle: user.rankTitle };
     }
 
     async getRead(userId, materialId) {
-        const read = await this.gamificationRepository.getRead(userId, Number(materialId));
-        const progress = await this.gamificationRepository.getProgress(userId, Number(materialId));
-        return { read: Boolean(read), progress };
+        const [read, progress] = await Promise.all([
+            this.gamificationRepository.hasRead(userId, Number(materialId)),
+            this.gamificationRepository.getProgress(userId, Number(materialId))
+        ]);
+        return { read, progress: progress || null };
     }
 
     async updateProgress(userId, materialId, currentPage, totalPages = null) {
-        const material = await this.materialRepository.findById(Number(materialId));
-        if (!material) throw new AppError('errors.notFound', { status: 404 });
-
+        const page = Number(currentPage);
+        if (!Number.isInteger(page) || page < 0) {
+            throw new AppError('validation.invalidData', { status: 422 });
+        }
         const requestedTotal = totalPages === null || totalPages === undefined || totalPages === ''
             ? null : Number(totalPages);
-        const effectiveTotal = requestedTotal || Number(material.pages) || null;
-        if (!effectiveTotal) {
-            throw new AppError('validation.materialPagesMissing', { status: 422 });
+        if (requestedTotal !== null && (!Number.isInteger(requestedTotal) || requestedTotal <= 0)) {
+            throw new AppError('validation.invalidData', { status: 422 });
         }
 
-        const existingRead = await this.gamificationRepository.getRead(userId, material.id);
-        const progress = await this.gamificationRepository.updateProgress(
-            userId, material.id, currentPage, effectiveTotal
-        );
-        const completed = Boolean(progress && progress.totalPages && progress.currentPage >= progress.totalPages);
-        if (!completed) return { ...progress, completed: false, read: Boolean(existingRead) };
+        return db.transaction(async () => {
+            const before = await this.userRepository.lockById(userId);
+            if (!before) throw new AppError('errors.notFound', { status: 404 });
+            const material = await this.materialRepository.findBasicById(Number(materialId));
+            if (!material) throw new AppError('errors.notFound', { status: 404 });
 
-        await this.gamificationRepository.addRead(userId, material.id);
-        await this.gamificationRepository.removeBacklog(userId, material.id);
-        if (!existingRead) {
-            await this.userRepository.addXp(userId, 100);
-            await this.evaluateBadges(userId, { hour: new Date().getHours() });
-            await this.notifyFollowers(userId, {
-                type: 'read',
-                materialId: material.id,
-                message: material.titulo
-            });
-        }
-        return { ...progress, completed: true, status: 'read', inBacklog: false, read: true };
+            const materialPages = Number(material.pages) || null;
+            if (materialPages && requestedTotal && requestedTotal !== materialPages) {
+                throw new AppError('validation.invalidData', { status: 422 });
+            }
+            const effectiveTotal = materialPages || requestedTotal;
+            if (!effectiveTotal) {
+                throw new AppError('validation.materialPagesMissing', { status: 422 });
+            }
+            if (page > effectiveTotal) {
+                throw new AppError('validation.invalidData', { status: 422 });
+            }
+
+            const state = await this.gamificationRepository.getReadState(userId, material.id);
+            const existingRead = state.read;
+            const completed = existingRead || page >= effectiveTotal;
+            const progress = await this.gamificationRepository.updateProgress(
+                userId, material.id, page, effectiveTotal, completed ? 'reading' : null
+            );
+
+            if (!completed) return { ...progress, completed: false, read: existingRead };
+
+            const { inserted } = await this.gamificationRepository.addRead(userId, material.id);
+            if (state.inBacklog) await this.gamificationRepository.removeBacklog(userId, material.id);
+            if (inserted) {
+                const xp = await this.userRepository.addXpOnce(userId, 100, 'read', material.id, before);
+                const badges = await this.evaluateBadges(userId, {
+                    hour: new Date().getHours(),
+                    user: { rankLevel: xp.rankLevel }
+                });
+                if (badges.followers > 0) {
+                    await this.notifyFollowers(userId, {
+                        type: 'read',
+                        materialId: material.id,
+                        message: material.titulo
+                    });
+                }
+            }
+            return { ...progress, completed: true, status: 'read', inBacklog: false, read: true };
+        });
     }
 
-    async listReads(userId) {
-        const ids = await this.gamificationRepository.listReadIds(userId);
+    async listReads(userId, filters = {}) {
+        const [ids, total] = await Promise.all([
+            this.gamificationRepository.listReadIds(userId, filters),
+            this.gamificationRepository.countReads(userId)
+        ]);
         const materials = await this.materialRepository.findByIds(ids);
-        const favoriteIds = new Set((await this.materialRepository.findFavoriteIds(userId)).map(Number));
+        const favoriteIds = new Set((await this.materialRepository.findFavoriteIds(
+            userId, materials.map(material => material.id)
+        )).map(Number));
         materials.forEach(material => { material.esFavorito = favoriteIds.has(Number(material.id)) ? 1 : 0; });
-        return this.attachReadFlags(materials, userId);
+        const flagged = await this.attachReadFlags(materials, userId);
+        return { materials: flagged, total };
     }
 
-    async listBacklog(userId) {
-        const items = await this.gamificationRepository.listBacklog(userId);
+    async listBacklog(userId, filters = {}) {
+        const [items, total] = await Promise.all([
+            this.gamificationRepository.listBacklog(userId, filters),
+            this.gamificationRepository.countBacklog(userId)
+        ]);
         const materials = await this.materialRepository.findByIds(items.map(item => item.materialId));
         const byId = new Map(materials.map(material => [Number(material.id), material]));
-        return items
-            .map(item => ({ ...item, material: byId.get(item.materialId) || null }))
-            .filter(item => item.material);
+        return {
+            items: items
+                .map(item => ({ ...item, material: byId.get(item.materialId) || null }))
+                .filter(item => item.material),
+            total
+        };
     }
 
     async addToBacklog(userId, materialId) {
@@ -313,65 +381,67 @@ class GamificationService {
 
     /**
      * La racha solo avanza tras 5 minutos consecutivos de lectura activa.
-     * El visor envia el tiempo acumulado de la sesion (activeSeconds) o el
-     * incremento desde el ultimo latido (deltaSeconds).
+     * El cliente solo envia un latido; el tiempo se calcula y persiste en el
+     * servidor, por lo que activeSeconds/deltaSeconds nunca son confiables.
      */
-    async heartbeat(userId, { materialId = null, activeSeconds = 0, deltaSeconds = 0 } = {}) {
-        const material = materialId
-            ? await this.materialRepository.findById(Number(materialId))
-            : null;
-        if (!material) {
+    async heartbeat(userId, { materialId = null } = {}) {
+        const id = Number(materialId);
+        if (!Number.isInteger(id) || id <= 0) {
             const streak = await this.gamificationRepository.getStreak(userId);
             return { ...streak, qualified: false, activeSeconds: 0, requiredSeconds: STREAK_REQUIRED_SECONDS };
         }
 
-        const key = `${userId}:${material.id}`;
-        const now = Date.now();
-        let session = this.readingSessions.get(key);
-        if (!session || now - session.updatedAt > STREAK_REQUIRED_SECONDS * 1000) {
-            session = { activeSeconds: 0, updatedAt: now };
-            this.readingSessions.set(key, session);
-        }
-        const reported = Math.max(0, Number(activeSeconds) || 0);
-        const delta = Math.min(120, Math.max(0, Number(deltaSeconds) || 0));
-        session.activeSeconds = Math.min(24 * 60 * 60,
-            Math.max(session.activeSeconds + delta, reported));
-        session.updatedAt = now;
+        return db.transaction(async () => {
+            await this.userRepository.lockById(userId);
+            const material = await this.materialRepository.findBasicById(id);
+            if (!material) {
+                const streak = await this.gamificationRepository.getStreak(userId);
+                return { ...streak, qualified: false, activeSeconds: 0, requiredSeconds: STREAK_REQUIRED_SECONDS };
+            }
 
-        const current = await this.gamificationRepository.getStreak(userId);
-        if (session.activeSeconds < STREAK_REQUIRED_SECONDS) {
-            return {
-                ...current,
-                qualified: false,
-                activeSeconds: session.activeSeconds,
-                requiredSeconds: STREAK_REQUIRED_SECONDS
-            };
-        }
+            let session = await this.gamificationRepository.getSessionForUpdate(userId, material.id);
+            if (!session) session = await this.gamificationRepository.createSession(userId, material.id);
+            const activeSeconds = nextActiveSeconds(session.activeSeconds, session.lastHeartbeatAt);
+            await this.gamificationRepository.updateSession(userId, material.id, activeSeconds);
 
-        const streak = await this.gamificationRepository.registerActivity(userId);
-        if (streak.extended) {
-            await this.notificationRepository.createMany([userId], {
-                type: 'streak',
-                message: String(streak.currentStreak)
-            });
-            if (streak.currentStreak > 1) {
-                await this.notifyFollowers(userId, {
+            const current = await this.gamificationRepository.getStreak(userId);
+            if (activeSeconds < STREAK_REQUIRED_SECONDS) {
+                return {
+                    ...current,
+                    qualified: false,
+                    activeSeconds,
+                    requiredSeconds: STREAK_REQUIRED_SECONDS
+                };
+            }
+
+            const streak = await this.gamificationRepository.registerActivity(userId);
+            if (streak.extended && this.notificationRepository) {
+                await this.notificationRepository.createMany([userId], {
                     type: 'streak',
                     message: String(streak.currentStreak)
                 });
+                if (streak.currentStreak > 1) {
+                    await this.notifyFollowers(userId, {
+                        type: 'streak',
+                        message: String(streak.currentStreak)
+                    });
+                }
             }
-        }
-        return {
-            ...streak,
-            qualified: true,
-            activeSeconds: session.activeSeconds,
-            requiredSeconds: STREAK_REQUIRED_SECONDS
-        };
+            await this.gamificationRepository.resetSession(userId, material.id);
+            return {
+                ...streak,
+                qualified: true,
+                activeSeconds,
+                requiredSeconds: STREAK_REQUIRED_SECONDS
+            };
+        });
     }
 
-    resetHeartbeat(userId, materialId) {
-        if (materialId) this.readingSessions.delete(`${userId}:${Number(materialId)}`);
-        return { reset: Boolean(materialId) };
+    async resetHeartbeat(userId, materialId) {
+        const id = Number(materialId);
+        if (!Number.isInteger(id) || id <= 0) return { reset: false };
+        const reset = await this.gamificationRepository.resetSession(userId, id);
+        return { reset };
     }
 
     async listProfilePictures(userId) {
@@ -382,43 +452,47 @@ class GamificationService {
 
     async evaluateBadges(userId, context = {}) {
         const [stats, user] = await Promise.all([
-            this.gamificationRepository.getProfileStats(userId),
-            this.userRepository.findById(userId)
+            this.gamificationRepository.getBadgeContext(userId),
+            context.user || this.userRepository.findById(userId)
         ]);
-        if (!user) return [];
+        const followers = Number(stats.followers) || 0;
+        if (!user) return { earned: [], followers };
 
-        const earned = [];
-        const grant = async key => {
-            if (await this.gamificationRepository.addBadge(userId, key)) {
-                earned.push(BADGES[key]);
-                await this.notificationRepository.createMany([userId], {
-                    type: 'badge',
-                    message: key
-                });
-            }
-        };
-
-        if (Number(stats.read_count ?? stats.reads) > 0) await grant('hello_world');
-        if (Number(stats.uploads) >= 1) await grant('first_commit');
-        if (Number(stats.uploads) >= 10) await grant('stack_overflow');
-        if (Number(stats.followers) >= 5) await grant('shared_pointer');
-        if (Number(stats.following) >= 5) await grant('array_5');
-        if (Number(stats.read_count ?? stats.reads) >= 5) await grant('linter_clean');
-        if (Number(stats.favorites) >= 10) await grant('code_reviewer');
-        if (user.rankLevel >= 5) await grant('full_stack_reader');
+        const eligible = new Set();
+        const readCount = Number(stats.read_count ?? stats.reads) || 0;
+        if (readCount > 0) eligible.add('hello_world');
+        if (Number(stats.uploads) >= 1) eligible.add('first_commit');
+        if (Number(stats.uploads) >= 10) eligible.add('stack_overflow');
+        if (Number(stats.followers) >= 5) eligible.add('shared_pointer');
+        if (Number(stats.following) >= 5) eligible.add('array_5');
+        if (readCount >= 5) eligible.add('linter_clean');
+        if (Number(stats.favorites) >= 10) eligible.add('code_reviewer');
+        if (user.rankLevel >= 5) eligible.add('full_stack_reader');
 
         const hour = Number(context.hour);
         if (Number.isFinite(hour)) {
-            if (hour >= 5 && hour < 10) await grant('early_return');
-            if (hour >= 0 && hour < 5) await grant('overtime');
+            if (hour >= 5 && hour < 10) eligible.add('early_return');
+            if (hour >= 0 && hour < 5) eligible.add('overtime');
         }
-        return earned;
+
+        const owned = new Set(stats.badgeKeys || []);
+        const missing = [...eligible].filter(key => !owned.has(key));
+        if (!missing.length) return { earned: [], followers };
+
+        await this.gamificationRepository.addBadges(userId, missing);
+        const earned = [];
+        for (const key of missing) {
+            earned.push(BADGES[key]);
+            await this.notificationRepository.createMany([userId], {
+                type: 'badge',
+                message: key
+            });
+        }
+        return { earned, followers };
     }
 
     async notifyFollowers(userId, { type, message = null, subjectId = null, materialId = null }) {
-        const followers = await this.gamificationRepository.listFollowers(userId);
-        if (!followers.length) return 0;
-        return this.notificationRepository.createMany(followers, {
+        return this.notificationRepository.createForFollowers(userId, {
             type,
             message,
             subjectId,
@@ -442,5 +516,7 @@ class GamificationService {
 
 GamificationService.BADGES = BADGES;
 GamificationService.STREAK_REQUIRED_SECONDS = STREAK_REQUIRED_SECONDS;
+GamificationService.MAX_HEARTBEAT_GAP_SECONDS = MAX_HEARTBEAT_GAP_SECONDS;
+GamificationService.nextActiveSeconds = nextActiveSeconds;
 
 module.exports = GamificationService;

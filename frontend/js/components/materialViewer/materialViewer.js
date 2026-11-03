@@ -1,4 +1,6 @@
 const MaterialViewer = (() => {
+    const STORED_FILE_TYPES = ['PDF', 'EPUB', 'Word', 'Presentacion'];
+    const EXTENSIONS = { PDF: '.pdf', EPUB: '.epub', Word: '.docx', Presentacion: '.pptx' };
     let active = null;
     let sequence = 0;
 
@@ -35,8 +37,26 @@ const MaterialViewer = (() => {
         }
     }
 
+    function isStoredFile(material) {
+        if (!material || material.id === undefined || material.id === null) return false;
+        if (STORED_FILE_TYPES.includes(material.tipo)) return true;
+        const value = String(material.urlOrPath || '');
+        return /^\/?uploads[\\/]/i.test(value) || /^https:\/\/res\.cloudinary\.com\//i.test(value);
+    }
+
+    function apiFileHref(material, action = 'file') {
+        if (!isStoredFile(material)) return '';
+        return `${window.location.origin}/api/materials/${encodeURIComponent(material.id)}/${action}`;
+    }
+
+    function fileHref(material) {
+        const stored = apiFileHref(material, 'file');
+        if (stored) return stored;
+        return safeHref(material && material.urlOrPath);
+    }
+
     function isPdf(material) {
-        return Boolean(material && material.tipo === 'PDF' && safeHref(material.urlOrPath));
+        return Boolean(material && material.tipo === 'PDF' && fileHref(material));
     }
 
     function isYoutube(material) {
@@ -44,11 +64,11 @@ const MaterialViewer = (() => {
     }
 
     function downloadName(material) {
-        const path = String(material.urlOrPath || '').split(/[?#]/)[0];
+        const path = String(material && material.urlOrPath || '').split(/[?#]/)[0];
         const match = path.match(/\.([a-z0-9]{2,5})$/i);
         let extension = match ? `.${match[1].toLowerCase()}` : '';
-        if (!extension && material.tipo === 'PDF') extension = '.pdf';
-        const base = String(material.titulo || 'material')
+        if (!extension) extension = EXTENSIONS[material && material.tipo] || '';
+        const base = String(material && material.titulo || 'material')
             .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim()
@@ -57,28 +77,18 @@ const MaterialViewer = (() => {
     }
 
     function downloadHref(material) {
-        const href = safeHref(material.urlOrPath);
-        if (!href) return '';
-        try {
-            const url = new URL(href);
-            if (!/(^|\.)res\.cloudinary\.com$/i.test(url.hostname)) return href;
-            const marker = '/upload/';
-            const index = url.pathname.indexOf(marker);
-            if (index === -1) return href;
-            const name = downloadName(material);
-            url.pathname = `${url.pathname.slice(0, index + marker.length)}fl_attachment:${encodeURIComponent(name)}/${url.pathname.slice(index + marker.length)}`;
-            return url.href;
-        } catch (error) {
-            return href;
-        }
+        const apiHref = apiFileHref(material, 'download');
+        if (apiHref) return apiHref;
+        return safeHref(material && material.urlOrPath);
     }
 
     function downloadButton(material, className = 'bt-btn bt-btn--secondary') {
         const href = downloadHref(material);
         if (!href) return null;
         const attrs = { href };
-        const transformed = href !== safeHref(material.urlOrPath);
-        if (!transformed) {
+        const direct = safeHref(material && material.urlOrPath);
+        const sameOriginApi = href !== direct;
+        if (!sameOriginApi) {
             attrs.download = downloadName(material);
             try {
                 if (new URL(href).origin !== window.location.origin) {
@@ -99,13 +109,13 @@ const MaterialViewer = (() => {
 
     function open(material, options = {}) {
         if (!material) return;
-        const href = safeHref(material.urlOrPath);
+        const href = fileHref(material);
         if (!href) return;
         const videoId = youtubeId(href);
         const video = Boolean(videoId);
         const pdf = !video && isPdf(material);
         if (!video && !pdf) {
-            window.open(href, '_blank', 'noopener');
+            window.open(downloadHref(material) || href, '_blank', 'noopener');
             return;
         }
 
@@ -144,7 +154,6 @@ const MaterialViewer = (() => {
         let frame;
         let footer;
         let trackingTimer = null;
-        let activeSeconds = 0;
 
         if (video) {
             const embed = `https://www.youtube.com/embed/${videoId}?rel=0&playsinline=1`;
@@ -331,10 +340,8 @@ const MaterialViewer = (() => {
         if (authHelper?.isAuthenticated() && typeof apiService !== 'undefined') {
             const record = () => {
                 if (document.visibilityState !== 'visible') return;
-                activeSeconds += 60;
                 apiService.post('/streaks/heartbeat', {
-                    materialId: material.id,
-                    activeSeconds
+                    materialId: material.id
                 }).catch(() => {});
             };
             trackingTimer = setInterval(record, 60000);
@@ -355,6 +362,7 @@ const MaterialViewer = (() => {
         isYoutube,
         safeHref,
         youtubeId,
+        fileHref,
         downloadHref,
         downloadName,
         downloadButton

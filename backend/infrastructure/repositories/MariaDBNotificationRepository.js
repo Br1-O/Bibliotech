@@ -18,7 +18,7 @@ class MariaDBNotificationRepository extends NotificationRepositoryInterface {
         const [result] = await db.query(
             `INSERT INTO notifications (usuario_id, actor_id, subject_id, material_id, type, message)
              VALUES ${values}
-             ON DUPLICATE KEY UPDATE created_at = CURRENT_TIMESTAMP, read_at = NULL, message = VALUES(message)`,
+             ON DUPLICATE KEY UPDATE id = id`,
             params
         );
         return result.affectedRows;
@@ -28,7 +28,21 @@ class MariaDBNotificationRepository extends NotificationRepositoryInterface {
         return this.createMany(alumnoIds, { subjectId, materialId, type: 'material', ...options });
     }
 
-    async findByUser(userId) {
+    async createForFollowers(targetUserId, { subjectId = null, materialId = null, type = 'material', message = null, actorId = null } = {}) {
+        const [result] = await db.query(
+            `INSERT INTO notifications (usuario_id, actor_id, subject_id, material_id, type, message)
+             SELECT subscriber_id, ?, ?, ?, ?, ?
+               FROM user_subscriptions
+              WHERE target_user_id = ?
+             ON DUPLICATE KEY UPDATE id = id`,
+            [actorId, subjectId, materialId, type, message, targetUserId]
+        );
+        return result.affectedRows;
+    }
+
+    async findByUser(userId, filters = {}) {
+        const limit = Math.min(Math.max(Number(filters.limit) || 20, 1), 100);
+        const offset = Math.max(Number(filters.offset) || 0, 0);
         const [rows] = await db.query(
             `SELECT n.id, n.type, n.message,
                     n.subject_id AS subjectId, s.nombre AS subjectNombre,
@@ -45,10 +59,17 @@ class MariaDBNotificationRepository extends NotificationRepositoryInterface {
              LEFT JOIN users p ON p.id = s.profesor_id
              WHERE n.usuario_id = ?
              ORDER BY n.created_at DESC, n.id DESC
-             LIMIT 30`,
-            [userId]
+             LIMIT ? OFFSET ?`,
+            [userId, limit, offset]
         );
         return rows;
+    }
+
+    async countByUser(userId) {
+        const [rows] = await db.query(
+            'SELECT COUNT(*) AS total FROM notifications WHERE usuario_id = ?', [userId]
+        );
+        return Number(rows[0]?.total) || 0;
     }
 
     async countUnread(userId) {

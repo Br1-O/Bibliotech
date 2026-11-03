@@ -52,13 +52,19 @@
     "pendingLimit": "No puedes tener mas de {max} materiales pendientes de aprobacion.",
     "emailTaken": "El correo electronico ya se encuentra registrado.",
     "roleTaken": "El rol ya se encuentra registrado.",
+    "invalidState": "El recurso ya no se encuentra en un estado que permita esta accion.",
     "invalidData": "Los datos enviados no son validos.",
     "duplicateMaterial": "Ya existe otro material con el mismo archivo o enlace.",
     "birthdate": "La fecha de nacimiento no es valida.",
     "gender": "El genero seleccionado no es valido.",
     "genderCustom": "El genero personalizado debe tener entre 3 y 10 letras.",
     "materialPagesMissing": "Este material no tiene paginas registradas. Indica el total de paginas manualmente.",
-    "currentPassword": "La contrasena actual no es correcta."
+    "currentPassword": "La contrasena actual no es correcta.",
+    "requestTooLarge": "La solicitud supera el tamano maximo permitido.",
+    "uploadLengthRequired": "La solicitud de carga debe indicar su tamano.",
+    "fileCount": "Se supero el numero maximo de archivos permitido.",
+    "partCount": "La solicitud contiene demasiadas partes.",
+    "fieldCount": "La solicitud contiene demasiados campos."
   },
   "messages": {
     "registerSuccess": "Cuenta creada. Revisa tu correo y abre el enlace de activacion antes de iniciar sesion.",
@@ -90,7 +96,8 @@
     "careerUpdated": "Carrera actualizada correctamente.",
     "yearCreated": "Anio creado correctamente.",
     "yearUpdated": "Anio actualizado correctamente.",
-    "batchUploaded": "Carga masiva completada. Creados: {created}. Omitidos por duplicado: {skipped}."
+    "batchUploaded": "Carga masiva completada. Creados: {created}. Omitidos por duplicado: {skipped}.",
+    "roleChanged": "Rol actualizado correctamente."
   },
   "roles": {
     "Superadmin": "Superadministrador",
@@ -105,6 +112,8 @@
     "invalidToken": "Enlace invalido o expirado.",
     "accountNotVerified": "Debes activar tu cuenta desde el enlace enviado a tu correo antes de iniciar sesion.",
     "accountDisabled": "Tu cuenta esta deshabilitada. Contacta al administrador.",
-    "serverError": "Error interno del servidor."
+    "serverError": "Error interno del servidor.",
+    "tooManyRequests": "Demasiadas solicitudes. Intenta de nuevo en {seconds} segundos.",
+    "requestTimeout": "La solicitud tardo demasiado."
   }
 }

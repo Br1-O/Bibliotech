@@ -4,6 +4,7 @@
 */
 
 const { ok } = require('../utils/respond');
+const { parsePagination, paginationMeta } = require('../utils/pagination');
 
 module.exports = (container) => {
     const { subjectService, materialService } = container;
@@ -52,23 +53,28 @@ module.exports = (container) => {
 
         async rejectAssociation(req, res, next) {
             try {
-                const result = await subjectService.rejectAssociation(req.params.id, req.usuarioId);
+                const result = await subjectService.rejectAssociation(req.params.id, req.usuarioId, req.body?.profesorId);
                 return ok(req, res, result);
             } catch (error) { return next(error); }
         },
 
         async materials(req, res, next) {
             try {
+                const pagination = parsePagination(req.query);
                 const filters = {
                     q: req.query.q || '',
                     tipo: req.query.tipo || null,
                     category: req.query.category || null,
                     uploadYear: req.query.year || req.query.uploadYear || null,
                     mandatory: req.query.mandatory === 'true' || req.query.mandatory === '1',
-                    tags: req.query.tags ? [].concat(req.query.tags) : []
+                    tags: req.query.tags ? [].concat(req.query.tags) : [],
+                    ...pagination
                 };
                 const result = await materialService.getBySubject(req.params.id, filters, req.usuarioId);
-                return ok(req, res, result);
+                return ok(req, res, {
+                    ...result,
+                    pagination: paginationMeta(result.total, pagination)
+                });
             } catch (error) { return next(error); }
         },
 

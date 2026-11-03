@@ -22,70 +22,98 @@ const map = row => {
     return log;
 };
 
-const operationsFor = (tipo) => Object.entries(AuditLog.REGISTRO_TIPOS)
-    .filter(([, value]) => value === tipo)
-    .map(([key]) => key);
-
-const sqlList = (values) => values.map(value => `'${String(value).replace(/'/g, "''")}'`).join(', ');
-
 class MariaDBAuditLogRepository extends AuditLogRepositoryInterface {
     async save(log) {
+        const registroTipo = log.registroTipo || AuditLog.tipoRegistro(log.tipoOperacion);
         const [res] = await db.execute(
-            `INSERT INTO audit_logs (tipo_operacion, usuario_id, registro_id) VALUES (?, ?, ?)`,
-            [log.tipoOperacion, log.usuarioId, log.registroId]
+            `INSERT INTO audit_logs (tipo_operacion, usuario_id, registro_id, registro_tipo)
+             VALUES (?, ?, ?, ?)`,
+            [log.tipoOperacion, log.usuarioId, log.registroId, registroTipo]
         );
         log.id = res.insertId;
+        log.registroTipo = registroTipo;
         return log;
     }
 
-    async findAll() {
-        const usuarioOps = sqlList(operationsFor('Usuario'));
-        const materialOps = sqlList(operationsFor('Material'));
-        const materiaOps = sqlList(operationsFor('Materia'));
-        const rolOps = sqlList(operationsFor('Rol'));
-        const carreraOps = sqlList(operationsFor('Carrera'));
-        const anioOps = sqlList(operationsFor('Anio'));
-
-        const [rows] = await db.execute(`
-            SELECT l.*, u.email AS usuarioEmail,
-                   CONCAT(u.nombre, ' ', u.apellido) AS usuarioNombre,
-                   CASE
-                       WHEN l.tipo_operacion IN (${usuarioOps}) THEN 'Usuario'
-                       WHEN l.tipo_operacion IN (${materialOps}) THEN 'Material'
-                       WHEN l.tipo_operacion IN (${materiaOps}) THEN 'Materia'
-                       WHEN l.tipo_operacion IN (${rolOps}) THEN 'Rol'
-                       WHEN l.tipo_operacion IN (${carreraOps}) THEN 'Carrera'
-                       WHEN l.tipo_operacion IN (${anioOps}) THEN 'Anio'
-                       ELSE NULL
-                   END AS registroTipo,
-                   CASE
-                       WHEN l.tipo_operacion IN (${usuarioOps})
-                           THEN CONCAT(u2.nombre, ' ', u2.apellido)
-                       WHEN l.tipo_operacion IN (${materialOps}) THEN m.titulo
-                       WHEN l.tipo_operacion IN (${materiaOps}) THEN s.nombre
-                       WHEN l.tipo_operacion IN (${rolOps}) THEN r.nombre
-                       WHEN l.tipo_operacion IN (${carreraOps}) THEN c.nombre
-                       WHEN l.tipo_operacion IN (${anioOps}) THEN cy.nombre
-                       ELSE NULL
-                   END AS registroNombre
-            FROM audit_logs l
-            LEFT JOIN users u ON u.id = l.usuario_id
-            LEFT JOIN users u2 ON u2.id = l.registro_id
-            LEFT JOIN materials m ON m.id = l.registro_id
-            LEFT JOIN subjects s ON s.id = l.registro_id
-            LEFT JOIN roles r ON r.id = l.registro_id
-            LEFT JOIN careers c ON c.id = l.registro_id
-            LEFT JOIN career_years cy ON cy.id = l.registro_id
-            ORDER BY l.timestamp DESC, l.id DESC`);
-        return rows.map(map);
+    async saveMany(logs = []) {
+        if (!logs.length) return logs;
+        const placeholders = logs.map(() => '(?, ?, ?, ?)').join(', ');
+        const params = logs.flatMap(log => [
+            log.tipoOperacion,
+            log.usuarioId,
+            log.registroId,
+            log.registroTipo || AuditLog.tipoRegistro(log.tipoOperacion)
+        ]);
+        await db.execute(
+            `INSERT INTO audit_logs (tipo_operacion, usuario_id, registro_id, registro_tipo)
+             VALUES ${placeholders}`,
+            params
+        );
+        return logs;
     }
 
-    async findByUser(userId) {
+    /** Carga nombres de los objetivos de una pagina sin seis joins por fila. */
+    async attachRegistroNombres(logs) {
+        const groups = { Usuario: new Set(), Material: new Set(), Materia: new Set(), Rol: new Set(), Carrera: new Set(), Anio: new Set() };
+        logs.forEach(log => {
+            if (log.registroTipo && groups[log.registroTipo] && log.registroId) {
+                groups[log.registroTipo].add(Number(log.registroId));
+            }
+        });
+        const load = async (ids, sql) => {
+            if (!ids.length) return new Map();
+            const placeholders = ids.map(() => '?').join(',');
+            const [rows] = await db.execute(sql.replace('__IDS__', placeholders), ids);
+            return new Map(rows.map(row => [Number(row.id), row.nombre]));
+        };
+        const [usuarios, materiales, materias, roles, carreras, anios] = await Promise.all([
+            load([...groups.Usuario], `SELECT id, CONCAT(nombre, ' ', apellido) AS nombre FROM users WHERE id IN (__IDS__)`),
+            load([...groups.Material], `SELECT id, titulo AS nombre FROM materials WHERE id IN (__IDS__)`),
+            load([...groups.Materia], `SELECT id, nombre FROM subjects WHERE id IN (__IDS__)`),
+            load([...groups.Rol], `SELECT id, nombre FROM roles WHERE id IN (__IDS__)`),
+            load([...groups.Carrera], `SELECT id, nombre FROM careers WHERE id IN (__IDS__)`),
+            load([...groups.Anio], `SELECT id, nombre FROM career_years WHERE id IN (__IDS__)`)
+        ]);
+        const names = { Usuario: usuarios, Material: materiales, Materia: materias, Rol: roles, Carrera: carreras, Anio: anios };
+        logs.forEach(log => {
+            const mapForType = names[log.registroTipo];
+            log.registroNombre = mapForType ? (mapForType.get(Number(log.registroId)) || null) : null;
+        });
+        return logs;
+    }
+
+    async findAll(filters = {}) {
+        const limit = Math.min(Math.max(Number(filters.limit) || 20, 1), 100);
+        const offset = Math.max(Number(filters.offset) || 0, 0);
+        const [rows] = await db.execute(`
+            SELECT l.*, u.email AS usuarioEmail,
+                   CONCAT(u.nombre, ' ', u.apellido) AS usuarioNombre
+              FROM audit_logs l
+              LEFT JOIN users u ON u.id = l.usuario_id
+             ORDER BY l.timestamp DESC, l.id DESC
+             LIMIT ? OFFSET ?`, [limit, offset]);
+        const [countRows] = await db.execute('SELECT COUNT(*) AS total FROM audit_logs');
+        return {
+            items: await this.attachRegistroNombres(rows.map(map)),
+            total: Number(countRows[0].total) || 0
+        };
+    }
+
+    async findByUser(userId, filters = {}) {
+        const limit = Math.min(Math.max(Number(filters.limit) || 20, 1), 100);
+        const offset = Math.max(Number(filters.offset) || 0, 0);
         const [rows] = await db.execute(
-            `SELECT * FROM audit_logs WHERE usuario_id = ? ORDER BY timestamp DESC, id DESC`,
-            [userId]
+            `SELECT * FROM audit_logs WHERE usuario_id = ?
+              ORDER BY timestamp DESC, id DESC LIMIT ? OFFSET ?`,
+            [userId, limit, offset]
         );
-        return rows.map(map);
+        const [countRows] = await db.execute(
+            'SELECT COUNT(*) AS total FROM audit_logs WHERE usuario_id = ?', [userId]
+        );
+        return {
+            items: await this.attachRegistroNombres(rows.map(map)),
+            total: Number(countRows[0].total) || 0
+        };
     }
 }
 

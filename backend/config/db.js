@@ -1,29 +1,104 @@
-/**
-* Project     : Bibliotech
-* Author      : Bruno O. Ortuno
-* License     : http://www.gnu.org/licenses/gpl.txt  GNU GPL 3.0
-* Date        : 2026
-*
-* Adaptador de infraestructura: pool de conexiones a MariaDB/MySQL.
-* El dominio nunca importa este archivo directamente; solo lo usan los
-* repositorios concretos (adaptadores de salida).
-*/
-
+const { AsyncLocalStorage } = require('async_hooks');
 const mysql = require('mysql2');
+const { getConfig } = require('./env');
 
-const useSsl = String(process.env.DB_SSL || '').toLowerCase() === 'true';
+const config = getConfig().db;
 
 const pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
+    host: config.host,
+    user: config.user,
+    password: config.password,
+    database: config.database,
+    port: config.port,
     waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
+    connectionLimit: config.connectionLimit,
+    maxIdle: config.connectionLimit,
+    idleTimeout: config.idleTimeoutMs,
+    queueLimit: config.queueLimit,
+    connectTimeout: config.connectTimeout,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
     charset: 'utf8mb4',
-    ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {})
+    ...(config.ssl ? { ssl: { rejectUnauthorized: false } } : {})
 });
 
-module.exports = pool.promise();
+const promisePool = pool.promise();
+const transactionStorage = new AsyncLocalStorage();
+
+function currentConnection() {
+    return transactionStorage.getStore() || promisePool;
+}
+
+async function transaction(callback) {
+    const active = transactionStorage.getStore();
+    if (active) return callback(active);
+
+    const connection = await promisePool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const result = await transactionStorage.run(connection, () => callback(connection));
+        await connection.commit();
+        return result;
+    } catch (error) {
+        try { await connection.rollback(); } catch (rollbackError) { /* preserve original error */ }
+        throw error;
+    } finally {
+        connection.release();
+    }
+}
+
+const db = {
+    execute(sql, params) {
+        const connection = currentConnection();
+        if (!config.preparedStatements) {
+            if (config.queryTimeoutMs && typeof sql === 'string') {
+                return connection.query({ sql, timeout: config.queryTimeoutMs }, params);
+            }
+            return connection.query(sql, params);
+        }
+        if (config.queryTimeoutMs && typeof sql === 'string') {
+            return connection.execute({ sql, timeout: config.queryTimeoutMs }, params);
+        }
+        return connection.execute(sql, params);
+    },
+
+    query(sql, params) {
+        const connection = currentConnection();
+        if (config.queryTimeoutMs && typeof sql === 'string') {
+            return connection.query({ sql, timeout: config.queryTimeoutMs }, params);
+        }
+        return connection.query(sql, params);
+    },
+
+    transaction,
+
+    inTransaction() {
+        return Boolean(transactionStorage.getStore());
+    },
+
+    async healthCheck() {
+        const [rows] = await promisePool.query('SELECT 1 AS ok');
+        return Boolean(rows?.[0]?.ok === 1);
+    },
+
+    async warmPool() {
+        const count = Math.min(Number(config.poolWarmup) || 0, config.connectionLimit);
+        if (!count) return;
+        const results = await Promise.allSettled(
+            Array.from({ length: count }, () => promisePool.getConnection())
+        );
+        results.forEach(result => {
+            if (result.status === 'fulfilled') result.value.release();
+        });
+        const failure = results.find(result => result.status === 'rejected');
+        if (failure) throw failure.reason;
+    },
+
+    close() {
+        return new Promise((resolve, reject) => {
+            pool.end(error => (error ? reject(error) : resolve()));
+        });
+    }
+};
+
+module.exports = db;

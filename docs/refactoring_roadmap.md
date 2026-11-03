@@ -92,6 +92,12 @@ Do not start Phase 2 index work before Phase 1 state invariants are understood; 
 - Concurrent duplicate uploads/favorites/subscriptions behave deterministically.
 - Critical actions have audit coverage or a monitored outbox.
 
+### 3.4 Status
+
+Phase 1 is implemented and verified as of 2026-10-31. See
+`docs/phase1_acceptance.md` for item-by-item evidence, test results, and
+non-blocking residuals.
+
 ---
 
 ## 4. Phase 2 — Performance and Scalability (3–5 weeks)
@@ -126,6 +132,13 @@ Do not start Phase 2 index work before Phase 1 state invariants are understood; 
 - Search no longer relies on `%LIKE%` across six columns.
 - The frontend no longer downloads the full catalog.
 - p95 targets are measured and tracked.
+
+### 4.4 Status
+
+Phase 2 is implemented and verified as of 2026-11-01 for the catalog, subject,
+profile, notification, user and audit read paths. See
+`docs/phase2_acceptance.md` for item-by-item evidence, plans, budgets, test
+results and non-blocking residuals.
 
 ---
 

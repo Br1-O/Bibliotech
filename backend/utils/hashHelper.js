@@ -8,10 +8,15 @@ const crypto = require('crypto');
 const fs = require('fs');
 
 const hashHelper = {
-    /** Firma digital del contenido de un archivo en disco. */
+    /** Firma digital del contenido de un archivo en disco, sin cargarlo entero en memoria. */
     hashFile(absolutePath) {
-        const buffer = fs.readFileSync(absolutePath);
-        return crypto.createHash('sha256').update(buffer).digest('hex');
+        return new Promise((resolve, reject) => {
+            const hash = crypto.createHash('sha256');
+            const stream = fs.createReadStream(absolutePath);
+            stream.on('error', reject);
+            stream.on('data', chunk => hash.update(chunk));
+            stream.on('end', () => resolve(hash.digest('hex')));
+        });
     },
 
     /** Firma digital de una cadena (por ejemplo, para enlaces externos). */

@@ -4,13 +4,14 @@
 */
 
 const express = require('express');
-const { verifyToken, optionalAuth, requireRole } = require('../middleware/authMiddleware');
 const { materialUpload, batchUpload } = require('../config/multerConfig');
 const { uploadRateLimit } = require('../middleware/uploadRateLimitMiddleware');
+const { uploadRequestQuota } = require('../middleware/uploadQuotaMiddleware');
 
 module.exports = (container) => {
     const router = express.Router();
     const controller = require('../controllers/materialController')(container);
+    const { verifyToken, optionalAuth, optionalFileAuth, requireRole } = container.authMiddleware;
     const Role = require('../domain/entities/Role');
 
     router.get('/global', optionalAuth, controller.global);
@@ -20,14 +21,16 @@ module.exports = (container) => {
     router.get('/pending', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), controller.pending);
     router.get('/pending-review', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.pendingReview);
     router.get('/favorites/mine', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR, Role.SUPERADMIN), controller.getFavorites);
+    router.get('/:id/file', optionalFileAuth, controller.file);
+    router.get('/:id/download', optionalFileAuth, controller.download);
 
-    router.post('/upload', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), uploadRateLimit(), materialUpload, controller.upload);
-    router.post('/batch', verifyToken, requireRole(Role.SUPERADMIN), uploadRateLimit(), batchUpload, controller.batch);
+    router.post('/upload', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), uploadRateLimit(), uploadRequestQuota, materialUpload, controller.upload);
+    router.post('/batch', verifyToken, requireRole(Role.SUPERADMIN), uploadRateLimit(), uploadRequestQuota, batchUpload, controller.batch);
     router.post('/:id/approve', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.approve);
     router.post('/:id/reject', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.reject);
     router.post('/:id/associate', verifyToken, requireRole(Role.PROFESOR), controller.associate);
     router.post('/:id/cancel', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), controller.cancel);
-    router.put('/:id', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), materialUpload, controller.update);
+    router.put('/:id', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), uploadRequestQuota, materialUpload, controller.update);
     router.delete('/:id/subjects/:subjectId', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.remove);
     router.delete('/:id', verifyToken, requireRole(Role.SUPERADMIN), controller.remove);
 

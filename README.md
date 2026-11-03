@@ -65,17 +65,24 @@ frontend/
 
 ## Puesta en marcha
 
-1. **Base de datos**: ejecutar el script de inicializacion (o la migracion si la base ya existe).
+1. **Base de datos**: `init.sql` es no destructivo para bases existentes.
    ```bash
+   # Base nueva (esquema + datos de referencia)
    mysql -u root -p < backend/config/init.sql
-   # Base existente:
-   mysql -u root -p bibliotech < backend/config/migrate_requisitos.sql
+
+   # Base existente: aplica migraciones ordenadas
+   cd backend && npm run db:migrate
+
+   # Solo desarrollo: reinicio destructivo + cuentas demo
+   cd backend/config && mysql -u root -p < reset_dev.sql
    ```
 
 2. **Variables de entorno**: crear `backend/.env` a partir de `.env.example`.
    ```bash
    cp backend/.env.example backend/.env
    ```
+   `JWT_SECRET` debe tener al menos 32 caracteres y 128 bits de entropia.
+   En produccion `CORS_ORIGINS` es obligatorio y `EXPOSE_DEV_TOKENS=false`.
 
 3. **Backend**:
    ```bash
@@ -85,6 +92,18 @@ frontend/
    ```
 
 4. Abrir `http://localhost:3000`.
+
+### Operacion y seguridad
+
+- `GET /healthz`: liveness. `GET /readyz`: readiness con `SELECT 1` a la base.
+- `GET /metrics`: metricas Prometheus; en produccion requiere `METRICS_TOKEN`.
+- `/uploads` solo sirve imagenes publicas. Los materiales aprobados se abren
+  con `GET /api/materials/:id/file` y se descargan con `.../download`; los
+  pendientes o no aprobados exigen sesion del autor o staff. El login deja una
+  cookie `HttpOnly` de archivos con alcance `/api`, y el visor usa peticiones
+  `Range` para paginar PDFs sin descargarlos completos.
+- El servidor cierra ordenadamente con `SIGTERM`/`SIGINT` y drena la base.
+- Las cuentas demo de `seed_dev.sql` nunca deben cargarse en produccion.
 
 ### Credenciales de prueba
 
@@ -110,19 +129,36 @@ multilenguaje (RNF-06) y seguridad (inyeccion SQL).
 | `subscriptionTests.js` | Suscripcion (Observer) y baneo (RF-03 / RF-05).     |
 | `adminTests.js`     | Usuarios, auditoria y recuperacion de contrasena.      |
 | `gamificationTests.js` | Perfil publico, rango/foto, lectura XP, backlog con auto-completado, rachas y seguidores. |
+| `refinementTests.js` | Cargas masivas, permisos, cancelacion/rechazo y portadas. |
+| `securityTests.js`  | DTOs publicos, revocacion, ownership y descargas seguras. |
 | `sqlTests.js`       | Intentos de inyeccion SQL.                             |
 
-Para correrla sin navegador (requiere el servidor levantado):
-
-```bash
-node frontend/js/tests/runNode.js
-```
-
-O desde el backend:
+Para correrla sin navegador, levantar el servidor en modo desarrollo con
+tokens de prueba y limites altos (la suite crea muchos usuarios desde la misma IP):
 
 ```bash
 cd backend
-npm run test:api
+NODE_ENV=development EXPOSE_DEV_TOKENS=true FILES_MODE=local \
+  AUTH_IP_RATE_LIMIT=10000 AUTH_ACCOUNT_RATE_LIMIT=10000 \
+  AUTH_RECOVERY_RATE_LIMIT=10000 UPLOAD_RATE_LIMIT=10000 npm start
+# En otra terminal, desde la raiz del proyecto:
+node frontend/js/tests/runNode.js
+# Filtrar por nombre de prueba:
+BT_TEST_FILTER='Test Seguridad' node frontend/js/tests/runNode.js
+```
+
+Pruebas unitarias del backend (no requieren servidor):
+
+```bash
+cd backend
+npm run test:backend
+```
+
+Presupuesto de rendimiento de consultas calientes (requiere base de datos):
+
+```bash
+cd backend
+npm run test:perf
 ```
 
 ## Roles

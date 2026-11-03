@@ -4,6 +4,7 @@
 */
 
 const { ok } = require('../utils/respond');
+const { parsePagination, paginationMeta } = require('../utils/pagination');
 
 module.exports = (container) => {
     const { notificationService } = container;
@@ -11,8 +12,13 @@ module.exports = (container) => {
     return {
         async list(req, res, next) {
             try {
-                const result = await notificationService.list(req.usuarioId);
-                return ok(req, res, result);
+                const pagination = parsePagination(req.query);
+                const result = await notificationService.list(req.usuarioId, pagination);
+                return ok(req, res, {
+                    notifications: result.notifications,
+                    unreadCount: result.unreadCount,
+                    pagination: paginationMeta(result.total, pagination)
+                });
             } catch (error) { return next(error); }
         },
 

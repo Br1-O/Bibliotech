@@ -9,6 +9,12 @@ const authHelper = {
     saveSession(token, user) {
         this.storage.setItem('bt_token', token);
         this.storage.setItem('bt_user', JSON.stringify(user || {}));
+        this.clearLegacyFileCookie();
+    },
+
+    clearLegacyFileCookie() {
+        if (typeof document === 'undefined') return;
+        document.cookie = 'bt_file_token=; Max-Age=0; Path=/; SameSite=Lax';
     },
 
     getToken() { return this.storage.getItem('bt_token'); },
@@ -41,8 +47,16 @@ const authHelper = {
     },
 
     logout() {
-        this.storage.removeItem('bt_token');
-        this.storage.removeItem('bt_user');
-        window.location.href = '/login';
+        const finish = () => {
+            this.storage.removeItem('bt_token');
+            this.storage.removeItem('bt_user');
+            window.location.href = '/login';
+        };
+        try {
+            fetch('/api/auth/logout', { method: 'POST', keepalive: true, credentials: 'same-origin' })
+                .catch(() => {}).finally(finish);
+        } catch (error) {
+            finish();
+        }
     }
 };

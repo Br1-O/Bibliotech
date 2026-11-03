@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node ../frontend/js/tests/runNode.js"
+    "db:migrate": "node scripts/migrate.js",
+    "test": "node ../frontend/js/tests/runNode.js",
+    "test:backend": "node --test tests/*.test.js",
+    "db:reconcile-files": "node scripts/reconcileFiles.js",
+    "test:perf": "node scripts/perfBudget.js"
   },
   "keywords": [
     "bibliotech",
@@ -20,13 +24,13 @@
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "cloudinary": "^1.41.3",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
-    "multer-storage-cloudinary": "^4.0.0",
     "mysql2": "^3.22.0",
     "nodemailer": "^10.1.7"
   }

@@ -7,6 +7,7 @@ const RepositoryInterface = require('./RepositoryInterface');
 class MaterialRepositoryInterface extends RepositoryInterface {
     async save(material)                                     { return this._notImplemented('save'); }
     async findById(id)                                       { return this._notImplemented('findById'); }
+    async findBasicById(id)                                  { return this._notImplemented('findBasicById'); }
     async findByHash(hash)                                   { return this._notImplemented('findByHash'); }
     async findAllGlobal(filters)                             { return this._notImplemented('findAllGlobal'); }
     async findBySubject(subjectId, filters)                  { return this._notImplemented('findBySubject'); }

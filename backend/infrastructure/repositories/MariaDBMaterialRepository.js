@@ -16,16 +16,17 @@ const SELECT_MATERIAL = `
            m.category_id AS categoryId, cat.slug AS categorySlug, cat.nombre AS categoryNombre,
            m.titulo, m.tipo, m.url_or_path AS urlOrPath,
            m.portada, m.file_hash AS fileHash,
-           m.descripcion, m.pages, m.categories, m.estado, m.es_favorito AS esFavorito, m.contador_favoritos AS contadorFavoritos, m.created_at AS createdAt,
-           (SELECT GROUP_CONCAT(s.nombre SEPARATOR ',')
-              FROM material_subjects ms JOIN subjects s ON s.id = ms.subject_id
-             WHERE ms.material_id = m.id AND ms.estado_aprobacion = 'Aprobado') AS materias,
-           (SELECT GROUP_CONCAT(ms.subject_id SEPARATOR ',')
-              FROM material_subjects ms
-             WHERE ms.material_id = m.id AND ms.estado_aprobacion = 'Aprobado') AS materiasIds,
-           (SELECT GROUP_CONCAT(ms.subject_id SEPARATOR ',')
-              FROM material_subjects ms
-             WHERE ms.material_id = m.id) AS materiasTodosIds
+           m.descripcion, m.pages, m.categories, m.estado, m.es_favorito AS esFavorito,
+           m.contador_favoritos AS contadorFavoritos, m.created_at AS createdAt
+    FROM materials m
+    INNER JOIN users u ON u.id = m.autor_id
+    INNER JOIN roles r ON r.id = u.role_id
+    LEFT JOIN users ub ON ub.id = m.uploaded_by
+    LEFT JOIN roles ur ON ur.id = ub.role_id
+    LEFT JOIN categories cat ON cat.id = m.category_id
+`;
+
+const MATERIAL_FROM = `
     FROM materials m
     INNER JOIN users u ON u.id = m.autor_id
     INNER JOIN roles r ON r.id = u.role_id
@@ -36,17 +37,166 @@ const SELECT_MATERIAL = `
 
 const split = value => (value ? String(value).split(',') : []);
 
+const fullTextQuery = value => {
+    const tokens = String(value || '')
+        .trim()
+        .split(/\s+/)
+        .map(token => token.replace(/[+\-><()~*"@]/g, ''))
+        .filter(token => token.length >= 3);
+    return tokens.length ? tokens.map(token => `+${token}*`).join(' ') : null;
+};
+
 const mapMaterial = row => {
     if (!row) return null;
     const material = new Material({ ...row, categories: split(row.categories) });
-    material.materias = split(row.materias);
-    material.materiasIds = split(row.materiasIds).map(Number);
-    material.materiasTodosIds = split(row.materiasTodosIds).map(Number);
+    material.materias = [];
+    material.materiasIds = [];
+    material.materiasTodosIds = [];
     material.carreras = [];
     return material;
 };
 
 class MariaDBMaterialRepository extends MaterialRepositoryInterface {
+    buildOrder(filters = {}, alias = 'm') {
+        switch (filters.sort) {
+            case 'oldest': return `${alias}.created_at ASC, ${alias}.id ASC`;
+            case 'title': return `${alias}.titulo ASC, ${alias}.id ASC`;
+            default: return `${alias}.created_at DESC, ${alias}.id DESC`;
+        }
+    }
+
+    paginationClause(filters = {}) {
+        const limit = Number.isInteger(Number(filters.limit)) && Number(filters.limit) > 0
+            ? Math.min(Number(filters.limit), 100)
+            : 20;
+        const offset = Math.max(0, Number(filters.offset) || 0);
+        return { sql: 'LIMIT ? OFFSET ?', params: [limit, offset] };
+    }
+
+    async countWhere(where, params) {
+        const [rows] = await db.execute(
+            `SELECT COUNT(*) AS total ${MATERIAL_FROM} WHERE ${where.join(' AND ')}`,
+            params
+        );
+        return Number(rows[0].total) || 0;
+    }
+
+    /** Carga todas las asociaciones de detalle para una fila puntual. */
+    async attachAllAssociations(materials) {
+        const list = (materials || []).filter(Boolean);
+        if (!list.length) return list;
+        const ids = list.map(material => Number(material.id)).filter(Boolean);
+        const placeholders = ids.map(() => '?').join(',');
+        const [rows] = await db.execute(`
+            SELECT ms.material_id AS materialId, ms.subject_id AS subjectId,
+                   ms.estado_aprobacion AS estadoAprobacion, s.nombre AS subjectNombre
+              FROM material_subjects ms
+              INNER JOIN subjects s ON s.id = ms.subject_id
+             WHERE ms.material_id IN (${placeholders})`, ids);
+        const byMaterial = new Map();
+        rows.forEach(row => {
+            const key = Number(row.materialId);
+            if (!byMaterial.has(key)) byMaterial.set(key, []);
+            byMaterial.get(key).push({
+                id: Number(row.subjectId),
+                nombre: row.subjectNombre,
+                estadoAprobacion: row.estadoAprobacion
+            });
+        });
+        list.forEach(material => {
+            const associations = byMaterial.get(Number(material.id)) || [];
+            material.materiasTodosIds = associations.map(item => item.id);
+            material.materiasIds = associations
+                .filter(item => item.estadoAprobacion === 'Aprobado')
+                .map(item => item.id);
+            material.materias = associations
+                .filter(item => item.estadoAprobacion === 'Aprobado')
+                .map(item => item.nombre);
+        });
+        return list;
+    }
+
+    async findByHashesForUpdate(hashes = []) {
+        const unique = [...new Set(hashes.filter(Boolean))];
+        if (!unique.length) return new Map();
+        const placeholders = unique.map(() => '?').join(',');
+        const [rows] = await db.execute(
+            `SELECT id, file_hash AS fileHash, pages FROM materials
+              WHERE file_hash IN (${placeholders}) FOR UPDATE`,
+            unique
+        );
+        return new Map(rows.map(row => [row.fileHash, row]));
+    }
+
+    async saveMany(materials = []) {
+        if (!materials.length) return [];
+        const placeholders = materials.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+        const params = [];
+        materials.forEach(material => {
+            params.push(
+                material.autorId, material.uploadedBy || material.autorId, material.author || null,
+                material.categoryId || 5, material.titulo, material.tipo, material.urlOrPath,
+                material.portada || null, material.fileHash, material.descripcion,
+                material.pages || null,
+                Array.isArray(material.categories) ? material.categories.join(',') : (material.categories || ''),
+                material.estado
+            );
+        });
+        await db.execute(
+            `INSERT INTO materials (autor_id, uploaded_by, author, category_id, titulo, tipo, url_or_path, portada, file_hash, descripcion, pages, categories, estado)
+             VALUES ${placeholders}`,
+            params
+        );
+        const hashes = materials.map(material => material.fileHash).filter(Boolean);
+        if (!hashes.length) return materials;
+        const hashPlaceholders = hashes.map(() => '?').join(',');
+        const [rows] = await db.execute(
+            `SELECT id, file_hash AS fileHash FROM materials WHERE file_hash IN (${hashPlaceholders})`,
+            hashes
+        );
+        const byHash = new Map(rows.map(row => [row.fileHash, Number(row.id)]));
+        materials.forEach(material => {
+            material.id = byHash.get(material.fileHash) || null;
+            material.materias = [];
+            material.materiasIds = [];
+            material.materiasTodosIds = [];
+            material.carreras = [];
+        });
+        return materials;
+    }
+
+    async syncTagsMany(materials = []) {
+        const list = (materials || []).filter(material => material && material.id);
+        if (!list.length) return;
+        const ids = list.map(material => Number(material.id));
+        const placeholders = ids.map(() => '?').join(',');
+        await db.execute(`DELETE FROM material_tags WHERE material_id IN (${placeholders})`, ids);
+        const pairs = [];
+        list.forEach(material => {
+            const tags = [...new Set((material.categories || [])
+                .map(tag => String(tag || '').trim().toLowerCase())
+                .filter(Boolean))];
+            tags.forEach(tag => pairs.push([Number(material.id), tag]));
+        });
+        if (!pairs.length) return;
+        await db.query(
+            `INSERT IGNORE INTO material_tags (material_id, tag) VALUES ${pairs.map(() => '(?, ?)').join(', ')}`,
+            pairs.flat()
+        );
+    }
+
+    async syncTags(materialId, tags = []) {
+        const normalized = [...new Set((tags || [])
+            .map(tag => String(tag || '').trim().toLowerCase())
+            .filter(Boolean))];
+        await db.execute('DELETE FROM material_tags WHERE material_id = ?', [materialId]);
+        if (!normalized.length) return;
+        await db.query(
+            `INSERT IGNORE INTO material_tags (material_id, tag) VALUES ${normalized.map(() => '(?, ?)').join(', ')}`,
+            normalized.flatMap(tag => [materialId, tag])
+        );
+    }
+
     async save(material) {
         const categories = Array.isArray(material.categories)
             ? material.categories.join(',')
@@ -60,6 +210,7 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
              material.pages || null, categories, material.estado]
         );
         material.id = res.insertId;
+        await this.syncTags(material.id, material.categories);
         if (!material.materias) material.materias = [];
         if (!material.materiasIds) material.materiasIds = [];
         if (!material.materiasTodosIds) material.materiasTodosIds = [];
@@ -67,9 +218,25 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         return material;
     }
 
+    async findBasicById(id) {
+        const [rows] = await db.execute(
+            'SELECT id, titulo, pages FROM materials WHERE id = ?',
+            [id]
+        );
+        if (!rows.length) return null;
+        return {
+            id: Number(rows[0].id),
+            titulo: rows[0].titulo,
+            pages: rows[0].pages ? Number(rows[0].pages) : null
+        };
+    }
+
     async findById(id) {
         const [rows] = await db.execute(`${SELECT_MATERIAL} WHERE m.id = ?`, [id]);
-        return mapMaterial(rows[0]);
+        const material = mapMaterial(rows[0]);
+        if (!material) return null;
+        await this.attachAllAssociations([material]);
+        return material;
     }
 
     async findByHash(hash) {
@@ -77,13 +244,40 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         return mapMaterial(rows[0]);
     }
 
+    /**
+     * Serializa las subidas concurrentes del mismo contenido. El bloqueo de
+     * hueco sobre el indice unico evita que dos transacciones inserten el hash.
+     */
+    async findByHashForUpdate(hash) {
+        const [rows] = await db.execute(`${SELECT_MATERIAL} WHERE m.file_hash = ? FOR UPDATE`, [hash]);
+        return mapMaterial(rows[0]);
+    }
+
+    async lockAuthor(authorId) {
+        await db.execute('SELECT id FROM users WHERE id = ? FOR UPDATE', [authorId]);
+    }
+
     buildFilters(filters = {}, alias = 'm') {
         const clauses = [];
         const params = [];
         if (filters.q) {
-            clauses.push(`(${alias}.titulo LIKE ? OR ${alias}.author LIKE ? OR ${alias}.categories LIKE ? OR ${alias}.descripcion LIKE ? OR u.nombre LIKE ? OR u.apellido LIKE ?)`);
-            const like = `%${filters.q}%`;
-            params.push(like, like, like, like, like, like);
+            const query = fullTextQuery(filters.q);
+            if (query) {
+                clauses.push(`(EXISTS (
+                    SELECT 1 FROM material_search mse
+                     WHERE mse.material_id = ${alias}.id
+                       AND MATCH(mse.search_text) AGAINST (? IN BOOLEAN MODE)
+                ) OR EXISTS (
+                    SELECT 1 FROM user_search us
+                     WHERE us.user_id = ${alias}.autor_id
+                       AND MATCH(us.search_text) AGAINST (? IN BOOLEAN MODE)
+                ))`);
+                params.push(query, query);
+            } else {
+                clauses.push(`(${alias}.titulo LIKE ? OR ${alias}.author LIKE ?)`);
+                const like = `%${filters.q}%`;
+                params.push(like, like);
+            }
         }
         if (filters.tipo) {
             clauses.push(`${alias}.tipo = ?`);
@@ -98,9 +292,10 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
                 params.push(filters.category);
             }
         }
-        if (filters.uploadYear) {
-            clauses.push(`YEAR(${alias}.created_at) = ?`);
-            params.push(Number(filters.uploadYear));
+        if (filters.uploadYear && /^\d{4}$/.test(String(filters.uploadYear))) {
+            const year = Number(filters.uploadYear);
+            clauses.push(`${alias}.created_at >= ? AND ${alias}.created_at < ?`);
+            params.push(`${year}-01-01 00:00:00`, `${year + 1}-01-01 00:00:00`);
         }
         if (filters.subjects && filters.subjects.length) {
             const placeholders = filters.subjects.map(() => '?').join(',');
@@ -127,9 +322,12 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
             params.push(...filters.years);
         }
         if (filters.tags && filters.tags.length) {
-            const andTags = filters.tags.map(() => `${alias}.categories LIKE ?`).join(' AND ');
-            clauses.push(`(${andTags})`);
-            filters.tags.forEach(tag => params.push(`%${tag}%`));
+            const normalized = [...new Set(filters.tags.map(tag => String(tag || '').trim().toLowerCase()).filter(Boolean))];
+            normalized.forEach(tag => {
+                clauses.push(`EXISTS (SELECT 1 FROM material_tags mt
+                              WHERE mt.material_id = ${alias}.id AND mt.tag = ?)`);
+                params.push(tag);
+            });
         }
         return { clauses, params };
     }
@@ -199,53 +397,79 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         // El catalogo global muestra todo material aprobado, aunque ya no
         // tenga materias asociadas: sigue disponible para reasociarlo.
         const where = [`m.estado = 'Aprobado'`, ...clauses];
+        const page = this.paginationClause(filters);
         const [rows] = await db.execute(
-            `${SELECT_MATERIAL} WHERE ${where.join(' AND ')} ORDER BY m.created_at DESC`, params
+            `${SELECT_MATERIAL} WHERE ${where.join(' AND ')}
+             ORDER BY ${this.buildOrder(filters)} ${page.sql}`,
+            [...params, ...page.params]
         );
-        return this.attachCareers(rows.map(mapMaterial));
+        const total = await this.countWhere(where, params);
+        return { items: await this.attachCareers(rows.map(mapMaterial)), total };
     }
 
     async findBySubject(subjectId, filters = {}) {
         const { clauses, params } = this.buildFilters(filters);
-        const where = [
+        const link = `INNER JOIN material_subjects msx
+                        ON msx.material_id = m.id AND msx.subject_id = ?
+                       AND msx.estado_aprobacion = 'Aprobado'
+                       ${filters.mandatory ? 'AND msx.is_mandatory = 1' : ''}`;
+        const where = [`m.estado = 'Aprobado'`, ...clauses];
+        const queryParams = [subjectId, ...params];
+        const page = this.paginationClause(filters);
+        const order = !filters.sort || filters.sort === 'newest'
+            ? 'msx.material_id DESC, m.id DESC'
+            : this.buildOrder(filters);
+        const [rows] = await db.execute(
+            `${SELECT_MATERIAL} ${link} WHERE ${where.join(' AND ')}
+             ORDER BY ${order} ${page.sql}`,
+            [...queryParams, ...page.params]
+        );
+        const countWhere = [
             `m.estado = 'Aprobado'`,
             `EXISTS (SELECT 1 FROM material_subjects msx WHERE msx.material_id = m.id
                      AND msx.subject_id = ? AND msx.estado_aprobacion = 'Aprobado'
                      ${filters.mandatory ? 'AND msx.is_mandatory = 1' : ''})`,
             ...clauses
         ];
-        const [rows] = await db.execute(
-            `${SELECT_MATERIAL} WHERE ${where.join(' AND ')} ORDER BY m.created_at DESC`,
-            [subjectId, ...params]
-        );
-        return this.attachCareers(rows.map(mapMaterial));
+        const total = await this.countWhere(countWhere, queryParams);
+        return { items: await this.attachCareers(rows.map(mapMaterial)), total };
     }
 
     async findByAuthor(authorId, filters = {}) {
         const { clauses, params } = this.buildFilters(filters);
         const where = [`m.autor_id = ?`];
-        if (filters.estado === 'Aprobado' || filters.estado) where.push('m.estado = ?');
-        where.push(...clauses);
         const queryParams = [authorId];
-        if (filters.estado) queryParams.push(filters.estado);
+        if (filters.estado) {
+            where.push('m.estado = ?');
+            queryParams.push(filters.estado);
+        }
+        where.push(...clauses);
         queryParams.push(...params);
+        const page = this.paginationClause(filters);
         const [rows] = await db.execute(
-            `${SELECT_MATERIAL} WHERE ${where.join(' AND ')} ORDER BY m.created_at DESC`,
-            queryParams
+            `${SELECT_MATERIAL} WHERE ${where.join(' AND ')}
+             ORDER BY ${this.buildOrder(filters)} ${page.sql}`,
+            [...queryParams, ...page.params]
         );
-        return this.attachCareers(rows.map(mapMaterial));
+        const total = await this.countWhere(where, queryParams);
+        return { items: await this.attachCareers(rows.map(mapMaterial)), total };
     }
 
-    async findPendingByAuthor(authorId) {
+    async findPendingByAuthor(authorId, filters = {}) {
+        const where = [`m.autor_id = ?`, `m.estado = 'Pendiente'`];
+        const page = this.paginationClause(filters);
         const [rows] = await db.execute(
-            `${SELECT_MATERIAL} WHERE m.autor_id = ? AND m.estado = 'Pendiente' ORDER BY m.created_at DESC`,
-            [authorId]
+            `${SELECT_MATERIAL} WHERE ${where.join(' AND ')}
+             ORDER BY ${this.buildOrder(filters)} ${page.sql}`,
+            [authorId, ...page.params]
         );
-        return rows.map(mapMaterial);
+        const total = await this.countWhere(where, [authorId]);
+        return { items: rows.map(mapMaterial), total };
     }
 
     /** Material sugerido por alumnos pendiente de revision en las materias del profesor. */
-    async findPendingForProfessor(profesorId) {
+    async findPendingForProfessor(profesorId, filters = {}) {
+        const page = this.paginationClause(filters);
         const [rows] = await db.execute(`
             SELECT m.id, m.autor_id AS autorId, CONCAT(u.nombre, ' ', u.apellido) AS autorNombre,
                    m.uploaded_by AS uploadedBy,
@@ -264,14 +488,24 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
             WHERE ms.estado_aprobacion = 'Pendiente'
               AND EXISTS (SELECT 1 FROM subject_professors sp
                            WHERE sp.subject_id = s.id AND sp.profesor_id = ?)
-            ORDER BY m.created_at DESC`, [profesorId]);
-
-        return rows.map(r => {
-            const material = new Material({ ...r, categories: split(r.categories) });
-            material.subjectId = r.subjectId;
-            material.subjectNombre = r.subjectNombre;
-            return material;
-        });
+            ORDER BY m.created_at DESC ${page.sql}`, [profesorId, ...page.params]);
+        const [countRows] = await db.execute(`
+            SELECT COUNT(*) AS total
+              FROM material_subjects ms
+              INNER JOIN materials m ON m.id = ms.material_id
+              INNER JOIN subjects s ON s.id = ms.subject_id
+             WHERE ms.estado_aprobacion = 'Pendiente'
+               AND EXISTS (SELECT 1 FROM subject_professors sp
+                            WHERE sp.subject_id = s.id AND sp.profesor_id = ?)`, [profesorId]);
+        return {
+            items: rows.map(r => {
+                const material = new Material({ ...r, categories: split(r.categories) });
+                material.subjectId = r.subjectId;
+                material.subjectNombre = r.subjectNombre;
+                return material;
+            }),
+            total: Number(countRows[0].total) || 0
+        };
     }
 
     async countPendingByAuthor(authorId) {
@@ -286,10 +520,27 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         await db.execute(
             `INSERT INTO material_subjects (material_id, subject_id, estado_aprobacion)
              VALUES (?, ?, ?)
-             ON DUPLICATE KEY UPDATE estado_aprobacion = VALUES(estado_aprobacion)`,
+             ON DUPLICATE KEY UPDATE estado_aprobacion =
+                IF(estado_aprobacion = 'Aprobado', 'Aprobado', VALUES(estado_aprobacion))`,
             [materialId, subjectId, estado]
         );
         return true;
+    }
+
+    async findAssociation(materialId, subjectId) {
+        const [rows] = await db.execute(
+            `SELECT material_id AS materialId, subject_id AS subjectId,
+                    estado_aprobacion AS estadoAprobacion, is_mandatory AS isMandatory
+               FROM material_subjects WHERE material_id = ? AND subject_id = ?`,
+            [materialId, subjectId]
+        );
+        if (!rows.length) return null;
+        return {
+            materialId: Number(rows[0].materialId),
+            subjectId: Number(rows[0].subjectId),
+            estadoAprobacion: rows[0].estadoAprobacion,
+            isMandatory: Boolean(rows[0].isMandatory)
+        };
     }
 
     async updateAssociationState(materialId, subjectId, estado) {
@@ -300,11 +551,33 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         return res.affectedRows > 0;
     }
 
+    async approveAssociation(materialId, subjectId) {
+        const [res] = await db.execute(
+            `UPDATE material_subjects
+                SET estado_aprobacion = 'Aprobado'
+              WHERE material_id = ? AND subject_id = ? AND estado_aprobacion = 'Pendiente'`,
+            [materialId, subjectId]
+        );
+        return res.affectedRows > 0;
+    }
+
     async updateEstado(materialId, estado) {
         const [res] = await db.execute(
             `UPDATE materials SET estado = ? WHERE id = ?`, [estado, materialId]
         );
         return res.affectedRows > 0;
+    }
+
+    async markApproved(materialId) {
+        const [rows] = await db.execute(
+            'SELECT estado FROM materials WHERE id = ? FOR UPDATE',
+            [materialId]
+        );
+        if (!rows.length || !['Pendiente', 'Aprobado'].includes(rows[0].estado)) return false;
+        if (rows[0].estado === 'Pendiente') {
+            await db.execute("UPDATE materials SET estado = 'Aprobado' WHERE id = ?", [materialId]);
+        }
+        return true;
     }
 
     async deleteAssociation(materialId, subjectId) {
@@ -368,6 +641,9 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
         if (!fields.length) return false;
         params.push(materialId);
         const [res] = await db.execute(`UPDATE materials SET ${fields.join(', ')} WHERE id = ?`, params);
+        if (res.affectedRows > 0 && changes.categories !== undefined) {
+            await this.syncTags(materialId, changes.categories);
+        }
         return res.affectedRows > 0;
     }
 
@@ -377,46 +653,70 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
     }
     // Favorites methods
     async toggleFavorite(materialId, userId) {
-        const [existing] = await db.execute(
-            'SELECT id FROM material_favorites WHERE material_id = ? AND usuario_id = ?',
-            [materialId, userId]
-        );
-        let favorited;
-        if (existing.length > 0) {
-            await db.execute('DELETE FROM material_favorites WHERE id = ?', [existing[0].id]);
-            await db.execute('UPDATE materials SET contador_favoritos = GREATEST(contador_favoritos - 1, 0) WHERE id = ?', [materialId]);
-            favorited = false;
-        } else {
-            await db.execute('INSERT INTO material_favorites (material_id, usuario_id) VALUES (?, ?)', [materialId, userId]);
-            await db.execute('UPDATE materials SET contador_favoritos = contador_favoritos + 1 WHERE id = ?', [materialId]);
-            favorited = true;
-        }
-        return { favorited, contadorFavoritos: await this.countFavorites(materialId) };
+        return db.transaction(async () => {
+            await db.execute('SELECT id FROM materials WHERE id = ? FOR UPDATE', [materialId]);
+            const [existing] = await db.execute(
+                'SELECT id FROM material_favorites WHERE material_id = ? AND usuario_id = ? FOR UPDATE',
+                [materialId, userId]
+            );
+            let favorited;
+            if (existing.length > 0) {
+                await db.execute('DELETE FROM material_favorites WHERE id = ?', [existing[0].id]);
+                favorited = false;
+            } else {
+                await db.execute(
+                    'INSERT INTO material_favorites (material_id, usuario_id) VALUES (?, ?)',
+                    [materialId, userId]
+                );
+                favorited = true;
+            }
+            await db.execute(
+                `UPDATE materials
+                    SET contador_favoritos = (SELECT COUNT(*) FROM material_favorites WHERE material_id = ?)
+                  WHERE id = ?`,
+                [materialId, materialId]
+            );
+            return { favorited, contadorFavoritos: await this.countFavorites(materialId) };
+        });
     }
 
     async findFavorites(userId, filters = {}) {
         const built = this.buildFilters(filters, 'm');
-        const clauses = built.clauses;
-        const params = built.params;
-        const where = [`mf.usuario_id = ?`, "m.estado = 'Aprobado'", ...clauses];
-        let sql = `${SELECT_MATERIAL} INNER JOIN material_favorites mf ON mf.material_id = m.id
-                   WHERE ${where.join(' AND ')} ORDER BY mf.created_at DESC`;
-        if (filters.limit !== undefined) {
-            const limit = Math.max(0, parseInt(filters.limit, 10) || 0);
-            const offset = Math.max(0, parseInt(filters.offset, 10) || 0);
-            sql += ` LIMIT ${limit} OFFSET ${offset}`;
-        }
-        const [rows] = await db.execute(sql, [userId, ...params]);
+        const where = [`mf.usuario_id = ?`, "m.estado = 'Aprobado'", ...built.clauses];
+        const params = [userId, ...built.params];
+        const page = this.paginationClause(filters);
+        const [rows] = await db.execute(
+            `${SELECT_MATERIAL} INNER JOIN material_favorites mf ON mf.material_id = m.id
+             WHERE ${where.join(' AND ')}
+             ORDER BY mf.created_at DESC, m.id DESC ${page.sql}`,
+            [...params, ...page.params]
+        );
+        const [countRows] = await db.execute(
+            `SELECT COUNT(*) AS total ${MATERIAL_FROM}
+             INNER JOIN material_favorites mf ON mf.material_id = m.id
+             WHERE ${where.join(' AND ')}`, params
+        );
         const materials = rows.map(row => {
             const material = mapMaterial(row);
             if (material) material.esFavorito = 1;
             return material;
         });
-        return this.attachCareers(materials);
+        return { items: await this.attachCareers(materials), total: Number(countRows[0].total) || 0 };
     }
 
-    async findFavoriteIds(userId) {
+    async findFavoriteIds(userId, materialIds = null) {
         if (!userId) return [];
+        if (Array.isArray(materialIds)) {
+            const ids = [...new Set(materialIds.map(Number).filter(Boolean))];
+            if (!ids.length) return [];
+            const placeholders = ids.map(() => '?').join(',');
+            const [rows] = await db.execute(
+                `SELECT material_id AS id FROM material_favorites
+                  WHERE usuario_id = ? AND material_id IN (${placeholders})`,
+                [userId, ...ids]
+            );
+            return rows.map(r => Number(r.id));
+        }
         const [rows] = await db.execute(
             'SELECT material_id AS id FROM material_favorites WHERE usuario_id = ?', [userId]
         );
@@ -466,15 +766,21 @@ class MariaDBMaterialRepository extends MaterialRepositoryInterface {
     }
 
     async findFilterOptions() {
-        const [years] = await db.execute(
-            `SELECT DISTINCT YEAR(created_at) AS year FROM materials
-              WHERE estado = 'Aprobado' ORDER BY year DESC`
+        const [rangeRows] = await db.execute(
+            `SELECT MIN(created_at) AS minDate, MAX(created_at) AS maxDate
+               FROM materials WHERE estado = 'Aprobado'`
         );
         const [categories] = await db.execute(
             `SELECT id, slug, nombre FROM categories ORDER BY nombre`
         );
+        const minYear = rangeRows[0]?.minDate ? new Date(rangeRows[0].minDate).getFullYear() : null;
+        const maxYear = rangeRows[0]?.maxDate ? new Date(rangeRows[0].maxDate).getFullYear() : null;
+        const years = [];
+        if (minYear && maxYear) {
+            for (let year = maxYear; year >= minYear; year -= 1) years.push(year);
+        }
         return {
-            years: years.map(row => Number(row.year)).filter(Boolean),
+            years,
             categories: categories.map(row => ({
                 id: Number(row.id), slug: row.slug, nombre: row.nombre
             }))

@@ -3,6 +3,7 @@
 * RoleService: gestion normalizada de roles (RF-01, RD-02).
 */
 
+const db = require('../../config/db');
 const Role = require('../../domain/entities/Role');
 const AuditLog = require('../../domain/entities/AuditLog');
 const AppError = require('../../utils/AppError');
@@ -26,12 +27,14 @@ class RoleService {
             throw validator.toError();
         }
 
-        const existing = await this.roleRepository.findByName(dto.nombre);
-        if (existing) throw new AppError('validation.roleTaken', { status: 409 });
+        return db.transaction(async () => {
+            const existing = await this.roleRepository.findByName(dto.nombre);
+            if (existing) throw new AppError('validation.roleTaken', { status: 409 });
 
-        const role = await this.roleRepository.save(new Role({ nombre: dto.nombre, descripcion: dto.descripcion }));
-        await this.auditLogService.record(AuditLog.OPERACIONES.ALTA_ROL, usuarioId, role.id);
-        return role;
+            const role = await this.roleRepository.save(new Role({ nombre: dto.nombre, descripcion: dto.descripcion }));
+            await this.auditLogService.record(AuditLog.OPERACIONES.ALTA_ROL, usuarioId, role.id);
+            return role;
+        });
     }
 
     async getRoleById(id) {

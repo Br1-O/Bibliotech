@@ -5,40 +5,80 @@
 */
 
 const ValidationError = require('../validator/ValidationError');
+const { logger } = require('../utils/logger');
+const metrics = require('../utils/metrics');
+
+const MULTER_ERRORS = {
+    LIMIT_FILE_SIZE: ['validation.fileSize', 413],
+    LIMIT_FILE_COUNT: ['validation.fileCount', 413],
+    LIMIT_PART_COUNT: ['validation.partCount', 413],
+    LIMIT_FIELD_COUNT: ['validation.fieldCount', 413],
+    LIMIT_UNEXPECTED_FILE: ['validation.fileType', 400],
+    VALIDATION_FILE_TYPE: ['validation.fileType', 400],
+    VALIDATION_COVER_TYPE: ['validation.coverType', 400]
+};
 
 // eslint-disable-next-line no-unused-vars
 function errorMiddleware(err, req, res, next) {
     const t = req.t || ((key) => key);
+    const requestId = req.id || null;
+    const send = (status, body) => {
+        if (requestId) res.setHeader('X-Request-Id', requestId);
+        return res.status(status).json({ ...body, requestId });
+    };
 
     if (err instanceof ValidationError) {
-        return res.status(err.status || 422).json({
+        return send(err.status || 422, {
             message: t('validation.invalidData'),
             errors: err.errors,
             fields: err.fields || {}
         });
     }
 
-    // Error de negocio (AppError) con messageKey traducible.
     if (err && err.messageKey) {
-        return res.status(err.status || 400).json({
+        if (err.status === 429 && !res.getHeader('Retry-After')) {
+            const seconds = err.params?.seconds || 60;
+            res.setHeader('Retry-After', String(seconds));
+        }
+        return send(err.status || 400, {
             message: t(err.messageKey, err.params),
             code: err.code || err.messageKey
         });
     }
 
-    // Errores de Multer.
-    if (err && err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: t('validation.fileSize') });
-    }
-    if (err && err.message === 'VALIDATION_FILE_TYPE') {
-        return res.status(400).json({ message: t('validation.fileType') });
-    }
-    if (err && err.message === 'VALIDATION_COVER_TYPE') {
-        return res.status(400).json({ message: t('validation.coverType') });
+    if (err && Object.prototype.hasOwnProperty.call(MULTER_ERRORS, err.code)) {
+        const [key, status] = MULTER_ERRORS[err.code];
+        metrics.recordUploadRejection(err.code.toLowerCase());
+        return send(status, { message: t(key), code: err.code });
     }
 
-    console.error(err);
-    return res.status(500).json({ message: t('errors.serverError') });
+    if (err && Object.prototype.hasOwnProperty.call(MULTER_ERRORS, err.message)) {
+        const [key, status] = MULTER_ERRORS[err.message];
+        metrics.recordUploadRejection(err.message.toLowerCase());
+        return send(status, { message: t(key), code: err.message });
+    }
+
+    if (err && err.type === 'entity.too.large') {
+        metrics.recordUploadRejection('body_too_large');
+        return send(413, { message: t('validation.requestTooLarge'), code: 'REQUEST_TOO_LARGE' });
+    }
+
+    if (err && err.type === 'entity.parse.failed') {
+        return send(400, { message: t('validation.invalidData'), code: 'INVALID_JSON' });
+    }
+
+    const log = req.log || logger;
+    log.error('http.unhandled_error', {
+        error: err,
+        method: req.method,
+        path: req.path,
+        requestId
+    });
+    metrics.increment('http_server_errors_total');
+    if (err && /^(ER_|PROTOCOL_|ECONN|ETIMEDOUT|ENOTFOUND)/.test(String(err.code || ''))) {
+        metrics.recordDbError(String(err.code));
+    }
+    return send(500, { message: t('errors.serverError'), code: 'SERVER_ERROR' });
 }
 
 module.exports = errorMiddleware;

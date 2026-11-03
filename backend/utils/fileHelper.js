@@ -1,20 +1,82 @@
 /**
 * Project     : Bibliotech  |  Capa: Infraestructura/Utils
 * fileHelper: operaciones seguras sobre el almacenamiento del material subido.
-* Soporta FILES_MODE local (filesystem) y cloud (Cloudinary).
+* Distingue entre URL remotas (Cloudinary) y rutas locales del directorio uploads.
 */
 
 const fs = require('fs');
 const path = require('path');
 
+const UPLOAD_DIR = path.resolve(__dirname, '..', 'uploads');
+const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+
+function isRemoteUrl(value) {
+    return /^https?:\/\//i.test(String(value || '').trim());
+}
+
+function isCloudinaryUrl(value) {
+    if (!isRemoteUrl(value)) return false;
+    try {
+        const url = new URL(String(value).trim());
+        return /(^|\.)res\.cloudinary\.com$/i.test(url.hostname);
+    } catch (error) {
+        return false;
+    }
+}
+
+function parseCloudinaryAsset(value) {
+    try {
+        const url = new URL(String(value).trim());
+        const match = url.pathname.match(/^\/(image|raw|video)\/upload\/(?:v\d+\/)?(.+)$/i);
+        if (!match) return null;
+        const publicId = decodeURIComponent(match[2]);
+        return {
+            resourceType: match[1].toLowerCase(),
+            publicId,
+            publicIdWithoutExtension: publicId.replace(/\.[a-z0-9]+$/i, '')
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
 const fileHelper = {
+    UPLOAD_DIR,
+    isRemoteUrl,
+    isCloudinaryUrl,
+
+    resolveLocalPath(relativePath) {
+        if (typeof relativePath !== 'string') return null;
+        const value = relativePath.trim();
+        if (!value || value.includes('\u0000')) return null;
+        if (isRemoteUrl(value) || value.startsWith('//') || URL_SCHEME.test(value)) return null;
+
+        const uploadsPrefix = /^\/?uploads(?:[\\/]|$)/i;
+        let relative;
+        if (uploadsPrefix.test(value)) {
+            relative = value.replace(uploadsPrefix, '');
+        } else if (path.isAbsolute(value)) {
+            const absolutePath = path.resolve(value);
+            if (absolutePath === UPLOAD_DIR || absolutePath.startsWith(UPLOAD_DIR + path.sep)) {
+                return absolutePath;
+            }
+            return null;
+        } else {
+            relative = value;
+        }
+
+        relative = relative.replace(/^[/\\]+/, '');
+        if (!relative) return null;
+        const absolutePath = path.resolve(UPLOAD_DIR, relative);
+        if (absolutePath !== UPLOAD_DIR && !absolutePath.startsWith(UPLOAD_DIR + path.sep)) return null;
+        return absolutePath;
+    },
+
     /** Elimina un archivo fisico dado su ruta relativa (ej: /uploads/x.pdf). */
     deleteFile(relativePath) {
         if (!relativePath) return false;
-        const uploadDir = path.resolve(__dirname, '..', 'uploads');
-        const relative = String(relativePath).replace(/^\/?uploads[\\/]/i, '').replace(/^[/\\]+/, '');
-        const absolutePath = path.resolve(uploadDir, relative);
-        if (absolutePath !== uploadDir && !absolutePath.startsWith(uploadDir + path.sep)) return false;
+        const absolutePath = this.resolveLocalPath(relativePath);
+        if (!absolutePath) return false;
         try {
             if (fs.existsSync(absolutePath)) {
                 fs.unlinkSync(absolutePath);
@@ -26,44 +88,57 @@ const fileHelper = {
         return false;
     },
 
+    async deleteCloudinaryFile(url) {
+        const asset = parseCloudinaryAsset(url);
+        if (!asset) return false;
+        try {
+            const cloudinary = require('cloudinary').v2;
+            cloudinary.config({
+                cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                api_key: process.env.CLOUDINARY_API_KEY,
+                api_secret: process.env.CLOUDINARY_API_SECRET
+            });
+
+            const candidates = [];
+            const resourceTypes = [asset.resourceType, 'image', 'raw', 'video'];
+            resourceTypes.forEach(resourceType => {
+                [asset.publicId, asset.publicIdWithoutExtension].forEach(publicId => {
+                    if (!publicId) return;
+                    if (candidates.some(item => item.publicId === publicId && item.resourceType === resourceType)) return;
+                    candidates.push({ publicId, resourceType });
+                });
+            });
+
+            for (const candidate of candidates) {
+                const result = await cloudinary.uploader.destroy(candidate.publicId, {
+                    resource_type: candidate.resourceType,
+                    invalidate: true
+                });
+                if (result && result.result === 'ok') return true;
+            }
+            return false;
+        } catch (err) {
+            console.error(`Error al borrar archivo remoto: ${err.message}`);
+            return false;
+        }
+    },
+
     /**
-     * Elimina el material del almacenamiento segun el modo configurado.
-     * Los enlaces externos (Drive/YouTube) no se borran.
+     * Elimina el material del almacenamiento segun el origen de la ruta.
+     * Las URLs externas que no son de Cloudinary (Drive/YouTube) no se borran.
      * @returns {Promise<boolean>}
      */
     async deleteStorageFile(urlOrPath) {
         if (!urlOrPath || typeof urlOrPath !== 'string') return false;
-        const mode = process.env.FILES_MODE || 'local';
+        const value = urlOrPath.trim();
+        if (!value) return false;
 
-        if (mode === 'cloud') {
-            const isCloudinary = urlOrPath.includes('res.cloudinary.com');
-            if (!isCloudinary) return false;
-            try {
-                const cloudinary = require('cloudinary').v2;
-                cloudinary.config({
-                    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-                    api_key: process.env.CLOUDINARY_API_KEY,
-                    api_secret: process.env.CLOUDINARY_API_SECRET
-                });
-                const match = urlOrPath.match(/\/upload\/(?:v\d+\/)?(.+)$/);
-                if (!match) return false;
-                const fullId = decodeURIComponent(match[1]);
-                const publicId = fullId.replace(/\.[a-z0-9]+$/i, '');
-                // El recurso pudo subirse como imagen o como raw (documento).
-                for (const resourceType of ['image', 'raw']) {
-                    for (const id of [fullId, publicId]) {
-                        const result = await cloudinary.uploader.destroy(id, { resource_type: resourceType });
-                        if (result && result.result === 'ok') return true;
-                    }
-                }
-                return false;
-            } catch (err) {
-                console.error(`Error al borrar archivo remoto: ${err.message}`);
-                return false;
-            }
+        if (isRemoteUrl(value)) {
+            if (!isCloudinaryUrl(value)) return false;
+            return this.deleteCloudinaryFile(value);
         }
-        if (!urlOrPath.startsWith('/uploads/')) return false;
-        return this.deleteFile(urlOrPath);
+        if (value.startsWith('//') || URL_SCHEME.test(value)) return false;
+        return this.deleteFile(value);
     }
 };
 

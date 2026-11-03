@@ -9,12 +9,13 @@ class NotificationService {
         this.notificationRepository = notificationRepository;
     }
 
-    async list(usuarioId) {
-        const [notifications, unreadCount] = await Promise.all([
-            this.notificationRepository.findByUser(usuarioId),
-            this.notificationRepository.countUnread(usuarioId)
+    async list(usuarioId, filters = {}) {
+        const [notifications, unreadCount, total] = await Promise.all([
+            this.notificationRepository.findByUser(usuarioId, filters),
+            this.notificationRepository.countUnread(usuarioId),
+            this.notificationRepository.countByUser(usuarioId)
         ]);
-        return { notifications, unreadCount };
+        return { notifications, unreadCount, total };
     }
 
     async markRead(id, usuarioId) {

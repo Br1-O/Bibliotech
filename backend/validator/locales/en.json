@@ -52,13 +52,19 @@
     "pendingLimit": "You cannot have more than {max} materials pending approval.",
     "emailTaken": "The email address is already registered.",
     "roleTaken": "The role is already registered.",
+    "invalidState": "The resource is no longer in a state that allows this action.",
     "invalidData": "The submitted data is invalid.",
     "duplicateMaterial": "Another material already uses the same file or link.",
     "birthdate": "The birthdate is not valid.",
     "gender": "The selected gender is not valid.",
     "genderCustom": "Custom gender must contain between 3 and 10 letters.",
     "materialPagesMissing": "This material has no page count. Enter the total pages manually.",
-    "currentPassword": "The current password is incorrect."
+    "currentPassword": "The current password is incorrect.",
+    "requestTooLarge": "The request exceeds the maximum allowed size.",
+    "uploadLengthRequired": "The upload request must declare its size.",
+    "fileCount": "The maximum number of files was exceeded.",
+    "partCount": "The request contains too many parts.",
+    "fieldCount": "The request contains too many fields."
   },
   "messages": {
     "registerSuccess": "Account created. Check your email and open the activation link before signing in.",
@@ -90,7 +96,8 @@
     "careerUpdated": "Career updated successfully.",
     "yearCreated": "Year created successfully.",
     "yearUpdated": "Year updated successfully.",
-    "batchUploaded": "Batch upload completed. Created: {created}. Skipped duplicates: {skipped}."
+    "batchUploaded": "Batch upload completed. Created: {created}. Skipped duplicates: {skipped}.",
+    "roleChanged": "Role updated successfully."
   },
   "roles": {
     "Superadmin": "Superadmin",
@@ -105,6 +112,8 @@
     "invalidToken": "Invalid or expired link.",
     "accountNotVerified": "You must activate your account from the link sent to your email before signing in.",
     "accountDisabled": "Your account is disabled. Contact the administrator.",
-    "serverError": "Internal server error."
+    "serverError": "Internal server error.",
+    "tooManyRequests": "Too many requests. Try again in {seconds} seconds.",
+    "requestTimeout": "The request took too long."
   }
 }

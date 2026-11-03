@@ -4,11 +4,20 @@
 */
 
 const path = require('path');
+const { Readable } = require('stream');
+const { pipeline } = require('stream/promises');
 const { ok } = require('../utils/respond');
 const hashHelper = require('../utils/hashHelper');
 const fileHelper = require('../utils/fileHelper');
 const mediaValidator = require('../utils/mediaValidator');
 const AppError = require('../utils/AppError');
+const { getConfig } = require('../config/env');
+const { logger } = require('../utils/logger');
+const metrics = require('../utils/metrics');
+const { parsePagination, paginationMeta } = require('../utils/pagination');
+
+const config = getConfig();
+const FILES_MODE = config.upload.mode;
 
 const parseList = (value) => {
     if (value === undefined || value === null || value === '') return [];
@@ -20,15 +29,142 @@ const getFile = (req, field) => (req.files && req.files[field] ? req.files[field
 
 const storedPath = (file) => {
     if (!file) return null;
-    const mode = process.env.FILES_MODE || 'local';
-    return mode === 'cloud' ? file.path : `/uploads/${file.filename}`;
+    return FILES_MODE === 'cloud' ? file.path : `/uploads/${file.filename}`;
 };
 
-const hashOf = (file) => {
-    const mode = process.env.FILES_MODE || 'local';
-    if (mode === 'cloud') return file.fileHash || hashHelper.hashString(file.path);
+const hashOf = async (file) => {
+    if (FILES_MODE === 'cloud') return file.fileHash || hashHelper.hashString(file.path);
     return hashHelper.hashFile(file.path);
 };
+
+const uploadedFiles = (req) => {
+    if (!req.files) return [];
+    return Array.isArray(req.files) ? req.files : Object.values(req.files).flat();
+};
+
+const cleanupUploads = async (req, createdPaths = []) => {
+    const values = new Set(createdPaths);
+    uploadedFiles(req).forEach(file => {
+        const value = storedPath(file);
+        if (value) values.add(value);
+    });
+    for (const value of values) {
+        try { await fileHelper.deleteStorageFile(value); }
+        catch (error) { logger.warn('upload.cleanup_failed', { error }); }
+    }
+};
+
+const downloadName = (material) => {
+    const source = String(material.urlOrPath || '').split(/[?#]/)[0];
+    const extension = path.extname(source).toLowerCase()
+        || ({ PDF: '.pdf', EPUB: '.epub', Word: '.docx', Presentacion: '.pptx' }[material.tipo] || '');
+    const base = String(material.titulo || 'material')
+        .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120) || 'material';
+    return extension && !base.toLowerCase().endsWith(extension) ? `${base}${extension}` : base;
+};
+
+const CONTENT_TYPES = {
+    PDF: 'application/pdf',
+    EPUB: 'application/epub+zip',
+    Word: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    Presentacion: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+};
+
+const contentDisposition = (disposition, name) => {
+    const safeName = String(name || 'material').replace(/["\\\r\n]/g, '_');
+    const encoded = encodeURIComponent(name || 'material')
+        .replace(/['()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+    return `${disposition}; filename="${safeName}"; filename*=UTF-8''${encoded}`;
+};
+
+/**
+ * Cloudinary entrega los PDFs subidos como "raw" con Content-Disposition
+ * attachment, por lo que un redirect no permite visualizarlos en el iframe.
+ * Se transmite el contenido desde el backend con el tipo y disposicion correctos.
+ * Se reenvian los rangos para que el visor PDF del navegador pueda pedir por
+ * partes y para no descargar el archivo completo en cada salto de pagina.
+ */
+const REMOTE_FILE_HEADERS = ['content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified'];
+
+const streamRemoteFile = async (req, res, material, disposition) => {
+    const source = String(material.urlOrPath);
+    const upstreamHeaders = { 'Accept-Encoding': 'identity' };
+    if (req.headers.range) upstreamHeaders.Range = req.headers.range;
+    if (req.headers['if-range']) upstreamHeaders['If-Range'] = req.headers['if-range'];
+
+    const controller = new AbortController();
+    let response;
+    try {
+        response = await fetch(source, {
+            method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+            headers: upstreamHeaders,
+            redirect: 'follow',
+            signal: controller.signal
+        });
+    } catch (error) {
+        if (error.name === 'AbortError') return;
+        throw new AppError('errors.notFound', { status: 404 });
+    }
+
+    if (!response.ok || (req.method !== 'HEAD' && !response.body) ||
+        !fileHelper.isCloudinaryUrl(response.url)) {
+        throw new AppError('errors.notFound', { status: 404 });
+    }
+
+    const partial = response.status === 206 && Boolean(response.headers.get('content-range'));
+    res.status(partial ? 206 : 200);
+    const contentType = CONTENT_TYPES[material.tipo]
+        || response.headers.get('content-type')
+        || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', contentDisposition(disposition, downloadName(material)));
+    REMOTE_FILE_HEADERS.forEach(name => {
+        const value = response.headers.get(name);
+        if (value) res.setHeader(name.replace(/(^|-)([a-z])/g, (_, dash, char) => dash + char.toUpperCase()), value);
+    });
+    if (!partial) res.removeHeader('Content-Range');
+
+    if (req.method === 'HEAD') {
+        res.end();
+        return;
+    }
+
+    const abort = () => controller.abort();
+    res.once('close', abort);
+    try {
+        await pipeline(Readable.fromWeb(response.body), res);
+    } finally {
+        res.off('close', abort);
+    }
+};
+
+const sendLocalFile = (res, next, localPath, disposition, fileName) => {
+    const onError = (error) => {
+        if (!error) return;
+        if (res.headersSent) return res.destroy(error);
+        if (error.code === 'ENOENT' || error.status === 404) {
+            return next(new AppError('errors.notFound', { status: 404 }));
+        }
+        return next(error);
+    };
+    res.setHeader('Content-Disposition', contentDisposition(disposition, fileName));
+    return res.sendFile(localPath, onError);
+};
+
+const presentMaterial = (material) => {
+    if (!material) return material;
+    const result = typeof material.toJSON === 'function' ? material.toJSON() : { ...material };
+    if (mediaValidator.isFileType(result.tipo)) {
+        result.hasStoredFile = Boolean(result.urlOrPath);
+        if (fileHelper.isCloudinaryUrl(result.urlOrPath)) result.urlOrPath = null;
+    }
+    return result;
+};
+
+const presentMaterials = (materials) => (materials || []).map(presentMaterial);
 
 const titleFromFilename = (filename) => path.basename(filename, path.extname(filename)).slice(0, 150);
 
@@ -59,6 +195,7 @@ module.exports = (container) => {
     return {
         async global(req, res, next) {
             try {
+                const pagination = parsePagination(req.query);
                 const filters = {
                     q: req.query.q || '',
                     subjects: parseList(req.query.subjects).map(Number).filter(Boolean),
@@ -67,10 +204,14 @@ module.exports = (container) => {
                     category: req.query.category || null,
                     uploadYear: req.query.year || req.query.uploadYear || null,
                     careers: req.query.careerId ? [Number(req.query.careerId)] : [],
-                    years: req.query.yearId ? [Number(req.query.yearId)] : []
+                    years: req.query.yearId ? [Number(req.query.yearId)] : [],
+                    ...pagination
                 };
-                const materials = await materialService.getGlobalContent(filters, req.usuarioId);
-                return ok(req, res, { materials });
+                const result = await materialService.getGlobalContent(filters, req.usuarioId);
+                return ok(req, res, {
+                    materials: presentMaterials(result.materials),
+                    pagination: paginationMeta(result.total, pagination)
+                });
             } catch (error) { return next(error); }
         },
 
@@ -85,7 +226,9 @@ module.exports = (container) => {
                 let portada = null;
 
                 if (cover) {
-                    if (!mediaValidator.validateCover(cover).ok) {
+                    if (!mediaValidator.validateCover(cover).ok
+                        || !(await mediaValidator.validateCoverSignature(cover)).ok) {
+                        metrics.recordUploadRejection('cover_signature');
                         throw new AppError('validation.coverType', { status: 422 });
                     }
                     portada = storedPath(cover);
@@ -95,11 +238,13 @@ module.exports = (container) => {
                 if (file) {
                     if (!tipo) tipo = mediaValidator.inferTypeFromFilename(file.originalname);
                     if (!mediaValidator.isFileType(tipo) ||
-                        !mediaValidator.validateFileForType(file, tipo).ok) {
+                        !mediaValidator.validateFileForType(file, tipo).ok ||
+                        !(await mediaValidator.validateFileSignature(file, tipo)).ok) {
+                        metrics.recordUploadRejection('file_signature');
                         throw new AppError('validation.fileType', { status: 422 });
                     }
                     urlOrPath = storedPath(file);
-                    fileHash = hashOf(file);
+                    fileHash = await hashOf(file);
                     createdPaths.push(urlOrPath);
                 } else {
                     urlOrPath = String(req.body.urlOrPath || '').trim();
@@ -128,12 +273,10 @@ module.exports = (container) => {
                 const result = await materialService.uploadOrSuggestMaterial(dto, {
                     usuarioId: req.usuarioId, rol: req.rol
                 });
-                return ok(req, res, result, 201);
+                if (result.duplicate) await cleanupUploads(req, createdPaths);
+                return ok(req, res, { ...result, material: presentMaterial(result.material) }, 201);
             } catch (error) {
-                const mode = process.env.FILES_MODE || 'local';
-                if (mode !== 'cloud') {
-                    createdPaths.forEach(value => fileHelper.deleteFile(value));
-                }
+                await cleanupUploads(req, createdPaths);
                 return next(error);
             }
         },
@@ -158,10 +301,17 @@ module.exports = (container) => {
 
                 let metadata = [];
                 if (req.body.metadata) {
+                    let parsed;
                     try {
-                        const parsed = JSON.parse(req.body.metadata);
-                        metadata = Array.isArray(parsed) ? parsed : [];
+                        parsed = JSON.parse(req.body.metadata);
                     } catch (error) {
+                        throw new AppError('validation.invalidData', { status: 422 });
+                    }
+                    if (!Array.isArray(parsed)) {
+                        throw new AppError('validation.invalidData', { status: 422 });
+                    }
+                    metadata = parsed;
+                    if (metadata.some(entry => !entry || typeof entry !== 'object' || Array.isArray(entry))) {
                         throw new AppError('validation.invalidData', { status: 422 });
                     }
                 }
@@ -170,23 +320,31 @@ module.exports = (container) => {
                 if (!files.length && !linkEntries.length) {
                     throw new AppError('validation.required', { status: 422, params: { field: 'Material' } });
                 }
-                if (files.length + linkEntries.length > 100) {
-                    throw new AppError('validation.batchLimit', { status: 422, params: { max: 100 } });
+                if (files.length + linkEntries.length > config.upload.maxBatchItems) {
+                    throw new AppError('validation.batchLimit', {
+                        status: 422, params: { max: config.upload.maxBatchItems }
+                    });
                 }
 
                 const categories = parseList(req.body.categories);
-                const items = files.map((file, index) => {
+                const items = [];
+                for (let index = 0; index < files.length; index += 1) {
+                    const file = files[index];
                     const meta = metadata[index] || {};
                     const tipo = mediaValidator.inferTypeFromFilename(file.originalname);
                     if (!mediaValidator.isFileType(tipo) ||
-                        !mediaValidator.validateFileForType(file, tipo).ok) {
+                        !mediaValidator.validateFileForType(file, tipo).ok ||
+                        !(await mediaValidator.validateFileSignature(file, tipo)).ok) {
+                        metrics.recordUploadRejection('file_signature');
                         throw new AppError('validation.fileType', { status: 422 });
                     }
 
                     let portada = null;
                     const cover = covers.get(index);
                     if (cover) {
-                        if (!mediaValidator.validateCover(cover).ok) {
+                        if (!mediaValidator.validateCover(cover).ok
+                            || !(await mediaValidator.validateCoverSignature(cover)).ok) {
+                            metrics.recordUploadRejection('cover_signature');
                             throw new AppError('validation.coverType', { status: 422 });
                         }
                         portada = storedPath(cover);
@@ -196,18 +354,18 @@ module.exports = (container) => {
                     const customTitle = String(meta.titulo || '').trim();
                     const urlOrPath = storedPath(file);
                     createdPaths.push(urlOrPath);
-                    return {
+                    items.push({
                         titulo: (customTitle || titleFromFilename(file.originalname) || 'Material').slice(0, 150),
                         tipo,
                         urlOrPath,
                         portada,
-                        fileHash: hashOf(file),
+                        fileHash: await hashOf(file),
                         author: meta.author || null,
-                        category: meta.category || req.body.category || categories[0] || 'technical',
+                        category: meta.category || req.body.category || 'technical',
                         pages: meta.pages ?? null,
                         categories: meta.categories ? parseList(meta.categories) : categories
-                    };
-                });
+                    });
+                }
 
                 linkEntries.forEach(entry => {
                     const tipo = mediaValidator.inferTypeFromUrl(entry.urlOrPath);
@@ -220,7 +378,7 @@ module.exports = (container) => {
                         urlOrPath: entry.urlOrPath,
                         fileHash: hashHelper.hashString(entry.urlOrPath),
                         author: entry.author || null,
-                        category: entry.category || req.body.category || categories[0] || 'technical',
+                        category: entry.category || req.body.category || 'technical',
                         pages: entry.pages ?? null,
                         categories
                     });
@@ -229,12 +387,9 @@ module.exports = (container) => {
                 const result = await materialService.uploadBatch(items, {
                     usuarioId: req.usuarioId, rol: req.rol
                 });
-                return ok(req, res, result, 201);
+                return ok(req, res, { ...result, materials: presentMaterials(result.materials) }, 201);
             } catch (error) {
-                const mode = process.env.FILES_MODE || 'local';
-                if (mode !== 'cloud') {
-                    createdPaths.forEach(value => fileHelper.deleteFile(value));
-                }
+                await cleanupUploads(req, createdPaths);
                 return next(error);
             }
         },
@@ -248,51 +403,61 @@ module.exports = (container) => {
 
         async mine(req, res, next) {
             try {
+                const pagination = parsePagination(req.query);
                 const filters = {
                     q: req.query.q || '',
                     tipo: req.query.tipo || null,
                     tags: parseList(req.query.tags),
-                    estado: req.query.estado || null
+                    estado: req.query.estado || null,
+                    ...pagination
                 };
-                const materials = await materialService.getMyUploads(req.usuarioId, filters);
-                return ok(req, res, { materials });
+                const result = await materialService.getMyUploads(req.usuarioId, filters);
+                return ok(req, res, {
+                    materials: presentMaterials(result.materials),
+                    pagination: paginationMeta(result.total, pagination)
+                });
             } catch (error) { return next(error); }
         },
 
         async author(req, res, next) {
             try {
-                const user = await authService.getUserById(req.params.id);
+                const user = await authService.getPublicUserById(req.params.id);
+                const pagination = parsePagination(req.query);
                 const filters = {
                     q: req.query.q || '',
                     tipo: req.query.tipo || null,
                     tags: parseList(req.query.tags),
-                    estado: 'Aprobado'
+                    estado: 'Aprobado',
+                    ...pagination
                 };
-                const materials = await materialService.getByAuthor(req.params.id, filters);
+                const result = await materialService.getByAuthor(req.params.id, filters);
                 return ok(req, res, {
-                    author: {
-                        id: user.id,
-                        nombre: user.nombre,
-                        apellido: user.apellido,
-                        nombreCompleto: user.nombreCompleto,
-                        email: user.email
-                    },
-                    materials
+                    author: user,
+                    materials: presentMaterials(result.materials),
+                    pagination: paginationMeta(result.total, pagination)
                 });
             } catch (error) { return next(error); }
         },
 
         async pending(req, res, next) {
             try {
-                const materials = await materialService.getPendingMaterials(req.usuarioId);
-                return ok(req, res, { materials });
+                const pagination = parsePagination(req.query);
+                const result = await materialService.getPendingMaterials(req.usuarioId, pagination);
+                return ok(req, res, {
+                    materials: presentMaterials(result.materials),
+                    pagination: paginationMeta(result.total, pagination)
+                });
             } catch (error) { return next(error); }
         },
 
         async pendingReview(req, res, next) {
             try {
-                const materials = await materialService.getPendingForProfessor(req.usuarioId);
-                return ok(req, res, { materials });
+                const pagination = parsePagination(req.query);
+                const result = await materialService.getPendingForProfessor(req.usuarioId, pagination);
+                return ok(req, res, {
+                    materials: presentMaterials(result.materials),
+                    pagination: paginationMeta(result.total, pagination)
+                });
             } catch (error) { return next(error); }
         },
 
@@ -348,7 +513,9 @@ module.exports = (container) => {
                 };
 
                 if (cover) {
-                    if (!mediaValidator.validateCover(cover).ok) {
+                    if (!mediaValidator.validateCover(cover).ok
+                        || !(await mediaValidator.validateCoverSignature(cover)).ok) {
+                        metrics.recordUploadRejection('cover_signature');
                         throw new AppError('validation.coverType', { status: 422 });
                     }
                     dto.portada = storedPath(cover);
@@ -360,11 +527,13 @@ module.exports = (container) => {
                 if (file) {
                     if (!dto.tipo) dto.tipo = mediaValidator.inferTypeFromFilename(file.originalname);
                     if (!mediaValidator.isFileType(dto.tipo) ||
-                        !mediaValidator.validateFileForType(file, dto.tipo).ok) {
+                        !mediaValidator.validateFileForType(file, dto.tipo).ok ||
+                        !(await mediaValidator.validateFileSignature(file, dto.tipo)).ok) {
+                        metrics.recordUploadRejection('file_signature');
                         throw new AppError('validation.fileType', { status: 422 });
                     }
                     dto.urlOrPath = storedPath(file);
-                    dto.fileHash = hashOf(file);
+                    dto.fileHash = await hashOf(file);
                     createdPaths.push(dto.urlOrPath);
                 } else if (req.body.urlOrPath !== undefined) {
                     dto.urlOrPath = String(req.body.urlOrPath || '').trim();
@@ -373,12 +542,56 @@ module.exports = (container) => {
                 const result = await materialService.update(req.params.id, dto, {
                     usuarioId: req.usuarioId, rol: req.rol
                 });
-                return ok(req, res, result);
+                return ok(req, res, { ...result, material: presentMaterial(result.material) });
             } catch (error) {
-                const mode = process.env.FILES_MODE || 'local';
-                if (mode !== 'cloud') {
-                    createdPaths.forEach(value => fileHelper.deleteFile(value));
+                await cleanupUploads(req, createdPaths);
+                return next(error);
+            }
+        },
+
+        async file(req, res, next) {
+            try {
+                const material = await materialService.getDownloadable(req.params.id, {
+                    usuarioId: req.usuarioId, rol: req.rol
+                });
+                const urlOrPath = String(material.urlOrPath || '');
+                res.setHeader('X-Content-Type-Options', 'nosniff');
+                res.setHeader('Cache-Control', 'private, no-store');
+
+                if (fileHelper.isRemoteUrl(urlOrPath)) {
+                    if (!fileHelper.isCloudinaryUrl(urlOrPath)) return res.redirect(302, urlOrPath);
+                    return await streamRemoteFile(req, res, material, 'inline');
                 }
+
+                const localPath = fileHelper.resolveLocalPath(urlOrPath);
+                if (!localPath) throw new AppError('errors.notFound', { status: 404 });
+                return sendLocalFile(res, next, localPath, 'inline', downloadName(material));
+            } catch (error) {
+                if (res.headersSent) return res.destroy(error);
+                return next(error);
+            }
+        },
+
+        async download(req, res, next) {
+            try {
+                const material = await materialService.getDownloadable(req.params.id, {
+                    usuarioId: req.usuarioId, rol: req.rol
+                });
+                const urlOrPath = String(material.urlOrPath || '');
+                const name = downloadName(material);
+                res.setHeader('X-Content-Type-Options', 'nosniff');
+                res.setHeader('Cache-Control', 'private, no-store');
+
+                if (fileHelper.isRemoteUrl(urlOrPath)) {
+                    if (!fileHelper.isCloudinaryUrl(urlOrPath)) return res.redirect(302, urlOrPath);
+                    return await streamRemoteFile(req, res, material, 'attachment');
+                }
+
+                const localPath = fileHelper.resolveLocalPath(urlOrPath);
+                if (!localPath) throw new AppError('errors.notFound', { status: 404 });
+                return sendLocalFile(res, next, localPath, 'attachment', name);
+            } catch (error) {
+                if (res.headersSent) return res.destroy(error);
                 return next(error);
             }
         },
@@ -404,8 +617,13 @@ module.exports = (container) => {
 
         async getFavorites(req, res, next) {
             try {
-                const favorites = await materialService.getFavorites(req.usuarioId, req.query);
-                return ok(req, res, { favorites });
+                const pagination = parsePagination(req.query);
+                const result = await materialService.getFavorites(req.usuarioId, pagination);
+                return ok(req, res, {
+                    favorites: presentMaterials(result.materials),
+                    materials: presentMaterials(result.materials),
+                    pagination: paginationMeta(result.total, pagination)
+                });
             } catch (error) { return next(error); }
         }
     };

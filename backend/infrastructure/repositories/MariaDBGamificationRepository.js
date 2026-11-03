@@ -8,6 +8,11 @@ const db = require('../../config/db');
 
 const rankPicture = title => `/img/profile_pictures/${title}.png`;
 
+const BADGE_KEYS = new Set([
+    'first_commit', 'early_return', 'overtime', 'shared_pointer', 'stack_overflow',
+    'array_5', 'hello_world', 'linter_clean', 'code_reviewer', 'full_stack_reader'
+]);
+
 const mapProgress = row => {
     if (!row) return null;
     const currentPage = Number(row.currentPage) || 0;
@@ -38,6 +43,24 @@ class MariaDBGamificationRepository {
         return rows[0] || {};
     }
 
+    async getBadgeContext(userId) {
+        const [rows] = await db.execute(`
+            SELECT
+                (SELECT COUNT(*) FROM user_subscriptions WHERE target_user_id = ?) AS followers,
+                (SELECT COUNT(*) FROM user_subscriptions WHERE subscriber_id = ?) AS following,
+                (SELECT COUNT(*) FROM material_reads WHERE user_id = ?)           AS read_count,
+                (SELECT COUNT(*) FROM material_favorites WHERE usuario_id = ?)    AS favorites,
+                (SELECT COUNT(*) FROM materials WHERE uploaded_by = ? AND estado = 'Aprobado') AS uploads,
+                (SELECT COUNT(*) FROM reading_backlog WHERE user_id = ?)          AS backlog,
+                (SELECT GROUP_CONCAT(badge_key) FROM user_badges WHERE user_id = ?) AS badgeKeys
+        `, [userId, userId, userId, userId, userId, userId, userId]);
+        const row = rows[0] || {};
+        return {
+            ...row,
+            badgeKeys: row.badgeKeys ? String(row.badgeKeys).split(',') : []
+        };
+    }
+
     async listBadges(userId) {
         const [rows] = await db.execute(
             'SELECT badge_key AS badgeKey, unlocked_at AS unlockedAt FROM user_badges WHERE user_id = ? ORDER BY unlocked_at',
@@ -52,6 +75,17 @@ class MariaDBGamificationRepository {
             [userId, badgeKey]
         );
         return res.affectedRows > 0;
+    }
+
+    async addBadges(userId, badgeKeys = []) {
+        const keys = [...new Set(badgeKeys.filter(key => BADGE_KEYS.has(key)))];
+        if (!keys.length) return 0;
+        const values = keys.map(() => '(?, ?)').join(', ');
+        const [res] = await db.query(
+            `INSERT IGNORE INTO user_badges (user_id, badge_key) VALUES ${values}`,
+            keys.flatMap(key => [userId, key])
+        );
+        return res.affectedRows;
     }
 
     async listRanks() {
@@ -80,12 +114,43 @@ class MariaDBGamificationRepository {
         };
     }
 
-    async listReadIds(userId) {
+    async listReadIds(userId, filters = {}) {
+        const limit = Math.min(Math.max(Number(filters.limit) || 20, 1), 100);
+        const offset = Math.max(Number(filters.offset) || 0, 0);
         const [rows] = await db.execute(
-            'SELECT material_id AS id FROM material_reads WHERE user_id = ? ORDER BY created_at DESC',
-            [userId]
+            `SELECT material_id AS id FROM material_reads
+              WHERE user_id = ? ORDER BY created_at DESC, material_id DESC LIMIT ? OFFSET ?`,
+            [userId, limit, offset]
         );
         return rows.map(row => Number(row.id));
+    }
+
+    async countReads(userId) {
+        const [rows] = await db.execute(
+            'SELECT COUNT(*) AS total FROM material_reads WHERE user_id = ?', [userId]
+        );
+        return Number(rows[0].total) || 0;
+    }
+
+    async hasRead(userId, materialId) {
+        const [rows] = await db.execute(
+            'SELECT 1 AS found FROM material_reads WHERE user_id = ? AND material_id = ? LIMIT 1',
+            [userId, materialId]
+        );
+        return rows.length > 0;
+    }
+
+    async getReadState(userId, materialId) {
+        const [rows] = await db.execute(
+            `SELECT
+                EXISTS(SELECT 1 FROM material_reads WHERE user_id = ? AND material_id = ?) AS isRead,
+                EXISTS(SELECT 1 FROM reading_backlog WHERE user_id = ? AND material_id = ?) AS inBacklog`,
+            [userId, materialId, userId, materialId]
+        );
+        return {
+            read: Boolean(rows[0]?.isRead),
+            inBacklog: Boolean(rows[0]?.inBacklog)
+        };
     }
 
     async getRead(userId, materialId) {
@@ -103,11 +168,11 @@ class MariaDBGamificationRepository {
     }
 
     async addRead(userId, materialId) {
-        await db.execute(
+        const [result] = await db.execute(
             'INSERT IGNORE INTO material_reads (user_id, material_id) VALUES (?, ?)',
             [userId, materialId]
         );
-        return this.getRead(userId, materialId);
+        return { inserted: result.affectedRows > 0 };
     }
 
     async deleteRead(userId, materialId) {
@@ -128,11 +193,10 @@ class MariaDBGamificationRepository {
         return mapProgress(rows[0]);
     }
 
-    async updateProgress(userId, materialId, currentPage, totalPages = null) {
-        const requestedTotal = totalPages ? Math.max(1, Number(totalPages) || 0) : null;
-        const page = Math.max(0, Number(currentPage) || 0);
-        const total = requestedTotal ? Math.max(page, requestedTotal) : null;
-        const status = page > 0 ? 'reading' : 'pending';
+    async updateProgress(userId, materialId, currentPage, totalPages = null, forcedStatus = null) {
+        const page = Number(currentPage);
+        const total = totalPages === null || totalPages === undefined ? null : Number(totalPages);
+        const status = forcedStatus || (page > 0 ? 'reading' : 'pending');
 
         await db.execute(
             `INSERT INTO reading_backlog (user_id, material_id, current_page, total_pages, status)
@@ -146,14 +210,24 @@ class MariaDBGamificationRepository {
         return this.getProgress(userId, materialId);
     }
 
-    async listBacklog(userId) {
+    async listBacklog(userId, filters = {}) {
+        const limit = Math.min(Math.max(Number(filters.limit) || 20, 1), 100);
+        const offset = Math.max(Number(filters.offset) || 0, 0);
         const [rows] = await db.execute(
             `SELECT material_id AS materialId, current_page AS currentPage, total_pages AS totalPages,
                     status, created_at AS createdAt, updated_at AS updatedAt
-               FROM reading_backlog WHERE user_id = ? ORDER BY updated_at DESC`,
-            [userId]
+               FROM reading_backlog WHERE user_id = ?
+              ORDER BY updated_at DESC, material_id DESC LIMIT ? OFFSET ?`,
+            [userId, limit, offset]
         );
         return rows.map(mapProgress);
+    }
+
+    async countBacklog(userId) {
+        const [rows] = await db.execute(
+            'SELECT COUNT(*) AS total FROM reading_backlog WHERE user_id = ?', [userId]
+        );
+        return Number(rows[0].total) || 0;
     }
 
     async getBacklogItem(userId, materialId) {
@@ -268,41 +342,88 @@ class MariaDBGamificationRepository {
         };
     }
 
-    async registerActivity(userId) {
+    async getSessionForUpdate(userId, materialId) {
         const [rows] = await db.execute(
-            'SELECT current_streak AS currentStreak, last_read_date AS lastReadDate FROM reading_streaks WHERE user_id = ?',
-            [userId]
+            `SELECT active_seconds AS activeSeconds, started_at AS startedAt,
+                    last_heartbeat_at AS lastHeartbeatAt
+               FROM reading_sessions
+              WHERE user_id = ? AND material_id = ?
+              FOR UPDATE`,
+            [userId, materialId]
         );
-        const todayKey = new Date().toISOString().slice(0, 10);
-        let current = 1;
-        let extended = true;
+        if (!rows.length) return null;
+        return {
+            activeSeconds: Number(rows[0].activeSeconds) || 0,
+            startedAt: rows[0].startedAt,
+            lastHeartbeatAt: rows[0].lastHeartbeatAt
+        };
+    }
 
-        if (rows.length) {
-            const row = rows[0];
-            const last = row.lastReadDate
-                ? new Date(row.lastReadDate).toISOString().slice(0, 10)
-                : null;
-            const currentStored = Number(row.currentStreak) || 0;
-            if (last === todayKey) {
-                current = currentStored;
-                extended = false;
+    async createSession(userId, materialId) {
+        await db.execute(
+            `INSERT INTO reading_sessions (user_id, material_id, active_seconds, started_at, last_heartbeat_at)
+             VALUES (?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)`,
+            [userId, materialId]
+        );
+        return this.getSessionForUpdate(userId, materialId);
+    }
+
+    async updateSession(userId, materialId, activeSeconds) {
+        await db.execute(
+            `UPDATE reading_sessions
+                SET active_seconds = ?, last_heartbeat_at = CURRENT_TIMESTAMP
+              WHERE user_id = ? AND material_id = ?`,
+            [Math.max(0, Math.floor(Number(activeSeconds) || 0)), userId, materialId]
+        );
+    }
+
+    async resetSession(userId, materialId) {
+        const [res] = await db.execute(
+            'DELETE FROM reading_sessions WHERE user_id = ? AND material_id = ?',
+            [userId, materialId]
+        );
+        return res.affectedRows > 0;
+    }
+
+    async registerActivity(userId) {
+        return db.transaction(async () => {
+            await db.execute('SELECT id FROM users WHERE id = ? FOR UPDATE', [userId]);
+            const [rows] = await db.execute(
+                'SELECT current_streak AS currentStreak, last_read_date AS lastReadDate FROM reading_streaks WHERE user_id = ? FOR UPDATE',
+                [userId]
+            );
+            const todayKey = new Date().toISOString().slice(0, 10);
+            let current = 1;
+            let extended = true;
+
+            if (rows.length) {
+                const row = rows[0];
+                const last = row.lastReadDate
+                    ? new Date(row.lastReadDate).toISOString().slice(0, 10)
+                    : null;
+                const currentStored = Number(row.currentStreak) || 0;
+                if (last === todayKey) {
+                    current = currentStored;
+                    extended = false;
+                } else {
+                    const yesterday = new Date();
+                    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+                    const yesterdayKey = yesterday.toISOString().slice(0, 10);
+                    current = last === yesterdayKey ? currentStored + 1 : 1;
+                }
+                await db.execute(
+                    'UPDATE reading_streaks SET current_streak = ?, last_read_date = ? WHERE user_id = ?',
+                    [current, todayKey, userId]
+                );
             } else {
-                const yesterday = new Date();
-                yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-                const yesterdayKey = yesterday.toISOString().slice(0, 10);
-                current = last === yesterdayKey ? currentStored + 1 : 1;
+                await db.execute(
+                    'INSERT INTO reading_streaks (user_id, current_streak, last_read_date) VALUES (?, 1, ?)',
+                    [userId, todayKey]
+                );
             }
-            await db.execute(
-                'UPDATE reading_streaks SET current_streak = ?, last_read_date = ? WHERE user_id = ?',
-                [current, todayKey, userId]
-            );
-        } else {
-            await db.execute(
-                'INSERT INTO reading_streaks (user_id, current_streak, last_read_date) VALUES (?, 1, ?)',
-                [userId, todayKey]
-            );
-        }
-        return { currentStreak: current, lastReadDate: todayKey, extended };
+            return { currentStreak: current, lastReadDate: todayKey, extended };
+        });
     }
 
     async listProfilePictures() {

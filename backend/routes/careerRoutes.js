@@ -4,11 +4,11 @@
 */
 
 const express = require('express');
-const { verifyToken, optionalAuth, requireRole } = require('../middleware/authMiddleware');
 
 module.exports = (container) => {
     const router = express.Router();
     const controller = require('../controllers/careerController')(container);
+    const { verifyToken, optionalAuth, requireRole } = container.authMiddleware;
     const Role = require('../domain/entities/Role');
 
     router.get('/', optionalAuth, controller.list);

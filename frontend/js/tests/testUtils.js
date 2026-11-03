@@ -197,20 +197,42 @@ var testUtils = (function () {
             return r.data.subject.id;
         },
 
+        pdfBlob: function (content) {
+            return new Blob(['%PDF-1.4\n' + (content || 'contenido de prueba')], { type: 'application/pdf' });
+        },
+
+        pngBlob: function (content) {
+            var signature = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+            var payload = new TextEncoder().encode(String(content || 'portada de prueba'));
+            var bytes = new Uint8Array(signature.length + payload.length);
+            bytes.set(signature, 0);
+            bytes.set(payload, signature.length);
+            return new Blob([bytes], { type: 'image/png' });
+        },
+
         /** Construye un FormData de subida de material con un PDF simulado. */
         pdfForm: function (fields, content) {
             var form = new FormData();
             Object.keys(fields || {}).forEach(function (key) { form.append(key, fields[key]); });
-            var blob = new Blob([content || 'contenido de prueba'], { type: 'application/pdf' });
-            form.append('archivo', blob, 'material-de-prueba.pdf');
+            form.append('archivo', api.pdfBlob(content), 'material-de-prueba.pdf');
             return form;
         },
 
+        /** Descarga autenticada de un archivo de material. */
+        fileFetch: async function (material, token, action) {
+            var id = material && typeof material === 'object' ? material.id : material;
+            var base = api.apiBase.replace(/\/api\/?$/, '');
+            var headers = {};
+            if (token) headers.Authorization = 'Bearer ' + token;
+            return fetch(base + '/api/materials/' + encodeURIComponent(id) + '/' + (action || 'file'), { headers: headers });
+        },
+
         /** Ejecuta todas las pruebas registradas (modo headless). */
-        runAll: async function () {
+        runAll: async function (filter) {
             var results = [];
             for (var i = 0; i < tests.length; i++) {
                 var t = tests[i];
+                if (filter && t.label.indexOf(filter) === -1) continue;
                 if (hasDOM && t.button) api.setLoading(t.button);
                 try {
                     await t.fn(t.button);

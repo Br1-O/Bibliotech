@@ -25,6 +25,7 @@ document.addEventListener('bt:ready', () => {
     const MATERIAL_TYPES = ['PDF', 'EPUB', 'Word', 'Presentacion', 'Link_Drive', 'Youtube', 'Repositorio'];
 
     let allMaterials = [];
+    let materialTotal = 0;
     let allSubjects = [];
     let allCareers = [];
     let materialPage = 1;
@@ -143,7 +144,8 @@ document.addEventListener('bt:ready', () => {
         return unique.join(',');
     }
 
-    async function loadMaterials() {
+    async function loadMaterials(resetPage = true) {
+        if (resetPage) materialPage = 1;
         Loader.skeletons(grid, 6);
         try {
             const result = await apiService.get('/materials/global', {
@@ -154,36 +156,22 @@ document.addEventListener('bt:ready', () => {
                 tipo: selectedType,
                 category: selectedCategory,
                 year: selectedUploadYear,
-                tags: currentTagQuery()
+                tags: currentTagQuery(),
+                sort: sortSelect?.value || 'newest',
+                page: materialPage,
+                pageSize: PAGE_SIZE
             });
             allMaterials = result.materials || [];
-            materialPage = 1;
-            applyAndRender();
+            materialTotal = Number(result.pagination?.total ?? allMaterials.length);
+            renderMaterials();
         } catch (error) {
             render(grid, Cards.empty(error.message));
         }
     }
 
-    function sortMaterials(items) {
-        const mode = sortSelect?.value || 'newest';
-        const copy = [...items];
-        if (mode === 'oldest') {
-            copy.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        } else if (mode === 'title') {
-            copy.sort((a, b) => String(a.titulo).localeCompare(String(b.titulo)));
-        } else {
-            copy.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        }
-        return copy;
-    }
-
-    function applyAndRender() {
-        const sorted = sortMaterials(allMaterials);
-        const total = sorted.length;
-        const totalPages = Pagination.totalPages(total, PAGE_SIZE);
-        if (materialPage > totalPages) materialPage = totalPages;
-        const start = (materialPage - 1) * PAGE_SIZE;
-        const shown = sorted.slice(start, start + PAGE_SIZE);
+    function renderMaterials() {
+        const shown = allMaterials;
+        const total = materialTotal;
 
         if (resultsLabel) {
             resultsLabel.textContent = total
@@ -201,7 +189,10 @@ document.addEventListener('bt:ready', () => {
             page: materialPage,
             total,
             pageSize: PAGE_SIZE,
-            onChange: page => { materialPage = page; applyAndRender(); }
+            onChange: page => {
+                materialPage = page;
+                loadMaterials(false);
+            }
         });
     }
 
@@ -266,7 +257,7 @@ document.addEventListener('bt:ready', () => {
     categoryFilter?.addEventListener('change', () => { selectedCategory = categoryFilter.value; loadMaterials(); });
     uploadYearFilter?.addEventListener('change', () => { selectedUploadYear = uploadYearFilter.value; loadMaterials(); });
     tagFilter?.addEventListener('input', scheduleMaterialLoad);
-    sortSelect?.addEventListener('change', () => { materialPage = 1; applyAndRender(); });
+    sortSelect?.addEventListener('change', () => loadMaterials());
 
     clearButton?.addEventListener('click', () => {
         if (searchInput) searchInput.value = '';
@@ -291,7 +282,7 @@ document.addEventListener('bt:ready', () => {
     LanguageManager.onChange(() => {
         populateTypeFilter();
         renderFilterOptions();
-        applyAndRender();
+        renderMaterials();
     });
 
     (async () => {

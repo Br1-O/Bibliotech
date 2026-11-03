@@ -4,9 +4,11 @@
 */
 
 const { ok } = require('../utils/respond');
+const { parsePagination, paginationMeta } = require('../utils/pagination');
 
 module.exports = (container) => {
-    const { authService, roleService, userRepository } = container;
+    const { authService, roleService, userRepository, authMiddleware } = container;
+    const { setFileCookie, clearFileCookie } = authMiddleware;
 
     return {
         async register(req, res, next) {
@@ -19,8 +21,14 @@ module.exports = (container) => {
         async login(req, res, next) {
             try {
                 const result = await authService.login(req.body);
+                setFileCookie(req, res, result.token);
                 return ok(req, res, { message: 'messages.loginSuccess', ...result });
             } catch (error) { return next(error); }
+        },
+
+        async logout(req, res) {
+            clearFileCookie(req, res);
+            return res.status(204).end();
         },
 
         async me(req, res, next) {
@@ -98,8 +106,17 @@ module.exports = (container) => {
 
         async listUsers(req, res, next) {
             try {
-                const users = await userRepository.findAll();
-                return ok(req, res, { users });
+                const pagination = parsePagination(req.query, { defaultPageSize: 100 });
+                const result = await userRepository.findAll({
+                    ...pagination,
+                    q: req.query.q || '',
+                    role: req.query.role || null,
+                    estado: req.query.estado || null
+                });
+                return ok(req, res, {
+                    users: result.items,
+                    pagination: paginationMeta(result.total, pagination)
+                });
             } catch (error) { return next(error); }
         },
 
@@ -127,6 +144,17 @@ module.exports = (container) => {
             try {
                 const result = await authService.softDeleteUser(req.params.id, req.usuarioId);
                 return ok(req, res, result);
+            } catch (error) { return next(error); }
+        },
+
+        async changeUserRole(req, res, next) {
+            try {
+                const user = await authService.changeUserRole(
+                    Number(req.params.id),
+                    req.body?.role,
+                    req.usuarioId
+                );
+                return ok(req, res, { message: 'messages.roleChanged', user });
             } catch (error) { return next(error); }
         },
 

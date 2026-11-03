@@ -18,6 +18,7 @@ document.addEventListener('bt:ready', () => {
     const PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     const TYPES = ['PDF', 'EPUB', 'Word', 'Presentacion', 'Link_Drive', 'Youtube', 'Repositorio'];
     let materials = [];
+    let total = 0;
     let page = 1;
     let debounce;
     const canFavorite = authHelper.isAuthenticated();
@@ -39,16 +40,19 @@ document.addEventListener('bt:ready', () => {
         ]);
     }
 
-    async function load() {
+    async function load(resetPage = true) {
+        if (resetPage) page = 1;
         Loader.skeletons(grid, 3);
         try {
             const result = await apiService.get(`/materials/author/${authorId}`, {
                 q: search.value.trim(),
-                tipo: typeFilter.value
+                tipo: typeFilter.value,
+                page,
+                pageSize: PAGE_SIZE
             });
             renderAuthor(result.author);
             materials = result.materials || [];
-            page = 1;
+            total = Number(result.pagination?.total ?? materials.length);
             apply();
         } catch (error) {
             render(header, []);
@@ -57,11 +61,7 @@ document.addEventListener('bt:ready', () => {
     }
 
     function apply() {
-        const total = materials.length;
-        const totalPages = Pagination.totalPages(total, PAGE_SIZE);
-        if (page > totalPages) page = totalPages;
-        const start = (page - 1) * PAGE_SIZE;
-        const items = materials.slice(start, start + PAGE_SIZE);
+        const items = materials;
 
         results.textContent = total
             ? LanguageManager.t('filters.showing', { shown: items.length, total })
@@ -79,7 +79,7 @@ document.addEventListener('bt:ready', () => {
             page,
             total,
             pageSize: PAGE_SIZE,
-            onChange: next => { page = next; apply(); }
+            onChange: next => { page = next; load(false); }
         });
     }
 
@@ -93,7 +93,7 @@ document.addEventListener('bt:ready', () => {
         typeFilter.value = '';
         load();
     });
-    LanguageManager.onChange(load);
+    LanguageManager.onChange(() => load(false));
 
     load();
 });

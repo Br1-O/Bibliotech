@@ -39,7 +39,7 @@ testUtils.createTestButton('Test Perfil - Edicion y foto de rango', async () => 
 
     const invalido = await testUtils.request('/profile', {
         method: 'PUT', token: alumno.token,
-        body: { github: 'no-es-url' }
+        body: { github: 'no es una url' }
     });
     testUtils.assert(invalido.status === 422, 'Un GitHub invalido debe rechazarse');
 
@@ -62,6 +62,7 @@ testUtils.createTestButton('Test Gamificacion - Leer otorga XP e insignia', asyn
     const lectura = await testUtils.request(`/reads/${materialId}/toggle`, { method: 'POST', token: alumno.token, body: {} });
     testUtils.assert(lectura.status === 200 && lectura.data.read === true, 'La lectura no se marco');
     testUtils.assert(lectura.data.xp >= 100, 'La primera lectura debe otorgar al menos 100 XP');
+    testUtils.assert(lectura.data.rankTitle, 'La lectura que sube de rango debe informar el nuevo titulo');
 
     const perfil = await testUtils.request(`/profile/${alumno.id}`, { token: alumno.token });
     testUtils.assert(perfil.data.stats.reads === 1, 'El perfil debe contar una lectura');
@@ -73,12 +74,28 @@ testUtils.createTestButton('Test Gamificacion - Leer otorga XP e insignia', asyn
     const desmarcar = await testUtils.request(`/reads/${materialId}/toggle`, { method: 'POST', token: alumno.token, body: {} });
     testUtils.assert(desmarcar.status === 200 && desmarcar.data.read === false, 'La lectura no se desmarco');
     testUtils.assert(desmarcar.data.xp >= 100, 'Desmarcar no debe restar XP');
+
+    const remarcar = await testUtils.request(`/reads/${materialId}/toggle`, { method: 'POST', token: alumno.token, body: {} });
+    testUtils.assert(remarcar.status === 200 && remarcar.data.read === true, 'La lectura no se remarco');
+    testUtils.assert(remarcar.data.xp === desmarcar.data.xp, 'Remarcar una lectura no debe otorgar XP dos veces');
+    testUtils.assert(!remarcar.data.rankTitle, 'Un rango ya ganado no debe volver a anunciarse');
 });
 
 testUtils.createTestButton('Test Backlog - Progreso y paso automatico a leidos', async () => {
     const alumno = await testUtils.registerVerifiedAlumno('backlog');
-    const global = await testUtils.request('/materials/global?limit=1', { token: alumno.token });
-    const materialId = global.data.materials[0].id;
+    const global = await testUtils.request('/materials/global?limit=100', { token: alumno.token });
+    let material = global.data.materials.find(item => !item.pages);
+    if (!material) {
+        const admin = await testUtils.login(
+            testUtils.accounts.admin.email, testUtils.accounts.admin.password
+        );
+        const form = new FormData();
+        form.append('links', `${testUtils.uniq('Backlog sin paginas')} | https://github.com/bibliotech-test/${testUtils.uniq('repo')}`);
+        const creado = await testUtils.request('/materials/batch', { method: 'POST', token: admin, form });
+        testUtils.assert(creado.status === 201 && creado.data.created === 1, 'No se pudo crear el material sin paginas');
+        material = creado.data.materials[0];
+    }
+    const materialId = material.id;
 
     const alta = await testUtils.request(`/backlog/${materialId}`, { method: 'POST', token: alumno.token, body: {} });
     testUtils.assert(alta.status === 201 && alta.data.added, 'No se agrego al backlog');
@@ -87,6 +104,16 @@ testUtils.createTestButton('Test Backlog - Progreso y paso automatico a leidos',
         method: 'PUT', token: alumno.token, body: { currentPage: 5 }
     });
     testUtils.assert(sinPaginas.status === 422, 'Sin paginas registradas debe exigirse el total manual');
+
+    const fraccion = await testUtils.request(`/reads/${materialId}/progress`, {
+        method: 'PUT', token: alumno.token, body: { currentPage: 1.5, totalPages: 100 }
+    });
+    testUtils.assert(fraccion.status === 422, 'Una pagina fraccionaria debe rechazarse');
+
+    const fueraDeRango = await testUtils.request(`/reads/${materialId}/progress`, {
+        method: 'PUT', token: alumno.token, body: { currentPage: 101, totalPages: 100 }
+    });
+    testUtils.assert(fueraDeRango.status === 422, 'Una pagina posterior al total debe rechazarse');
 
     const progreso = await testUtils.request(`/reads/${materialId}/progress`, {
         method: 'PUT', token: alumno.token, body: { currentPage: 25, totalPages: 100 }
@@ -105,21 +132,24 @@ testUtils.createTestButton('Test Backlog - Progreso y paso automatico a leidos',
     testUtils.assert(leidos.data.materials.some(material => material.id === materialId), 'El material completado debe figurar en leidos');
 });
 
-testUtils.createTestButton('Test Rachas - Cinco minutos de lectura', async () => {
+testUtils.createTestButton('Test Rachas - El servidor ignora el tiempo enviado por el cliente', async () => {
     const alumno = await testUtils.registerVerifiedAlumno('racha');
     const global = await testUtils.request('/materials/global?limit=1', { token: alumno.token });
     const materialId = global.data.materials[0].id;
 
-    const corto = await testUtils.request('/streaks/heartbeat', {
-        method: 'POST', token: alumno.token, body: { materialId, activeSeconds: 120 }
-    });
-    testUtils.assert(corto.status === 200 && corto.data.streak.qualified === false, 'Con 120s no debe calificar');
-
-    const completo = await testUtils.request('/streaks/heartbeat', {
+    const primero = await testUtils.request('/streaks/heartbeat', {
         method: 'POST', token: alumno.token, body: { materialId, activeSeconds: 300 }
     });
-    testUtils.assert(completo.status === 200 && completo.data.streak.qualified === true, 'Con 300s debe calificar');
-    testUtils.assert(completo.data.streak.currentStreak >= 1, 'La racha debe iniciar en 1');
+    testUtils.assert(primero.status === 200 && primero.data.streak.qualified === false,
+        'Un latido no puede calificar con tiempo declarado por el cliente');
+    testUtils.assert(primero.data.streak.activeSeconds < 300,
+        'El servidor no debe confiar en activeSeconds del cliente');
+
+    const segundo = await testUtils.request('/streaks/heartbeat', {
+        method: 'POST', token: alumno.token, body: { materialId, activeSeconds: 300 }
+    });
+    testUtils.assert(segundo.status === 200 && segundo.data.streak.qualified === false,
+        'Dos latidos inmediatos no pueden acumular cinco minutos ficticios');
 });
 
 testUtils.createTestButton('Test Seguidores - Seguir y dejar de seguir', async () => {

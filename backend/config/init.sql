@@ -1,26 +1,21 @@
 -- =====================================================================
---  Bibliotech - Inicializacion de la base de datos (MariaDB / MySQL)
+--  Bibliotech - Esquema base no destructivo (MariaDB / MySQL)
 --  Ejecutar:  mysql -u root -p < backend/config/init.sql
+--  No elimina la base ni datos existentes. Para un reinicio local use
+--  reset.sql / reset_dev.sql. Las cuentas demo viven en seed_dev.sql.
 -- =====================================================================
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
 SET foreign_key_checks = 0;
 SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
 
-DROP DATABASE IF EXISTS bibliotech;
-CREATE DATABASE bibliotech CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS bibliotech CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE bibliotech;
-
--- Usuario de la aplicacion y permisos sobre la base.
-CREATE USER IF NOT EXISTS 'bibliotech'@'localhost' IDENTIFIED BY 'bibliotech';
-CREATE USER IF NOT EXISTS 'bibliotech'@'%' IDENTIFIED BY 'bibliotech';
-GRANT ALL PRIVILEGES ON bibliotech.* TO 'bibliotech'@'localhost';
-GRANT ALL PRIVILEGES ON bibliotech.* TO 'bibliotech'@'%';
 
 -- ---------------------------------------------------------------------
 -- 1. Roles (RD-02: entidad relacional independiente)
 -- ---------------------------------------------------------------------
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     nombre       VARCHAR(50)  NOT NULL UNIQUE,
     descripcion  VARCHAR(255)
@@ -29,13 +24,13 @@ CREATE TABLE roles (
 -- ---------------------------------------------------------------------
 -- 2. Rangos de gamificacion (XP acumulada)
 -- ---------------------------------------------------------------------
-CREATE TABLE ranks (
+CREATE TABLE IF NOT EXISTS ranks (
     rank_id      INT PRIMARY KEY,
     title        VARCHAR(100) NOT NULL UNIQUE,
     min_xp       INT          NOT NULL DEFAULT 0
 );
 
-INSERT INTO ranks (rank_id, title, min_xp) VALUES
+INSERT IGNORE INTO ranks (rank_id, title, min_xp) VALUES
     (1, 'Entusiasta de Hello World', 0),
     (2, 'Estudiante de Sintaxis',    100),
     (3, 'Escritor de Scripts',       300),
@@ -48,7 +43,7 @@ INSERT INTO ranks (rank_id, title, min_xp) VALUES
 -- ---------------------------------------------------------------------
 -- 3. Usuarios (RD-01: email unico) + perfil y gamificacion
 -- ---------------------------------------------------------------------
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id                INT AUTO_INCREMENT PRIMARY KEY,
     role_id           INT          NOT NULL,
     nombre            VARCHAR(50)  NOT NULL,
@@ -75,6 +70,7 @@ CREATE TABLE users (
     xp                INT          NOT NULL DEFAULT 0,
     rank_level        INT          NOT NULL DEFAULT 1,
     profile_picture   VARCHAR(255) NOT NULL DEFAULT '/img/profile_pictures/default-1.png',
+    token_version     INT          NOT NULL DEFAULT 0,
     created_at        TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(id),
     CONSTRAINT fk_users_rank FOREIGN KEY (rank_level) REFERENCES ranks(rank_id)
@@ -83,14 +79,14 @@ CREATE TABLE users (
 -- ---------------------------------------------------------------------
 -- 3. Agrupaciones academicas: carreras (grupo principal) y anios (grupo secundario)
 -- ---------------------------------------------------------------------
-CREATE TABLE careers (
+CREATE TABLE IF NOT EXISTS careers (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     nombre       VARCHAR(100) NOT NULL UNIQUE,
     color        VARCHAR(7)   NOT NULL DEFAULT '#6f5bd3',
     created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE career_years (
+CREATE TABLE IF NOT EXISTS career_years (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     career_id    INT          NOT NULL,
     nombre       VARCHAR(100) NOT NULL,
@@ -103,7 +99,7 @@ CREATE TABLE career_years (
 -- ---------------------------------------------------------------------
 -- 4. Materias / Categorias de agrupacion
 -- ---------------------------------------------------------------------
-CREATE TABLE subjects (
+CREATE TABLE IF NOT EXISTS subjects (
     id                 INT AUTO_INCREMENT PRIMARY KEY,
     nombre             VARCHAR(100) NOT NULL,
     descripcion        VARCHAR(500),
@@ -118,7 +114,7 @@ CREATE TABLE subjects (
 -- ---------------------------------------------------------------------
 -- 5. Asignacion multiple de profesores a materias
 -- ---------------------------------------------------------------------
-CREATE TABLE subject_professors (
+CREATE TABLE IF NOT EXISTS subject_professors (
     subject_id   INT NOT NULL,
     profesor_id  INT NOT NULL,
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -131,14 +127,14 @@ CREATE TABLE subject_professors (
 -- ---------------------------------------------------------------------
 -- 6. Categorias tematicas de material
 -- ---------------------------------------------------------------------
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     slug         VARCHAR(50)  NOT NULL UNIQUE,
     nombre       VARCHAR(100) NOT NULL,
     created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO categories (id, slug, nombre) VALUES
+INSERT IGNORE INTO categories (id, slug, nombre) VALUES
     (1,  'fiction',     'Ficcion'),
     (2,  'literature',  'Literatura'),
     (3,  'poetry',      'Poesia'),
@@ -166,7 +162,7 @@ INSERT INTO categories (id, slug, nombre) VALUES
 -- ---------------------------------------------------------------------
 -- 7. Material educativo (RD-05: hash unico)
 -- ---------------------------------------------------------------------
-CREATE TABLE materials (
+CREATE TABLE IF NOT EXISTS materials (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     autor_id     INT          NOT NULL,
     uploaded_by  INT          NULL,
@@ -192,7 +188,7 @@ CREATE TABLE materials (
 -- ---------------------------------------------------------------------
 -- 5. Relacion N a N Material <-> Materia (moderacion por materia)
 -- ---------------------------------------------------------------------
-CREATE TABLE material_subjects (
+CREATE TABLE IF NOT EXISTS material_subjects (
     material_id        INT NOT NULL,
     subject_id         INT NOT NULL,
     estado_aprobacion  ENUM('Aprobado','Pendiente') NOT NULL DEFAULT 'Pendiente',
@@ -205,7 +201,7 @@ CREATE TABLE material_subjects (
 -- ---------------------------------------------------------------------
 -- 7. Suscripciones (patron Observer)
 -- ---------------------------------------------------------------------
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     alumno_id   INT NOT NULL,
     materia_id  INT NOT NULL,
@@ -219,7 +215,7 @@ CREATE TABLE subscriptions (
 -- ---------------------------------------------------------------------
 -- 8. Registro de auditoria (RD-06: trazabilidad inalterable)
 -- ---------------------------------------------------------------------
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     timestamp       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     tipo_operacion  VARCHAR(100) NOT NULL,
@@ -231,7 +227,7 @@ CREATE TABLE audit_logs (
 -- ---------------------------------------------------------------------
 -- 9. Etiquetas tematicas (Thematic Tags)
 -- ---------------------------------------------------------------------
-CREATE TABLE thematic_tags (
+CREATE TABLE IF NOT EXISTS thematic_tags (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     nombre       VARCHAR(100) NOT NULL,
     categoria    VARCHAR(100) NOT NULL,
@@ -245,7 +241,7 @@ CREATE TABLE thematic_tags (
 -- ---------------------------------------------------------------------
 -- 10. Favoritos de materiales
 -- ---------------------------------------------------------------------
-CREATE TABLE material_favorites (
+CREATE TABLE IF NOT EXISTS material_favorites (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     usuario_id   INT NOT NULL,
     material_id  INT NOT NULL,
@@ -258,7 +254,7 @@ CREATE TABLE material_favorites (
 -- ---------------------------------------------------------------------
 -- 11. Notificaciones de material nuevo en materias suscritas
 -- ---------------------------------------------------------------------
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     usuario_id   INT NOT NULL,
     actor_id     INT NULL,
@@ -279,7 +275,7 @@ CREATE TABLE notifications (
 -- ---------------------------------------------------------------------
 -- 12. Lecturas, progreso y estanteria personal
 -- ---------------------------------------------------------------------
-CREATE TABLE material_reads (
+CREATE TABLE IF NOT EXISTS material_reads (
     user_id      INT NOT NULL,
     material_id  INT NOT NULL,
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -289,7 +285,7 @@ CREATE TABLE material_reads (
     CONSTRAINT fk_reads_material FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE
 );
 
-CREATE TABLE reading_backlog (
+CREATE TABLE IF NOT EXISTS reading_backlog (
     user_id       INT NOT NULL,
     material_id   INT NOT NULL,
     current_page  INT NOT NULL DEFAULT 0,
@@ -306,7 +302,7 @@ CREATE TABLE reading_backlog (
 -- ---------------------------------------------------------------------
 -- 13. Suscripciones entre usuarios (seguidores) y rachas de lectura
 -- ---------------------------------------------------------------------
-CREATE TABLE user_subscriptions (
+CREATE TABLE IF NOT EXISTS user_subscriptions (
     subscriber_id  INT NOT NULL,
     target_user_id INT NOT NULL,
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -316,7 +312,7 @@ CREATE TABLE user_subscriptions (
     CONSTRAINT fk_usub_target     FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE reading_streaks (
+CREATE TABLE IF NOT EXISTS reading_streaks (
     user_id         INT PRIMARY KEY,
     current_streak  INT NOT NULL DEFAULT 0,
     last_read_date  DATE NULL,
@@ -327,7 +323,7 @@ CREATE TABLE reading_streaks (
 -- ---------------------------------------------------------------------
 -- 14. Insignias obtenidas por usuario
 -- ---------------------------------------------------------------------
-CREATE TABLE user_badges (
+CREATE TABLE IF NOT EXISTS user_badges (
     user_id     INT NOT NULL,
     badge_key   VARCHAR(50) NOT NULL,
     unlocked_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
@@ -337,53 +333,17 @@ CREATE TABLE user_badges (
 -- =====================================================================
 --  Datos semilla (contrasenas hasheadas con BCrypt)
 -- =====================================================================
-INSERT INTO roles (nombre, descripcion) VALUES
+INSERT IGNORE INTO roles (nombre, descripcion) VALUES
     ('Superadmin', 'Privilegios maximos: crea profesores, materias y roles.'),
     ('Profesor',   'Administra el contenido de sus materias y modera alumnos.'),
     ('Alumno',     'Se suscribe a materias y sugiere material educativo.');
 
--- Contrasenas: Admin123 / Profesor123 / Alumno123
-INSERT INTO users (role_id, nombre, apellido, email, password, estado) VALUES
-    (1, 'Sofia',  'Administradora', 'admin@bibliotech.edu',    '$2b$10$K86PmMZ9hs3PZ46Z/3geuevZIvtujVlvZFrT/dmTlfrIA/FOYEkVy', 'Activo'),
-    (2, 'Pablo',  'Profesor',       'profesor@bibliotech.edu', '$2b$10$xunEA37D5bALA.0GWqheqetYcp3qfnyeyMRG5ib1wZ4Xu3fIBBzPm', 'Activo'),
-    (3, 'Ana',    'Alumna',         'alumno@bibliotech.edu',   '$2b$10$RGjIbhSb.tb8C.Gypi5gKO.6ymujG.GrAXzUAetkj.bQTDbnAnsDG', 'Activo');
+-- Los datos demo (usuarios, carrera, anios y materias) se cargan con
+-- backend/config/seed_dev.sql y nunca forman parte del esquema base.
 
-INSERT INTO careers (nombre, color) VALUES
-    ('Analista de Sistemas', '#6f5bd3');
-
-INSERT INTO career_years (career_id, nombre, orden) VALUES
-    (1, 'Primer Año', 1),
-    (1, 'Segundo Año', 2),
-    (1, 'Tercer Año', 3);
-
-INSERT INTO subjects (nombre, descripcion, profesor_id, career_year_id, estado_asociacion) VALUES
-    -- Primer Año (career_year_id = 1)
-    ('Inglés I', 'Comprensión lectora y vocabulario técnico inicial en inglés.', NULL, 1, 'Activa'),
-    ('Ciencia, Tecnología y Sociedad', 'Impacto social y ético de la tecnología y la ciencia.', NULL, 1, 'Activa'),
-    ('Análisis Matemático I', 'Funciones, límites, derivadas e introducción al cálculo integral.', NULL, 1, 'Activa'),
-    ('Álgebra', 'Vectores, matrices, sistemas de ecuaciones lineales y espacios vectoriales.', NULL, 1, 'Activa'),
-    ('Algoritmos y Estructuras de Datos I', 'Fundamentos de lógica, algoritmia y estructuras de datos elementales.', NULL, 1, 'Activa'),
-    ('Sistemas y Organizaciones', 'Teoría general de sistemas, estructuras y procesos organizacionales.', NULL, 1, 'Activa'),
-    ('Arquitectura de Computadores', 'Organización de hardware, componentes internos, memoria y procesadores.', NULL, 1, 'Activa'),
-    ('Prácticas Profesionalizantes I', 'Primer acercamiento al entorno profesional y análisis de necesidades.', NULL, 1, 'Activa'),
-
-    -- Segundo Año (career_year_id = 2)
-    ('Inglés II', 'Redacción de documentación técnica e interacción profesional en inglés.', NULL, 2, 'Activa'),
-    ('Análisis Matemático II', 'Cálculo multivariable, series y ecuaciones diferenciales aplicadas.', NULL, 2, 'Activa'),
-    ('Estadística', 'Estadística descriptiva, probabilidad y distribuciones para análisis de datos.', NULL, 2, 'Activa'),
-    ('Ingeniería de Software I', 'Ciclo de vida del software, relevamiento, requerimientos y modelado UML.', NULL, 2, 'Activa'),
-    ('Algoritmos y Estructuras de Datos II', 'Estructuras de datos avanzadas, complejidad algorítmica y POO.', NULL, 2, 'Activa'),
-    ('Sistemas Operativos', 'Gestión de procesos, memoria, archivos y administración de sistemas.', NULL, 2, 'Activa'),
-    ('Bases de Datos', 'Modelado relacional, SQL, normalización y gestión de datos.', NULL, 2, 'Activa'),
-    ('Prácticas Profesionalizantes II', 'Diseño y desarrollo de proyectos orientados a requerimientos reales.', NULL, 2, 'Activa'),
-
-    -- Tercer Año (career_year_id = 3)
-    ('Inglés III', 'Comunicación fluida y presentación de proyectos en inglés técnico.', NULL, 3, 'Activa'),
-    ('Aspectos Legales de la Profesión', 'Legislación informática, propiedad intelectual, marcas, patentes y delictiva digital.', NULL, 3, 'Activa'),
-    ('Seminario de Actualización', 'Exploración de nuevas tecnologías, metodologías ágiles y tendencias.', NULL, 3, 'Activa'),
-    ('Redes y Comunicaciones', 'Modelos OSI/TCP-IP, protocolos, enrutamiento, topologías y seguridad en redes.', NULL, 3, 'Activa'),
-    ('Ingeniería de Software II', 'Arquitectura de software, patrones de diseño, testing y calidad.', NULL, 3, 'Activa'),
-    ('Algoritmos y Estructuras de Datos III', 'Programación concurrente, patrones avanzados y frameworks de desarrollo.', NULL, 3, 'Activa'),
-    ('Prácticas Profesionalizantes III', 'Proyecto integrador final aplicado a un entorno o cliente real.', NULL, 3, 'Activa');
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version     VARCHAR(255) PRIMARY KEY,
+    applied_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 SET foreign_key_checks = 1;

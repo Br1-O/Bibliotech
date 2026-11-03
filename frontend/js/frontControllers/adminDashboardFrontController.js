@@ -54,6 +54,7 @@ document.addEventListener('bt:ready', () => {
     const ADMIN_PAGE_SIZE = 10;
     let subjectPage = 1;
     let auditPage = 1;
+    let auditTotal = 0;
     let userPage = 1;
     let tagPage = 1;
     let userDebounce;
@@ -499,10 +500,15 @@ document.addEventListener('bt:ready', () => {
         ])));
     }
 
-    async function loadAudit() {
+    async function loadAudit(page = 1) {
         try {
-            const { logs } = await apiService.get('/audit');
-            cache.logs = logs;
+            auditPage = page;
+            const result = await apiService.get('/audit', {
+                page: auditPage,
+                pageSize: AUDIT_PAGE_SIZE
+            });
+            cache.logs = result.logs || [];
+            auditTotal = Number(result.pagination?.total ?? cache.logs.length);
             renderAuditLogs();
         } catch (error) { Toast.error(error.message); }
     }
@@ -514,19 +520,15 @@ document.addEventListener('bt:ready', () => {
     function renderAuditLogs() {
         if (!auditTable) return;
         const logs = cache.logs || [];
-        if (!logs.length) {
+        if (!auditTotal) {
             render(auditTable, [el('tr', {}, [
                 el('td', { attrs: { colspan: '4' }, text: LanguageManager.t('common.noResults') })
             ])]);
             Pagination.render(auditPagination, { total: 0, pageSize: AUDIT_PAGE_SIZE });
             return;
         }
-        const totalPages = Pagination.totalPages(logs.length, AUDIT_PAGE_SIZE);
-        if (auditPage > totalPages) auditPage = totalPages;
-        const start = (auditPage - 1) * AUDIT_PAGE_SIZE;
-        const pageItems = logs.slice(start, start + AUDIT_PAGE_SIZE);
 
-        render(auditTable, pageItems.map(l => {
+        render(auditTable, logs.map(l => {
             const targetName = l.registroNombre || (l.registroId != null ? `#${l.registroId}` : '-');
             const target = el('div', { className: 'bt-audit__target' }, [
                 l.registroTipo && el('span', {
@@ -554,9 +556,9 @@ document.addEventListener('bt:ready', () => {
 
         Pagination.render(auditPagination, {
             page: auditPage,
-            total: logs.length,
+            total: auditTotal,
             pageSize: AUDIT_PAGE_SIZE,
-            onChange: (page) => { auditPage = page; renderAuditLogs(); }
+            onChange: (page) => loadAudit(page)
         });
     }
 

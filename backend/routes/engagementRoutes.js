@@ -4,17 +4,17 @@
 */
 
 const express = require('express');
-const { verifyToken, optionalAuth } = require('../middleware/authMiddleware');
 
 module.exports = (container) => {
     const router = express.Router();
     const controller = require('../controllers/engagementController')(container);
+    const { verifyToken, optionalAuth } = container.authMiddleware;
 
     router.get('/profile/:id', optionalAuth, controller.profile);
-    router.get('/users/:id/favorites', optionalAuth, controller.favorites);
+    router.get('/users/:id/favorites', verifyToken, controller.favorites);
     router.get('/users/:id/uploads', optionalAuth, controller.uploads);
-    router.get('/users/:id/reads', optionalAuth, controller.reads);
-    router.get('/users/:id/backlog', optionalAuth, controller.backlog);
+    router.get('/users/:id/reads', verifyToken, controller.reads);
+    router.get('/users/:id/backlog', verifyToken, controller.backlog);
 
     router.put('/profile', verifyToken, controller.updateProfile);
     router.get('/profile-pictures', verifyToken, controller.profilePictures);

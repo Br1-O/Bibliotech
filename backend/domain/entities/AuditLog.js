@@ -4,13 +4,13 @@
 */
 
 class AuditLog {
-    constructor({ id = null, tipoOperacion, usuarioId = null, registroId = null, timestamp = null }) {
+    constructor({ id = null, tipoOperacion, usuarioId = null, registroId = null, timestamp = null, registroTipo = null }) {
         this.id = id;
         this.tipoOperacion = tipoOperacion;
         this.usuarioId = usuarioId;
         this.registroId = registroId;
         this.timestamp = timestamp;
-        this.registroTipo = AuditLog.tipoRegistro(tipoOperacion);
+        this.registroTipo = registroTipo || AuditLog.tipoRegistro(tipoOperacion);
         this.registroNombre = null;
         this.usuarioNombre = null;
         this.usuarioEmail = null;
@@ -42,7 +42,8 @@ AuditLog.OPERACIONES = {
     CANCELACION_MATERIAL: 'Cancelacion Material',
     BORRADO_MATERIAL: 'Borrado Material',
     SUSCRIPCION: 'Suscripcion Materia',
-    BANEO_ALUMNO: 'Baneo Alumno'
+    BANEO_ALUMNO: 'Baneo Alumno',
+    CAMBIO_ROL: 'Cambio Rol'
 };
 
 // Tipo de entidad afectada por cada operacion. Permite que el registro de
@@ -71,7 +72,8 @@ AuditLog.REGISTRO_TIPOS = {
     [AuditLog.OPERACIONES.CANCELACION_MATERIAL]: 'Material',
     [AuditLog.OPERACIONES.BORRADO_MATERIAL]: 'Material',
     [AuditLog.OPERACIONES.SUSCRIPCION]: 'Materia',
-    [AuditLog.OPERACIONES.BANEO_ALUMNO]: 'Usuario'
+    [AuditLog.OPERACIONES.BANEO_ALUMNO]: 'Usuario',
+    [AuditLog.OPERACIONES.CAMBIO_ROL]: 'Usuario'
 };
 
 AuditLog.tipoRegistro = (tipoOperacion) => AuditLog.REGISTRO_TIPOS[tipoOperacion] || null;

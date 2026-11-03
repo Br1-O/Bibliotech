@@ -28,6 +28,7 @@ const SubscriptionService = require('../application/services/SubscriptionService
 const NotificationService = require('../application/services/NotificationService');
 const LanguageManager = require('../validator/LanguageManager');
 const fileHelper = require('../utils/fileHelper');
+const { createAuthMiddleware } = require('../middleware/authMiddleware');
 
 /**
  * Construye el grafo de dependencias. Cambiar el motor de persistencia
@@ -70,6 +71,7 @@ function buildContainer() {
 
         // Infraestructura de soporte
         languageManager,
+        authMiddleware: createAuthMiddleware({ userRepository }),
 
         // Servicios de aplicacion (puertos de entrada)
         auditLogService,

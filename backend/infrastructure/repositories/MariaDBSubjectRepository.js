@@ -24,9 +24,7 @@ const mapSubject = row => (row ? new Subject({
 const SUBJECT_SELECT = `
     SELECT s.*, u.nombre AS profesorNombre, u.apellido AS profesorApellido,
            cy.id AS anioId, cy.nombre AS anioNombre, cy.orden AS anioOrden,
-           c.id AS carreraId, c.nombre AS carreraNombre, c.color AS carreraColor,
-           (SELECT COUNT(*) FROM material_subjects ms
-             WHERE ms.subject_id = s.id AND ms.estado_aprobacion = 'Aprobado') AS totalMateriales
+           c.id AS carreraId, c.nombre AS carreraNombre, c.color AS carreraColor
     FROM subjects s
     LEFT JOIN users u ON u.id = s.profesor_id
     LEFT JOIN career_years cy ON cy.id = s.career_year_id
@@ -90,6 +88,23 @@ class MariaDBSubjectRepository extends SubjectRepositoryInterface {
         return list;
     }
 
+    /** Cuenta materiales aprobados por materia en una sola consulta. */
+    async attachMaterialCounts(subjects) {
+        const list = (subjects || []).filter(Boolean);
+        if (!list.length) return list;
+        const ids = list.map(subject => Number(subject.id)).filter(Boolean);
+        if (!ids.length) return list;
+        const placeholders = ids.map(() => '?').join(',');
+        const [rows] = await db.execute(`
+            SELECT subject_id AS subjectId, COUNT(*) AS total
+              FROM material_subjects
+             WHERE estado_aprobacion = 'Aprobado' AND subject_id IN (${placeholders})
+             GROUP BY subject_id`, ids);
+        const counts = new Map(rows.map(row => [Number(row.subjectId), Number(row.total) || 0]));
+        list.forEach(subject => { subject.totalMateriales = counts.get(Number(subject.id)) || 0; });
+        return list;
+    }
+
     /** Sincroniza subjects.profesor_id con el primer profesor asignado. */
     async syncPrimaryProfessor(subjectId) {
         const [rows] = await db.execute(
@@ -137,8 +152,22 @@ class MariaDBSubjectRepository extends SubjectRepositoryInterface {
         const [rows] = await db.execute(`${SUBJECT_SELECT} WHERE s.id = ?`, [id]);
         const subject = mapSubject(rows[0]);
         if (!subject) return null;
-        await this.attachProfessors([subject]);
+        await Promise.all([this.attachProfessors([subject]), this.attachMaterialCounts([subject])]);
         return subject;
+    }
+
+    async findByIds(ids = []) {
+        const unique = [...new Set(ids.map(Number).filter(Boolean))];
+        if (!unique.length) return [];
+        const placeholders = unique.map(() => '?').join(',');
+        const [rows] = await db.execute(`${SUBJECT_SELECT} WHERE s.id IN (${placeholders})`, unique);
+        const subjects = rows.map(r => {
+            const subject = mapSubject(r);
+            subject.profesorNombre = r.profesorNombre ? `${r.profesorNombre} ${r.profesorApellido || ''}`.trim() : null;
+            return subject;
+        });
+        await Promise.all([this.attachProfessors(subjects), this.attachMaterialCounts(subjects)]);
+        return subjects;
     }
 
     async findAll(filters = {}) {
@@ -164,39 +193,53 @@ class MariaDBSubjectRepository extends SubjectRepositoryInterface {
         const subjects = rows.map(r => {
             const subject = mapSubject(r);
             subject.profesorNombre = r.profesorNombre ? `${r.profesorNombre} ${r.profesorApellido || ''}`.trim() : null;
-            subject.totalMateriales = Number(r.totalMateriales) || 0;
             return subject;
         });
-        await this.attachProfessors(subjects);
+        await Promise.all([this.attachProfessors(subjects), this.attachMaterialCounts(subjects)]);
         return subjects;
     }
 
     async requestAssociation(subjectId, profesorId) {
-        await this.addProfessor(subjectId, profesorId);
         const [res] = await db.execute(
-            `UPDATE subjects SET profesor_id = ?, estado_asociacion = 'Pendiente' WHERE id = ?`,
-            [profesorId, subjectId]
+            `INSERT INTO subject_association_requests (subject_id, profesor_id)
+             VALUES (?, ?) ON DUPLICATE KEY UPDATE subject_id = VALUES(subject_id)`,
+            [subjectId, profesorId]
         );
         return res.affectedRows > 0;
     }
 
-    async confirmAssociation(subjectId, profesorId) {
-        if (profesorId) await this.addProfessor(subjectId, profesorId);
-        const [res] = await db.execute(
-            `UPDATE subjects SET estado_asociacion = 'Activa' WHERE id = ?`,
-            [subjectId]
+    async findAssociationRequest(subjectId, profesorId = null) {
+        const params = [subjectId];
+        let idClause = '';
+        if (profesorId) {
+            idClause = ' AND profesor_id = ?';
+            params.push(profesorId);
+        }
+        const [rows] = await db.execute(
+            `SELECT subject_id AS subjectId, profesor_id AS profesorId, created_at AS createdAt
+               FROM subject_association_requests
+              WHERE subject_id = ?${idClause}
+              ORDER BY created_at, profesor_id LIMIT 1`,
+            params
         );
-        await this.syncPrimaryProfessor(subjectId);
+        if (!rows.length) return null;
+        return {
+            subjectId: Number(rows[0].subjectId),
+            profesorId: Number(rows[0].profesorId),
+            createdAt: rows[0].createdAt
+        };
+    }
+
+    async deleteAssociationRequest(subjectId, profesorId) {
+        const [res] = await db.execute(
+            'DELETE FROM subject_association_requests WHERE subject_id = ? AND profesor_id = ?',
+            [subjectId, profesorId]
+        );
         return res.affectedRows > 0;
     }
 
-    async rejectAssociation(subjectId) {
-        await db.execute('DELETE FROM subject_professors WHERE subject_id = ?', [subjectId]);
-        const [res] = await db.execute(
-            `UPDATE subjects SET profesor_id = NULL, estado_asociacion = 'Pendiente' WHERE id = ? AND estado_asociacion = 'Pendiente'`,
-            [subjectId]
-        );
-        return res.affectedRows > 0;
+    async clearAssociationRequests(subjectId) {
+        await db.execute('DELETE FROM subject_association_requests WHERE subject_id = ?', [subjectId]);
     }
 
     async delete(id) {

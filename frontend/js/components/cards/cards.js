@@ -552,7 +552,7 @@ const Cards = {
     isFileMaterial(material) {
         const tipo = String(material.tipo || '');
         const link = String(material.urlOrPath || '');
-        return !['Link_Drive', 'Youtube', 'Repositorio'].includes(tipo)
+        return ['PDF', 'EPUB', 'Word', 'Presentacion'].includes(tipo)
             || link.startsWith('/uploads/')
             || /res\.cloudinary\.com\//i.test(link);
     },
@@ -750,7 +750,7 @@ const Cards = {
     material(material, options = {}) {
         const inactive = this.isInactive(material);
         const link = inactive ? '' : (typeof MaterialViewer !== 'undefined'
-            ? MaterialViewer.safeHref(material.urlOrPath)
+            ? MaterialViewer.fileHref(material)
             : String(material.urlOrPath || ''));
         const isFile = !inactive && this.isFileMaterial(material);
         const upload = this.uploadInfo(material.createdAt);

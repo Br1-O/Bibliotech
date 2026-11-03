@@ -5,6 +5,7 @@
 */
 
 document.addEventListener('DOMContentLoaded', async () => {
+    if (typeof authHelper !== 'undefined') authHelper.clearLegacyFileCookie();
     await LanguageManager.init();
     // Los componentes reutilizables se montan cuando el DOM ya existe.
     if (typeof PasswordField !== 'undefined') PasswordField.enhanceAll(document);

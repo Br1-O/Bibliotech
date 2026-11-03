@@ -4,11 +4,11 @@
 */
 
 const express = require('express');
-const { verifyToken } = require('../middleware/authMiddleware');
 
 module.exports = (container) => {
     const router = express.Router();
     const controller = require('../controllers/notificationController')(container);
+    const { verifyToken } = container.authMiddleware;
 
     router.use(verifyToken);
 

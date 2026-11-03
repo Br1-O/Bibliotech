@@ -5,6 +5,7 @@
 */
 
 const bcrypt = require('bcrypt');
+const db = require('../../config/db');
 const jwt = require('jsonwebtoken');
 
 const User = require('../../domain/entities/User');
@@ -19,13 +20,16 @@ const Password = require('../../validator/rules/Password');
 const Length = require('../../validator/rules/Length');
 const SameAs = require('../../validator/rules/SameAs');
 const { mailerService } = require('./mail/MailerService');
+const { getConfig } = require('../../config/env');
+const { logger } = require('../../utils/logger');
+const metrics = require('../../utils/metrics');
 
-const SECRET_KEY = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
-const JWT_EXPIRES = process.env.JWT_EXPIRES || '2h';
-const RESET_MINUTES = parseInt(process.env.RESET_TOKEN_MINUTES || '60', 10);
-const VERIFY_MINUTES = parseInt(process.env.VERIFY_TOKEN_MINUTES || '60', 10);
-const APP_URL = (process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
-const EXPOSE_DEV_TOKENS = process.env.NODE_ENV !== 'production';
+const config = getConfig();
+const JWT = config.jwt;
+const RESET_MINUTES = config.auth.resetTokenMinutes;
+const VERIFY_MINUTES = config.auth.verifyTokenMinutes;
+const APP_URL = config.appUrl;
+const EXPOSE_DEV_TOKENS = config.security.exposeDevTokens;
 
 class AuthService {
     constructor(userRepository, roleRepository, auditLogService, languageManager, mailer = mailerService) {
@@ -135,26 +139,31 @@ class AuthService {
         if (!role) throw new AppError('validation.roleTaken', { status: 500 });
 
         const hashed = await bcrypt.hash(dto.password, 10);
-        const user = await this.userRepository.save(new User({
-            roleId: role.id,
-            nombre: dto.nombre.trim(),
-            apellido: dto.apellido.trim(),
-            email,
-            password: hashed,
-            estado: 'PendienteVerificacion'
-        }));
-
         const token = hashHelper.randomToken(32);
         const expiration = new Date(Date.now() + VERIFY_MINUTES * 60 * 1000);
-        await this.userRepository.setVerificationToken(user.email, hashHelper.hashString(token), expiration);
+        const user = await db.transaction(async () => {
+            const created = await this.userRepository.save(new User({
+                roleId: role.id,
+                nombre: dto.nombre.trim(),
+                apellido: dto.apellido.trim(),
+                email,
+                password: hashed,
+                estado: 'PendienteVerificacion'
+            }));
+            await this.userRepository.setVerificationToken(
+                created.email, hashHelper.hashString(token), expiration
+            );
+            await this.auditLogService.record(AuditLog.OPERACIONES.ALTA_USUARIO, null, created.id);
+            return created;
+        });
 
         try {
             await this.sendVerificationEmail(user, token);
         } catch (error) {
-            console.error(`[AUTH] No se pudo enviar el correo de verificacion a ${user.email}: ${error.message}`);
+            metrics.recordMailError();
+            logger.warn('auth.mail_failed', { operation: 'verification', error });
         }
 
-        await this.auditLogService.record(AuditLog.OPERACIONES.ALTA_USUARIO, null, user.id);
         const fresh = await this.userRepository.findById(user.id);
         const result = { user: fresh.toSafeJSON() };
         if (EXPOSE_DEV_TOKENS) result.devToken = token;
@@ -171,14 +180,17 @@ class AuthService {
         if (existing) throw new AppError('validation.emailTaken', { status: 409 });
 
         const password = await bcrypt.hash(dto.password, 10);
-        const user = await this.userRepository.save(new User({
-            roleId: roleProfesor.id,
-            nombre: dto.nombre,
-            apellido: dto.apellido,
-            email: dto.email,
-            password
-        }));
-        await this.auditLogService.record(AuditLog.OPERACIONES.ALTA_USUARIO, usuarioId, user.id);
+        const user = await db.transaction(async () => {
+            const created = await this.userRepository.save(new User({
+                roleId: roleProfesor.id,
+                nombre: dto.nombre,
+                apellido: dto.apellido,
+                email: dto.email,
+                password
+            }));
+            await this.auditLogService.record(AuditLog.OPERACIONES.ALTA_USUARIO, usuarioId, created.id);
+            return created;
+        });
         return this.userRepository.findById(user.id).then(fresh => fresh.toSafeJSON());
     }
 
@@ -199,9 +211,14 @@ class AuthService {
         }
         
         const token = jwt.sign(
-            { id: user.id, role: user.roleNombre },
-            SECRET_KEY,
-            { expiresIn: JWT_EXPIRES }
+            { id: user.id, role: user.roleNombre, ver: Number(user.tokenVersion) || 0 },
+            JWT.secret,
+            {
+                algorithm: JWT.algorithm,
+                expiresIn: JWT.expiresIn,
+                issuer: JWT.issuer,
+                audience: JWT.audience
+            }
         );
         return { token, user: user.toSafeJSON() };
     }
@@ -222,15 +239,16 @@ class AuthService {
 
         const token = hashHelper.randomToken(32);
         const expiration = new Date(Date.now() + RESET_MINUTES * 60 * 1000);
-        await this.userRepository.setResetToken(normalizedEmail, hashHelper.hashString(token), expiration);
-        if (this.auditLogService) {
-            try { await this.auditLogService.record(AuditLog.OPERACIONES.SOLICITUD_RESETEO, user.id, user.id); } catch (e) { /* audit no bloquea */ }
-        }
+        await db.transaction(async () => {
+            await this.userRepository.setResetToken(normalizedEmail, hashHelper.hashString(token), expiration);
+            await this.auditLogService.record(AuditLog.OPERACIONES.SOLICITUD_RESETEO, user.id, user.id);
+        });
 
         try {
             await this.sendRecoveryEmail(user, token);
         } catch (error) {
-            console.error(`[AUTH] No se pudo enviar el correo de recuperacion a ${user.email}: ${error.message}`);
+            metrics.recordMailError();
+            logger.warn('auth.mail_failed', { operation: 'recovery', error });
         }
 
         const result = { ...generic, expiresInMinutes: RESET_MINUTES };
@@ -248,8 +266,11 @@ class AuthService {
         const user = await this.userRepository.findByVerificationToken(tokenHash);
         const notExpired = user && user.verificationExpires && new Date(user.verificationExpires).getTime() > Date.now();
         if (user && user.estado === 'PendienteVerificacion' && notExpired) {
-            await this.userRepository.verifyUser(user.id);
-            try { await this.auditLogService.record(AuditLog.OPERACIONES.VERIFICACION_CUENTA, user.id, user.id); } catch (e) { /* audit no bloquea */ }
+            await db.transaction(async () => {
+                const verified = await this.userRepository.verifyUser(user.id);
+                if (!verified) throw new AppError('errors.invalidToken', { status: 400 });
+                await this.auditLogService.record(AuditLog.OPERACIONES.VERIFICACION_CUENTA, user.id, user.id);
+            });
             return { message: 'messages.accountVerified' };
         }
         throw new AppError('errors.invalidToken', { status: 400 });
@@ -283,7 +304,8 @@ class AuthService {
         try {
             await this.sendVerificationEmail(user, token);
         } catch (error) {
-            console.error(`[AUTH] No se pudo reenviar la verificacion a ${user.email}: ${error.message}`);
+            metrics.recordMailError();
+            logger.warn('auth.mail_failed', { operation: 'verification_resend', error });
         }
 
         const result = { ...generic };
@@ -311,10 +333,10 @@ class AuthService {
         if (!user.canResetPassword()) throw new AppError('errors.invalidToken', { status: 400 });
 
         const hashed = await bcrypt.hash(newPassword, 10);
-        await this.userRepository.updatePassword(user.id, hashed);
-        if (this.auditLogService) {
-            try { await this.auditLogService.record(AuditLog.OPERACIONES.CAMBIO_CLAVE, user.id, user.id); } catch (e) { /* audit no bloquea */ }
-        }
+        await db.transaction(async () => {
+            await this.userRepository.updatePassword(user.id, hashed);
+            await this.auditLogService.record(AuditLog.OPERACIONES.CAMBIO_CLAVE, user.id, user.id);
+        });
         return { message: 'messages.passwordChanged' };
     }
 
@@ -335,41 +357,80 @@ class AuthService {
         }
 
         const hashed = await bcrypt.hash(password, 10);
-        await this.userRepository.updatePassword(user.id, hashed);
-        if (this.auditLogService) {
-            try { await this.auditLogService.record(AuditLog.OPERACIONES.CAMBIO_CLAVE, user.id, user.id); } catch (e) { /* audit no bloquea */ }
-        }
+        await db.transaction(async () => {
+            await this.userRepository.updatePassword(user.id, hashed);
+            await this.auditLogService.record(AuditLog.OPERACIONES.CAMBIO_CLAVE, user.id, user.id);
+        });
         return { message: 'messages.passwordChanged' };
     }
 
     async banUser(userId, usuarioId = null) {
-        const user = await this.userRepository.findById(userId);
-        if (!user) throw new AppError('errors.notFound', { status: 404 });
-        await this.userRepository.updateEstado(userId, 'Baneado');
-        await this.auditLogService.record(AuditLog.OPERACIONES.BANEO_ALUMNO, usuarioId, userId);
-        return { message: 'messages.banned' };
+        return db.transaction(async () => {
+            const user = await this.userRepository.findById(userId);
+            if (!user) throw new AppError('errors.notFound', { status: 404 });
+            await this.userRepository.updateEstado(userId, 'Baneado');
+            await this.auditLogService.record(AuditLog.OPERACIONES.BANEO_ALUMNO, usuarioId, userId);
+            return { message: 'messages.banned' };
+        });
     }
 
     async unbanUser(userId, usuarioId = null) {
-        const user = await this.userRepository.findById(userId);
-        if (!user) throw new AppError('errors.notFound', { status: 404 });
-        await this.userRepository.updateEstado(userId, 'Activo');
-        await this.auditLogService.record(AuditLog.OPERACIONES.DESBANEO_USUARIO, usuarioId, userId);
-        return { message: 'messages.userUnbanned' };
+        return db.transaction(async () => {
+            const user = await this.userRepository.findById(userId);
+            if (!user) throw new AppError('errors.notFound', { status: 404 });
+            await this.userRepository.updateEstado(userId, 'Activo');
+            await this.auditLogService.record(AuditLog.OPERACIONES.DESBANEO_USUARIO, usuarioId, userId);
+            return { message: 'messages.userUnbanned' };
+        });
     }
 
     async softDeleteUser(userId, usuarioId = null) {
-        const user = await this.userRepository.findById(userId);
-        if (!user) throw new AppError('errors.notFound', { status: 404 });
-        await this.userRepository.softDelete(userId);
-        await this.auditLogService.record(AuditLog.OPERACIONES.BAJA_USUARIO, usuarioId, userId);
-        return { message: 'messages.userDeleted' };
+        return db.transaction(async () => {
+            const user = await this.userRepository.findById(userId);
+            if (!user) throw new AppError('errors.notFound', { status: 404 });
+            await this.userRepository.softDelete(userId);
+            await this.auditLogService.record(AuditLog.OPERACIONES.BAJA_USUARIO, usuarioId, userId);
+            return { message: 'messages.userDeleted' };
+        });
+    }
+
+    async changeUserRole(userId, roleName, usuarioId = null) {
+        const normalized = String(roleName || '').trim();
+        if (![Role.SUPERADMIN, Role.PROFESOR, Role.ALUMNO].includes(normalized)) {
+            throw new AppError('validation.invalidData', { status: 422 });
+        }
+
+        return db.transaction(async () => {
+            const adminIds = await this.userRepository.lockByRole(Role.SUPERADMIN);
+            const target = await this.userRepository.findById(userId);
+            if (!target) throw new AppError('errors.notFound', { status: 404 });
+
+            const role = await this.roleRepository.findByName(normalized);
+            if (!role) throw new AppError('validation.invalidData', { status: 422 });
+
+            if (target.roleNombre === Role.SUPERADMIN && normalized !== Role.SUPERADMIN) {
+                if (adminIds.length <= 1) {
+                    throw new AppError('validation.invalidData', { status: 409 });
+                }
+            }
+
+            await this.userRepository.updateRole(userId, role.id);
+            await this.auditLogService.record(AuditLog.OPERACIONES.CAMBIO_ROL, usuarioId, userId);
+            const updated = await this.userRepository.findById(userId);
+            return updated.toSafeJSON();
+        });
     }
 
     async getUserById(id) {
         const user = await this.userRepository.findById(id);
         if (!user) throw new AppError('errors.notFound', { status: 404 });
         return user.toSafeJSON();
+    }
+
+    async getPublicUserById(id) {
+        const user = await this.userRepository.findById(id);
+        if (!user) throw new AppError('errors.notFound', { status: 404 });
+        return user.toPublicJSON();
     }
 }
 

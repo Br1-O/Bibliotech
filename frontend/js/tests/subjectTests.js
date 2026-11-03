@@ -74,6 +74,9 @@ testUtils.createTestButton('Test Asociacion Materia (solicitar + confirmar)', as
 
     const pendiente = await testUtils.request(`/subjects/${id}`);
     testUtils.assert(pendiente.data.subject.estadoAsociacion === 'Pendiente', 'Estado esperado Pendiente');
+    testUtils.assert(pendiente.data.subject.profesorId === null, 'La solicitud no debe asignar profesor');
+    testUtils.assert(Array.isArray(pendiente.data.subject.profesores) && pendiente.data.subject.profesores.length === 0,
+        'La solicitud no debe modificar la lista de profesores');
 
     const confirmar = await testUtils.request(`/subjects/${id}/confirm-association`, {
         method: 'POST', token: admin, body: { profesorId: 2 }

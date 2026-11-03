@@ -120,22 +120,27 @@ testUtils.createTestButton('Test Refinamiento: Matriz de permisos de edicion', a
     const editadaAjena = await testUtils.request(`/materials/${sugerencia.data.material.id}`, {
         method: 'PUT', token: ajeno.token, body: { descripcion: 'Editada por otro profesor' }
     });
-    testUtils.assert(editadaAjena.ok, 'Cualquier profesor debe poder editar materiales subidos por alumnos');
+    testUtils.assert(editadaAjena.status === 403, 'Un profesor ajeno no debe editar materiales de la materia');
 
     const lote = new FormData();
     lote.append('links', `${testUtils.uniq('Material Admin Editable')} | https://github.com/bibliotech-test/${testUtils.uniq('repo')}`);
     const creadoAdmin = await testUtils.request('/materials/batch', { method: 'POST', token: admin, form: lote });
     testUtils.assert(creadoAdmin.status === 201 && creadoAdmin.data.created === 1, 'No se pudo crear el material del admin');
     const materialAdmin = creadoAdmin.data.materials[0];
+    const sinAsociar = await testUtils.request(`/materials/${materialAdmin.id}`, {
+        method: 'PUT', token: profesor, body: { descripcion: 'Profesor intenta editar material admin ajeno' }
+    });
+    testUtils.assert(sinAsociar.status === 403, 'Un profesor no debe editar un material ajeno sin asociacion');
+
     const materialAjenaA = await testUtils.request(`/materials/${materialAdmin.id}/associate`, {
         method: 'POST', token: profesor, body: { subjectId: subject.id }
     });
     testUtils.assert(materialAjenaA.ok, 'No se pudo asociar el material del admin a la materia');
 
     const editadaAdmin = await testUtils.request(`/materials/${materialAdmin.id}`, {
-        method: 'PUT', token: profesor, body: { descripcion: 'Profesor intenta editar material admin' }
+        method: 'PUT', token: profesor, body: { descripcion: 'Profesor edita material en su materia' }
     });
-    testUtils.assert(editadaAdmin.status === 403, 'Un profesor no debe editar material creado por el Superadmin');
+    testUtils.assert(editadaAdmin.ok, 'Un profesor debe editar materiales asociados a sus materias');
 
     const adminEdita = await testUtils.request(`/materials/${materialAdmin.id}`, {
         method: 'PUT', token: admin, body: { descripcion: 'Editada por administrador' }
@@ -172,8 +177,8 @@ testUtils.createTestButton('Test Refinamiento: Edicion completa de material', as
     reemplazo.append('descripcion', 'Descripcion editada por el profesor');
     reemplazo.append('tipo', 'PDF');
     reemplazo.append('categories', `${tagA},${tagB}`);
-    reemplazo.append('archivo', new Blob([testUtils.uniq('pdf-editor-reemplazo')], { type: 'application/pdf' }), 'reemplazo.pdf');
-    reemplazo.append('portada', new Blob([portadaContenido], { type: 'image/png' }), 'portada.png');
+    reemplazo.append('archivo', testUtils.pdfBlob(testUtils.uniq('pdf-editor-reemplazo')), 'reemplazo.pdf');
+    reemplazo.append('portada', testUtils.pngBlob(portadaContenido), 'portada.png');
 
     const editado = await testUtils.request(`/materials/${propio.id}`, {
         method: 'PUT', token: profesor, form: reemplazo
@@ -187,7 +192,7 @@ testUtils.createTestButton('Test Refinamiento: Edicion completa de material', as
     testUtils.assert(materialEditado.urlOrPath !== archivoAnterior, 'No se reemplazo el archivo del material');
     testUtils.assert(materialEditado.portada && materialEditado.portada.startsWith('/uploads/'), 'No se guardo la portada editada');
 
-    const archivoNuevo = await fetch(refinementBaseUrl() + materialEditado.urlOrPath);
+    const archivoNuevo = await testUtils.fileFetch(materialEditado, profesor);
     testUtils.assert(archivoNuevo.ok, 'El archivo reemplazado no se sirve publicamente');
     const archivoEliminado = await fetch(refinementBaseUrl() + archivoAnterior);
     testUtils.assert(archivoEliminado.status === 404, 'El archivo anterior no se elimino al reemplazarlo');
@@ -212,7 +217,7 @@ testUtils.createTestButton('Test Refinamiento: Edicion completa de material', as
     testUtils.assert(alumnoEditado.ok, 'El profesor no pudo editar la sugerencia de su alumno');
     testUtils.assert(alumnoEditado.data.material.tipo === 'Youtube', 'No se cambio el tipo del material del alumno');
     testUtils.assert(alumnoEditado.data.material.urlOrPath === youtubeUrl, 'No se guardo el enlace editado');
-    const archivoSugerencia = await fetch(refinementBaseUrl() + materialAlumno.urlOrPath);
+    const archivoSugerencia = await testUtils.fileFetch(materialAlumno, profesor);
     testUtils.assert(archivoSugerencia.status === 404, 'El archivo de la sugerencia no se elimino al cambiarla a enlace');
 
     const adminEditaAlumno = await testUtils.request(`/materials/${materialAlumno.id}`, {
@@ -246,7 +251,7 @@ testUtils.createTestButton('Test Refinamiento: Edicion completa de material', as
     adminArchivo.append('titulo', testUtils.uniq('Material Admin Archivo'));
     adminArchivo.append('tipo', 'PDF');
     adminArchivo.append('categories', tagA);
-    adminArchivo.append('archivo', new Blob([testUtils.uniq('pdf-admin-archivo')], { type: 'application/pdf' }), 'admin.pdf');
+    adminArchivo.append('archivo', testUtils.pdfBlob(testUtils.uniq('pdf-admin-archivo')), 'admin.pdf');
     const adminCambiaAArchivo = await testUtils.request(`/materials/${materialAdmin.id}`, {
         method: 'PUT', token: admin, form: adminArchivo
     });
@@ -260,9 +265,15 @@ testUtils.createTestButton('Test Refinamiento: Edicion completa de material', as
     testUtils.assert(adminEditaProfesor.ok, 'El Superadmin debe poder editar material de profesores');
 
     const otroEditaProfesor = await testUtils.request(`/materials/${propio.id}`, {
-        method: 'PUT', token: otro.token, body: { descripcion: 'Otro profesor no debe editar' }
+        method: 'PUT', token: otro.token, body: { descripcion: 'Coprofesor edita material de la materia' }
     });
-    testUtils.assert(otroEditaProfesor.status === 403, 'Otro profesor no debe editar material ajeno');
+    testUtils.assert(otroEditaProfesor.ok, 'El coprofesor debe editar material de la materia');
+
+    const ajeno = await refinementProfessor('profesor-ajeno-editor');
+    const ajenoEditaProfesor = await testUtils.request(`/materials/${propio.id}`, {
+        method: 'PUT', token: ajeno.token, body: { descripcion: 'Profesor ajeno no debe editar' }
+    });
+    testUtils.assert(ajenoEditaProfesor.status === 403, 'Un profesor ajeno no debe editar material de la materia');
 
     const alumnoEdita = await testUtils.request(`/materials/${materialAlumno.id}`, {
         method: 'PUT', token: alumno.token, body: { descripcion: 'Alumno no edita' }
@@ -277,8 +288,8 @@ testUtils.createTestButton('Test Refinamiento: Carga masiva con titulos y portad
     const tag = testUtils.uniq('lote');
 
     const form = new FormData();
-    form.append('archivo_0', new Blob([contenido], { type: 'application/pdf' }), 'archivo-original.pdf');
-    form.append('portada_0', new Blob(['portada de prueba'], { type: 'image/png' }), 'portada.png');
+    form.append('archivo_0', testUtils.pdfBlob(contenido), 'archivo-original.pdf');
+    form.append('portada_0', testUtils.pngBlob('portada de prueba'), 'portada.png');
     form.append('metadata', JSON.stringify([{ titulo }]));
     form.append('categories', tag);
 
@@ -293,7 +304,7 @@ testUtils.createTestButton('Test Refinamiento: Carga masiva con titulos y portad
     testUtils.assert(portada.ok, 'La portada del lote no se sirve publicamente');
 
     const duplicado = new FormData();
-    duplicado.append('archivo_0', new Blob([contenido], { type: 'application/pdf' }), 'duplicado.pdf');
+    duplicado.append('archivo_0', testUtils.pdfBlob(contenido), 'duplicado.pdf');
     duplicado.append('metadata', JSON.stringify([{ titulo: testUtils.uniq('Duplicado Lote') }]));
     const repetido = await testUtils.request('/materials/batch', { method: 'POST', token: admin, form: duplicado });
     testUtils.assert(repetido.status === 201, 'La carga duplicada debia procesarse como omitida');
@@ -310,7 +321,7 @@ testUtils.createTestButton('Test Refinamiento: Cancelar sugerencia libera archiv
     const material = subida.data.material;
     testUtils.assert(material.urlOrPath, 'La sugerencia no devolvio la ruta del archivo');
 
-    const archivoAntes = await fetch(refinementBaseUrl() + material.urlOrPath);
+    const archivoAntes = await testUtils.fileFetch(material, alumno.token);
     testUtils.assert(archivoAntes.ok, 'El archivo de la sugerencia no existe antes de cancelar');
 
     const otroAlumno = await testUtils.registerVerifiedAlumno('alumno-cancelar-ajeno');
@@ -320,7 +331,7 @@ testUtils.createTestButton('Test Refinamiento: Cancelar sugerencia libera archiv
     const cancelada = await testUtils.request(`/materials/${material.id}/cancel`, { method: 'POST', token: alumno.token });
     testUtils.assert(cancelada.ok, 'El autor no pudo cancelar su sugerencia');
 
-    const archivoDespues = await fetch(refinementBaseUrl() + material.urlOrPath);
+    const archivoDespues = await testUtils.fileFetch(material, alumno.token);
     testUtils.assert(archivoDespues.status === 404, 'El archivo fisico no se elimino al cancelar');
 
     const propia = await refinementMine(alumno.token, material.id);
@@ -356,7 +367,7 @@ testUtils.createTestButton('Test Refinamiento: Rechazar sugerencia la conserva y
     });
     testUtils.assert(rechazo.ok && rechazo.data.rejected === true, 'El rechazo no marco el material como rechazado');
 
-    const archivo = await fetch(refinementBaseUrl() + material.urlOrPath);
+    const archivo = await testUtils.fileFetch(material, alumno.token);
     testUtils.assert(archivo.status === 404, 'El archivo fisico no se elimino al rechazar');
 
     const propia = await refinementMine(alumno.token, material.id);

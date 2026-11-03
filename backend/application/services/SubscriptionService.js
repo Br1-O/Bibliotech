@@ -4,7 +4,7 @@
 * y moderacion / baneo por parte del profesor titular (RF-05).
 */
 
-const Subscription = require('../../domain/entities/Subscription');
+const db = require('../../config/db');
 const AuditLog = require('../../domain/entities/AuditLog');
 const AppError = require('../../utils/AppError');
 
@@ -19,42 +19,41 @@ class SubscriptionService {
 
     /** RF-03: el alumno se suscribe a una materia. */
     async subscribe(alumnoId, materiaId) {
-        const subject = await this.subjectRepository.findById(materiaId);
-        if (!subject || !subject.activa) throw new AppError('errors.notFound', { status: 404 });
+        return db.transaction(async () => {
+            const subject = await this.subjectRepository.findById(materiaId);
+            if (!subject || !subject.activa) throw new AppError('errors.notFound', { status: 404 });
 
-        const existing = await this.subscriptionRepository.findByAlumnoAndMateria(alumnoId, materiaId);
-        if (existing && existing.baneado) throw new AppError('errors.forbidden', { status: 403 });
-
-        await this.subscriptionRepository.subscribe(alumnoId, materiaId);
-        await this.auditLogService.record(AuditLog.OPERACIONES.SUSCRIPCION, alumnoId, materiaId);
-        return { message: 'messages.subscribed' };
+            const subscription = await this.subscriptionRepository.subscribe(alumnoId, materiaId);
+            if (subscription && subscription.baneado) {
+                throw new AppError('errors.forbidden', { status: 403 });
+            }
+            await this.auditLogService.record(AuditLog.OPERACIONES.SUSCRIPCION, alumnoId, materiaId);
+            return { message: 'messages.subscribed' };
+        });
     }
 
     async unsubscribe(alumnoId, materiaId) {
-        const existing = await this.subscriptionRepository.findByAlumnoAndMateria(alumnoId, materiaId);
-        if (!existing) throw new AppError('errors.notFound', { status: 404 });
-        await this.subscriptionRepository.delete(existing.id);
-        return { message: 'messages.unsubscribed' };
+        return db.transaction(async () => {
+            const existing = await this.subscriptionRepository.findByAlumnoAndMateria(alumnoId, materiaId);
+            if (!existing) throw new AppError('errors.notFound', { status: 404 });
+            await this.subscriptionRepository.delete(existing.id);
+            return { message: 'messages.unsubscribed' };
+        });
     }
 
     /** RF-05: el profesor titular banea a un alumno infractor. */
     async banStudent(alumnoId, materiaId, ctx) {
-        const subject = await this.subjectRepository.findById(materiaId);
-        if (!subject) throw new AppError('errors.notFound', { status: 404 });
-        if (ctx.rol !== 'Superadmin' && !subject.hasProfessor(ctx.usuarioId)) {
-            throw new AppError('errors.forbidden', { status: 403 });
-        }
+        return db.transaction(async () => {
+            const subject = await this.subjectRepository.findById(materiaId);
+            if (!subject) throw new AppError('errors.notFound', { status: 404 });
+            if (ctx.rol !== 'Superadmin' && !subject.hasProfessor(ctx.usuarioId)) {
+                throw new AppError('errors.forbidden', { status: 403 });
+            }
 
-        const existing = await this.subscriptionRepository.findByAlumnoAndMateria(alumnoId, materiaId);
-        if (!existing) {
-            await this.subscriptionRepository.save(new Subscription({
-                alumnoId, materiaId, estado: 'Baneado'
-            }));
-        } else {
             await this.subscriptionRepository.banStudent(alumnoId, materiaId);
-        }
-        await this.auditLogService.record(AuditLog.OPERACIONES.BANEO_ALUMNO, ctx.usuarioId, alumnoId);
-        return { message: 'messages.banned' };
+            await this.auditLogService.record(AuditLog.OPERACIONES.BANEO_ALUMNO, ctx.usuarioId, alumnoId);
+            return { message: 'messages.banned' };
+        });
     }
 
     async getMySubscriptions(alumnoId) {

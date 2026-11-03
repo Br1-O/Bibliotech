@@ -4,11 +4,11 @@
 */
 
 const express = require('express');
-const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
 module.exports = (container) => {
     const router = express.Router();
     const controller = require('../controllers/auditController')(container);
+    const { verifyToken, requireRole } = container.authMiddleware;
     const Role = require('../domain/entities/Role');
 
     router.get('/', verifyToken, requireRole(Role.SUPERADMIN), controller.list);

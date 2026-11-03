@@ -24,6 +24,7 @@ document.addEventListener('bt:ready', () => {
         tab: 'uploads',
         materials: [],
         page: 1,
+        total: 0,
         pictures: null,
         unavailablePictures: false
     };
@@ -76,11 +77,11 @@ document.addEventListener('bt:ready', () => {
                     el('h1', { text: user.nombreCompleto }),
                     el('span', { className: 'bt-badge bt-badge--subject', text: tr(`roles.${user.roleNombre}`) })
                 ]),
-                el('a', {
+                user.email ? el('a', {
                     className: 'bt-profile__email',
                     text: user.email,
                     attrs: { href: `mailto:${user.email}` }
-                }),
+                }) : null,
                 el('div', { className: 'bt-profile__rank-row' }, [
                     el('span', { className: 'bt-profile__rank-badge' }, [
                         el('img', { attrs: { src: rank.picture || '/img/profile_pictures/default-1.png', alt: '' } }),
@@ -120,7 +121,8 @@ document.addEventListener('bt:ready', () => {
 
         const info = renderInfo(user, isSelf);
         const badgesSection = renderBadges(allBadges, unlocked);
-        const tabs = renderTabs();
+        if (!isSelf && state.tab !== 'uploads') state.tab = 'uploads';
+        const tabs = renderTabs(isSelf);
 
         render(root, [
             header,
@@ -279,7 +281,7 @@ document.addEventListener('bt:ready', () => {
         const rows = [
             infoRow('profile.fields.name', user.nombre, 'nombre', 'text', isSelf, { maxlength: 50 }),
             infoRow('profile.fields.lastName', user.apellido, 'apellido', 'text', isSelf, { maxlength: 50 }),
-            infoRow('profile.fields.email', user.email, 'email', 'email', false),
+            ...(user.email ? [infoRow('profile.fields.email', user.email, 'email', 'email', false)] : []),
             infoRow('profile.fields.age', user.age, 'birthdate', 'date', isSelf, { inputValue: user.birthdate || '' }),
             infoRow('profile.fields.gender', genderLabel, 'gender', 'gender', isSelf, {
                 inputValue: user.gender || '',
@@ -332,13 +334,13 @@ document.addEventListener('bt:ready', () => {
         ]);
     }
 
-    function renderTabs() {
+    function renderTabs(isSelf) {
         const definitions = [
             ['uploads', 'profile.tabs.uploads'],
             ['favorites', 'profile.tabs.favorites'],
             ['reads', 'profile.tabs.reads'],
             ['backlog', 'profile.tabs.backlog']
-        ];
+        ].filter(([key]) => isSelf || key === 'uploads');
         const buttons = definitions.map(([key, label]) => {
             const btn = el('button', {
                 className: `bt-profile__tab${state.tab === key ? ' is-active' : ''}`,
@@ -364,9 +366,11 @@ document.addEventListener('bt:ready', () => {
         if (!folder) return;
         Loader.skeletons(folder, 3);
         try {
+            const pagination = { page: state.page, pageSize: PAGE_SIZE };
             if (tab === 'backlog') {
-                const { items } = await apiService.get(`/users/${targetId}/backlog`);
-                renderBacklog(folder, items || []);
+                const result = await apiService.get(`/users/${targetId}/backlog`, pagination);
+                state.total = Number(result.pagination?.total ?? (result.items || []).length);
+                renderBacklog(folder, result.items || []);
                 return;
             }
             const endpoint = {
@@ -374,32 +378,22 @@ document.addEventListener('bt:ready', () => {
                 favorites: `/users/${targetId}/favorites`,
                 reads: `/users/${targetId}/reads`
             }[tab];
-            const result = await apiService.get(endpoint);
+            const result = await apiService.get(endpoint, pagination);
             state.materials = result.materials || [];
-            state.page = 1;
+            state.total = Number(result.pagination?.total ?? state.materials.length);
+            const totalPages = Math.max(1, Math.ceil(state.total / PAGE_SIZE));
+            if (state.page > totalPages) {
+                state.page = totalPages;
+                return loadTab(tab);
+            }
             renderMaterials(folder);
         } catch (error) {
             render(folder, Cards.empty(error.message));
         }
     }
 
-    function renderMaterials(folder) {
-        const total = state.materials.length;
-        if (!total) {
-            render(folder, Cards.empty(tr(`profile.empty.${state.tab}`)));
-            const existing = document.getElementById('profilePagination');
-            if (existing) existing.remove();
-            return;
-        }
-        const totalPages = Pagination.totalPages(total, PAGE_SIZE);
-        if (state.page > totalPages) state.page = totalPages;
-        const start = (state.page - 1) * PAGE_SIZE;
-        const shown = state.materials.slice(start, start + PAGE_SIZE);
-        render(folder, shown.map(material => Cards.material(material, {
-            onToggleFavorite: authHelper.isAuthenticated() ? value => Cards.toggleFavorite(value) : null,
-            onEdit: canEdit(material) ? editMaterial : null
-        })));
-
+    function renderPagination(total) {
+        const folder = document.getElementById('profileFolder');
         let pagination = document.getElementById('profilePagination');
         if (!pagination) {
             pagination = el('div', { id: 'profilePagination', className: 'bt-mt-4' });
@@ -409,8 +403,23 @@ document.addEventListener('bt:ready', () => {
             page: state.page,
             total,
             pageSize: PAGE_SIZE,
-            onChange: page => { state.page = page; renderMaterials(folder); }
+            onChange: page => { state.page = page; loadTab(state.tab); }
         });
+    }
+
+    function renderMaterials(folder) {
+        const total = state.total;
+        if (!total) {
+            render(folder, Cards.empty(tr(`profile.empty.${state.tab}`)));
+            const existing = document.getElementById('profilePagination');
+            if (existing) existing.remove();
+            return;
+        }
+        render(folder, state.materials.map(material => Cards.material(material, {
+            onToggleFavorite: authHelper.isAuthenticated() ? value => Cards.toggleFavorite(value) : null,
+            onEdit: canEdit(material) ? editMaterial : null
+        })));
+        renderPagination(total);
     }
 
     function canEdit(material) {
@@ -436,8 +445,10 @@ document.addEventListener('bt:ready', () => {
     }
 
     function renderBacklog(folder, items) {
-        if (!items.length) {
+        if (!state.total) {
             render(folder, Cards.empty(tr('profile.empty.backlog')));
+            const existing = document.getElementById('profilePagination');
+            if (existing) existing.remove();
             return;
         }
         const canManage = authHelper.isAuthenticated() && Number(viewerId) === Number(targetId);
@@ -453,6 +464,7 @@ document.addEventListener('bt:ready', () => {
                 }
             } : null
         })).filter(Boolean));
+        renderPagination(state.total);
     }
 
     function openInViewer(material, page = 1) {
@@ -465,7 +477,10 @@ document.addEventListener('bt:ready', () => {
         if (typeof MaterialViewer !== 'undefined' && (MaterialViewer.isPdf(material) || MaterialViewer.isYoutube(material))) {
             MaterialViewer.open(material, { startPage: page, onClose: refresh });
         } else {
-            window.open(material.urlOrPath, '_blank', 'noopener');
+            const fallback = typeof MaterialViewer !== 'undefined'
+                ? (MaterialViewer.downloadHref(material) || material.urlOrPath)
+                : material.urlOrPath;
+            window.open(fallback, '_blank', 'noopener');
         }
     }
 

@@ -135,15 +135,18 @@ const MaterialEditor = {
 
         const sourceText = linkTypes.includes(material.tipo)
             ? String(material.urlOrPath || '')
-            : fileName(material.urlOrPath);
+            : (fileName(material.urlOrPath) || material.titulo || material.tipo || '');
+        const sourceHref = typeof MaterialViewer !== 'undefined'
+            ? MaterialViewer.fileHref(material)
+            : safeHref(material.urlOrPath);
         const currentSource = el('div', { className: 'bt-edit-source bt-stack' }, [
             el('span', { className: 'bt-label', text: LanguageManager.t('material.editCurrentSource') }),
-            material.urlOrPath
-                ? (safeHref(material.urlOrPath)
+            (material.urlOrPath || sourceHref)
+                ? (sourceHref
                     ? el('a', {
                         className: 'bt-text-muted',
                         text: sourceText,
-                        attrs: { href: safeHref(material.urlOrPath), target: '_blank', rel: 'noopener' }
+                        attrs: { href: sourceHref, target: '_blank', rel: 'noopener' }
                     })
                     : el('span', { className: 'bt-text-muted', text: sourceText }))
                 : el('span', { className: 'bt-text-muted', text: LanguageManager.t('material.editNoSource') })

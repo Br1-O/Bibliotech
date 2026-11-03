@@ -35,7 +35,7 @@ class MariaDBSubscriptionRepository extends SubscriptionRepositoryInterface {
     async subscribe(alumnoId, materiaId) {
         await db.execute(
             `INSERT INTO subscriptions (alumno_id, materia_id, estado) VALUES (?, ?, 'Suscrito')
-             ON DUPLICATE KEY UPDATE estado = 'Suscrito'`,
+             ON DUPLICATE KEY UPDATE estado = IF(estado = 'Baneado', estado, 'Suscrito')`,
             [alumnoId, materiaId]
         );
         return this.findByAlumnoAndMateria(alumnoId, materiaId);
@@ -43,7 +43,8 @@ class MariaDBSubscriptionRepository extends SubscriptionRepositoryInterface {
 
     async banStudent(alumnoId, materiaId) {
         const [res] = await db.execute(
-            `UPDATE subscriptions SET estado = 'Baneado' WHERE alumno_id = ? AND materia_id = ?`,
+            `INSERT INTO subscriptions (alumno_id, materia_id, estado) VALUES (?, ?, 'Baneado')
+             ON DUPLICATE KEY UPDATE estado = 'Baneado'`,
             [alumnoId, materiaId]
         );
         return res.affectedRows > 0;

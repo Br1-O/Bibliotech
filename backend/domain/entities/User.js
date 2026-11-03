@@ -12,6 +12,7 @@ class User {
         apellido,
         email,
         password,
+        tokenVersion = 0,
         resetToken = null,
         tokenExpiration = null,
         createdAt = null,
@@ -44,6 +45,7 @@ class User {
         this.apellido = apellido;
         this.email = email;
         this.password = password;
+        this.tokenVersion = Number(tokenVersion) || 0;
         this.resetToken = resetToken;
         this.tokenExpiration = tokenExpiration;
         this.createdAt = createdAt;
@@ -114,8 +116,20 @@ class User {
 
     /** Limpia los datos sensibles antes de exponer el usuario por la API. */
     toSafeJSON() {
-        const { password, resetToken, tokenExpiration, verificationToken, verificationExpires, ...safe } = this;
+        const {
+            password, tokenVersion, resetToken, tokenExpiration,
+            verificationToken, verificationExpires, ...safe
+        } = this;
         return { ...safe, age: this.age, nombreCompleto: this.nombreCompleto };
+    }
+
+    /** Datos visibles en perfiles y autores publicos. */
+    toPublicJSON() {
+        const {
+            email, birthdate, age, phone, github, instagram, linkedin,
+            gender, genderCustom, estado, ...publicData
+        } = this.toSafeJSON();
+        return publicData;
     }
 }
 

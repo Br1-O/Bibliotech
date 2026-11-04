@@ -199,4 +199,8 @@ if (require.main === module) {
     process.on('SIGINT', () => stop('SIGINT').then(() => process.exit(0)).catch(() => process.exit(1)));
 }
 
-module.exports = { app, start, stop };
+if (process.env.EXPORT_SIMPLE_FOR_DEPLOY === "true") {
+    module.exports = app;
+} else {
+    module.exports = { app, start, stop };
+}

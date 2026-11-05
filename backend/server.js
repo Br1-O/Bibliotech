@@ -114,6 +114,11 @@ app.get('/metrics', (req, res) => {
             return res.status(401).end();
         }
     }
+    const pool = db.poolStats();
+    metrics.setGauge('db_pool_connections', { state: 'total' }, pool.all);
+    metrics.setGauge('db_pool_connections', { state: 'free' }, pool.free);
+    metrics.setGauge('db_pool_connections', { state: 'queued' }, pool.queued);
+    metrics.setGauge('db_pool_connection_limit', {}, pool.limit);
     return res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8').send(metrics.toPrometheus());
 });
 
@@ -163,6 +168,9 @@ async function start() {
     server.requestTimeout = config.security.requestTimeoutMs;
     server.headersTimeout = config.security.requestTimeoutMs + 5000;
     db.warmPool().catch(error => logger.warn('db.pool_warm_failed', { error }));
+    if (config.outbox.workerEnabled) {
+        container.outboxWorker.start().catch(error => logger.error('outbox.worker_start_failed', { error }));
+    }
     return server;
 }
 
@@ -178,6 +186,7 @@ async function stop(signal = 'SIGTERM') {
     force.unref();
 
     try {
+        await container.outboxWorker.stop().catch(error => logger.warn('outbox.worker_stop_failed', { error }));
         if (server) {
             await new Promise(resolve => server.close(resolve));
             if (typeof server.closeIdleConnections === 'function') server.closeIdleConnections();

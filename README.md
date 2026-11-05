@@ -102,7 +102,21 @@ frontend/
   pendientes o no aprobados exigen sesion del autor o staff. El login deja una
   cookie `HttpOnly` de archivos con alcance `/api`, y el visor usa peticiones
   `Range` para paginar PDFs sin descargarlos completos.
-- El servidor cierra ordenadamente con `SIGTERM`/`SIGINT` y drena la base.
+- El servidor cierra ordenadamente con `SIGTERM`/`SIGINT`, detiene el worker
+  del outbox y drena la base.
+- Las notificaciones, correos y auditorias usan un outbox transaccional con
+  worker, reintentos con backoff y cola de mensajes muertos. La entrega es
+  al-menos-una-vez; auditoria y notificaciones son idempotentes. Configurar
+  `OUTBOX_*`, `AUDIT_RETENTION_DAYS` y `NOTIFICATION_RETENTION_DAYS`.
+- Los logs son JSON con `requestId`; `GET /metrics` expone metricas HTTP, DB,
+  pool, correo, outbox y seguridad. Ver `ops/prometheus/` y
+  `ops/grafana/` para alertas y dashboard.
+- Retencion y recuperacion: `npm run db:archive-audit`,
+  `npm run db:prune-notifications`, `npm run db:prune-outbox`,
+  `npm run ops:backup` y `npm run ops:restore-drill -- <backup-dir>`.
+  Procedimientos, RPO/RTO y limites en
+  [`docs/operations_runbook.md`](docs/operations_runbook.md) y evidencia en
+  [`docs/phase3_acceptance.md`](docs/phase3_acceptance.md).
 - Las cuentas demo de `seed_dev.sql` nunca deben cargarse en produccion.
 
 ### Credenciales de prueba

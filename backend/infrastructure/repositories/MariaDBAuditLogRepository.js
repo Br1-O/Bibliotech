@@ -25,30 +25,55 @@ const map = row => {
 class MariaDBAuditLogRepository extends AuditLogRepositoryInterface {
     async save(log) {
         const registroTipo = log.registroTipo || AuditLog.tipoRegistro(log.tipoOperacion);
+        const idempotencyKey = log.idempotencyKey || null;
         const [res] = await db.execute(
-            `INSERT INTO audit_logs (tipo_operacion, usuario_id, registro_id, registro_tipo)
-             VALUES (?, ?, ?, ?)`,
-            [log.tipoOperacion, log.usuarioId, log.registroId, registroTipo]
+            `INSERT ${idempotencyKey ? 'IGNORE ' : ''}INTO audit_logs
+                (tipo_operacion, usuario_id, registro_id, registro_tipo, idempotency_key)
+             VALUES (?, ?, ?, ?, ?)`,
+            [log.tipoOperacion, log.usuarioId, log.registroId, registroTipo, idempotencyKey]
         );
         log.id = res.insertId;
         log.registroTipo = registroTipo;
+        if (idempotencyKey && !log.id) {
+            const [rows] = await db.execute(
+                'SELECT id FROM audit_logs WHERE idempotency_key = ? LIMIT 1',
+                [idempotencyKey]
+            );
+            if (!rows.length) throw new Error('Audit insert was ignored without a matching idempotency key');
+            log.id = rows[0].id;
+        }
         return log;
     }
 
     async saveMany(logs = []) {
         if (!logs.length) return logs;
-        const placeholders = logs.map(() => '(?, ?, ?, ?)').join(', ');
-        const params = logs.flatMap(log => [
+        const keys = logs.map(log => log.idempotencyKey || null);
+        const idempotent = keys.every(Boolean);
+        const placeholders = logs.map(() => '(?, ?, ?, ?, ?)').join(', ');
+        const params = logs.flatMap((log, index) => [
             log.tipoOperacion,
             log.usuarioId,
             log.registroId,
-            log.registroTipo || AuditLog.tipoRegistro(log.tipoOperacion)
+            log.registroTipo || AuditLog.tipoRegistro(log.tipoOperacion),
+            keys[index]
         ]);
-        await db.execute(
-            `INSERT INTO audit_logs (tipo_operacion, usuario_id, registro_id, registro_tipo)
+        const [result] = await db.execute(
+            `INSERT ${idempotent ? 'IGNORE ' : ''}INTO audit_logs
+                (tipo_operacion, usuario_id, registro_id, registro_tipo, idempotency_key)
              VALUES ${placeholders}`,
             params
         );
+        if (idempotent && Number(result.affectedRows) < logs.length) {
+            const uniqueKeys = [...new Set(keys)];
+            const keyPlaceholders = uniqueKeys.map(() => '?').join(',');
+            const [rows] = await db.execute(
+                `SELECT idempotency_key FROM audit_logs WHERE idempotency_key IN (${keyPlaceholders})`,
+                uniqueKeys
+            );
+            const existing = new Set(rows.map(row => row.idempotency_key));
+            const missing = uniqueKeys.filter(key => !existing.has(key));
+            if (missing.length) throw new Error(`Audit batch ignored without matching idempotency keys: ${missing.length}`);
+        }
         return logs;
     }
 

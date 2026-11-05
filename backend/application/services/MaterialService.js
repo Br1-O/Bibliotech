@@ -19,6 +19,7 @@ const Length = require('../../validator/rules/Length');
 const In = require('../../validator/rules/In');
 const fileHelper = require('../../utils/fileHelper');
 const mediaValidator = require('../../utils/mediaValidator');
+const { logger } = require('../../utils/logger');
 
 const requireId = (value) => {
     const id = Number(value);
@@ -32,7 +33,7 @@ const PENDING_LIMIT = 3;
 const BATCH_LIMIT = 100;
 
 class MaterialService {
-    constructor(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService = null, fileStorage = fileHelper, notificationRepository = null, gamificationService = null) {
+    constructor(materialRepository, subjectRepository, subscriptionRepository, auditLogService, languageManager, thematicTagService = null, fileStorage = fileHelper, notificationRepository = null, gamificationService = null, outboxService = null) {
         this.materialRepository = materialRepository;
         this.subjectRepository = subjectRepository;
         this.subscriptionRepository = subscriptionRepository;
@@ -42,6 +43,7 @@ class MaterialService {
         this.fileStorage = fileStorage;
         this.notificationRepository = notificationRepository;
         this.gamificationService = gamificationService;
+        this.outboxService = outboxService;
         this.referenceCache = new TtlCache({ ttlMs: 60000, maxEntries: 50 });
     }
 
@@ -60,7 +62,7 @@ class MaterialService {
         const paths = [material?.urlOrPath, material?.portada].filter(Boolean);
         for (const value of paths) {
             try { await this.fileStorage.deleteStorageFile(value); }
-            catch (error) { console.error('No se pudo borrar el archivo del material:', error.message); }
+            catch (error) { logger.error('material.file_delete_failed', { error }); }
         }
     }
 
@@ -160,10 +162,19 @@ class MaterialService {
         })));
         const notifications = observable.notifyObservers(material);
 
-        if (this.notificationRepository && rows.length) {
-            await this.notificationRepository.createForSubscribers(
-                subject.id, material.id, rows.map(row => row.alumnoId)
-            );
+        if (rows.length) {
+            const alumnoIds = rows.map(row => row.alumnoId);
+            if (this.outboxService) {
+                await this.outboxService.enqueue(
+                    'notification.create_for_subscribers',
+                    { subjectId: subject.id, materialId: material.id, alumnoIds },
+                    { immediate: true }
+                );
+            } else if (this.notificationRepository) {
+                await this.notificationRepository.createForSubscribers(
+                    subject.id, material.id, alumnoIds
+                );
+            }
         }
 
         return notifications;

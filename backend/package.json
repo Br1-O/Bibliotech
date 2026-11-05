@@ -10,7 +10,13 @@
     "test": "node ../frontend/js/tests/runNode.js",
     "test:backend": "node --test tests/*.test.js",
     "db:reconcile-files": "node scripts/reconcileFiles.js",
-    "test:perf": "node scripts/perfBudget.js"
+    "test:perf": "node scripts/perfBudget.js",
+    "db:archive-audit": "node scripts/archiveAudit.js",
+    "db:prune-notifications": "node scripts/pruneNotifications.js",
+    "db:prune-outbox": "node scripts/pruneOutbox.js",
+    "ops:backup": "bash scripts/backup.sh",
+    "ops:restore": "bash scripts/restore.sh",
+    "ops:restore-drill": "bash scripts/restoreDrill.sh"
   },
   "keywords": [
     "bibliotech",

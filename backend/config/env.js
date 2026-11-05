@@ -156,6 +156,41 @@ function validateConfig(env = process.env) {
         errors.push('METRICS_TOKEN is required when METRICS_ENABLED=true in production');
     }
 
+    const logRetentionDays = parseInteger(env.LOG_RETENTION_DAYS, 30, {
+        min: 1, max: 3650, name: 'LOG_RETENTION_DAYS'
+    });
+    const outboxWorkerEnabled = parseBoolean(env.OUTBOX_WORKER_ENABLED, true);
+    const outboxPollIntervalMs = parseInteger(env.OUTBOX_POLL_INTERVAL_MS, 1000, {
+        min: 250, max: 60000, name: 'OUTBOX_POLL_INTERVAL_MS'
+    });
+    const outboxBatchSize = parseInteger(env.OUTBOX_BATCH_SIZE, 20, {
+        min: 1, max: 1000, name: 'OUTBOX_BATCH_SIZE'
+    });
+    const outboxMaxAttempts = parseInteger(env.OUTBOX_MAX_ATTEMPTS, 5, {
+        min: 1, max: 100, name: 'OUTBOX_MAX_ATTEMPTS'
+    });
+    const outboxBaseBackoffMs = parseInteger(env.OUTBOX_BASE_BACKOFF_MS, 5000, {
+        min: 100, max: 3600000, name: 'OUTBOX_BASE_BACKOFF_MS'
+    });
+    const outboxMaxBackoffMs = parseInteger(env.OUTBOX_MAX_BACKOFF_MS, 300000, {
+        min: 100, max: 86400000, name: 'OUTBOX_MAX_BACKOFF_MS'
+    });
+    if (outboxMaxBackoffMs < outboxBaseBackoffMs) {
+        errors.push('OUTBOX_MAX_BACKOFF_MS must be greater than or equal to OUTBOX_BASE_BACKOFF_MS');
+    }
+    const outboxStaleMs = parseInteger(env.OUTBOX_STALE_MS, 300000, {
+        min: 1000, max: 86400000, name: 'OUTBOX_STALE_MS'
+    });
+    const outboxRetentionDays = parseInteger(env.OUTBOX_RETENTION_DAYS, 30, {
+        min: 1, max: 3650, name: 'OUTBOX_RETENTION_DAYS'
+    });
+    const auditRetentionDays = parseInteger(env.AUDIT_RETENTION_DAYS, 365, {
+        min: 1, max: 36500, name: 'AUDIT_RETENTION_DAYS'
+    });
+    const notificationRetentionDays = parseInteger(env.NOTIFICATION_RETENTION_DAYS, 90, {
+        min: 1, max: 36500, name: 'NOTIFICATION_RETENTION_DAYS'
+    });
+
     const config = {
         env: nodeEnv,
         isProduction,
@@ -230,8 +265,24 @@ function validateConfig(env = process.env) {
         },
         logging: {
             level: logLevel,
+            retentionDays: logRetentionDays,
             metricsEnabled,
             metricsToken: String(env.METRICS_TOKEN || '')
+        },
+        outbox: {
+            workerEnabled: outboxWorkerEnabled,
+            pollIntervalMs: outboxPollIntervalMs,
+            batchSize: outboxBatchSize,
+            maxAttempts: outboxMaxAttempts,
+            baseBackoffMs: outboxBaseBackoffMs,
+            maxBackoffMs: outboxMaxBackoffMs,
+            staleMs: outboxStaleMs,
+            retentionDays: outboxRetentionDays
+        },
+        retention: {
+            auditDays: auditRetentionDays,
+            notificationDays: notificationRetentionDays,
+            outboxDays: outboxRetentionDays
         },
         language: {
             default: String(env.DEFAULT_LANGUAGE || 'es').trim().toLowerCase(),

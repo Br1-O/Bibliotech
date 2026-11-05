@@ -60,11 +60,19 @@ const normalizeBirthdate = value => {
 };
 
 class GamificationService {
-    constructor({ gamificationRepository, userRepository, materialRepository, notificationRepository }) {
+    constructor({ gamificationRepository, userRepository, materialRepository, notificationRepository, outboxService = null }) {
         this.gamificationRepository = gamificationRepository;
         this.userRepository = userRepository;
         this.materialRepository = materialRepository;
         this.notificationRepository = notificationRepository;
+        this.outboxService = outboxService;
+    }
+
+    async createNotifications(userIds, data) {
+        if (this.outboxService) {
+            return this.outboxService.enqueue('notification.create_many', { userIds, data }, { immediate: true });
+        }
+        return this.notificationRepository.createMany(userIds, data);
     }
 
     async getProfile(userId, viewerId = null) {
@@ -416,7 +424,7 @@ class GamificationService {
 
             const streak = await this.gamificationRepository.registerActivity(userId);
             if (streak.extended && this.notificationRepository) {
-                await this.notificationRepository.createMany([userId], {
+                await this.createNotifications([userId], {
                     type: 'streak',
                     message: String(streak.currentStreak)
                 });
@@ -483,7 +491,7 @@ class GamificationService {
         const earned = [];
         for (const key of missing) {
             earned.push(BADGES[key]);
-            await this.notificationRepository.createMany([userId], {
+            await this.createNotifications([userId], {
                 type: 'badge',
                 message: key
             });
@@ -492,13 +500,15 @@ class GamificationService {
     }
 
     async notifyFollowers(userId, { type, message = null, subjectId = null, materialId = null }) {
-        return this.notificationRepository.createForFollowers(userId, {
-            type,
-            message,
-            subjectId,
-            materialId,
-            actorId: userId
-        });
+        const data = { type, message, subjectId, materialId, actorId: userId };
+        if (this.outboxService) {
+            return this.outboxService.enqueue(
+                'notification.create_for_followers',
+                { targetUserId: userId, data },
+                { immediate: true }
+            );
+        }
+        return this.notificationRepository.createForFollowers(userId, data);
     }
 
     async onMaterialApproved(userId) {

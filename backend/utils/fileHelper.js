@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { logger } = require('./logger');
 
 const UPLOAD_DIR = path.resolve(__dirname, '..', 'uploads');
 const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
@@ -83,7 +84,7 @@ const fileHelper = {
                 return true;
             }
         } catch (err) {
-            console.error(`Error al borrar archivo: ${err.message}`);
+            logger.error('file.delete_failed', { error: err });
         }
         return false;
     },
@@ -118,7 +119,7 @@ const fileHelper = {
             }
             return false;
         } catch (err) {
-            console.error(`Error al borrar archivo remoto: ${err.message}`);
+            logger.error('file.remote_delete_failed', { error: err });
             return false;
         }
     },

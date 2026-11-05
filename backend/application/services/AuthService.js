@@ -32,12 +32,13 @@ const APP_URL = config.appUrl;
 const EXPOSE_DEV_TOKENS = config.security.exposeDevTokens;
 
 class AuthService {
-    constructor(userRepository, roleRepository, auditLogService, languageManager, mailer = mailerService) {
+    constructor(userRepository, roleRepository, auditLogService, languageManager, mailer = mailerService, outboxService = null) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.auditLogService = auditLogService;
         this.languageManager = languageManager;
         this.mailer = mailer;
+        this.outboxService = outboxService;
     }
 
     validateRegistration(dto) {
@@ -84,10 +85,9 @@ class AuthService {
             </div>`;
     }
 
-    async sendVerificationEmail(user, token) {
-        if (!this.mailer || !this.mailer.send) return false;
+    buildVerificationEmail(user, token) {
         const link = `${APP_URL}/activar-cuenta/${encodeURIComponent(token)}`;
-        await this.mailer.send({
+        return {
             to: user.email,
             senderName: 'Bibliotech',
             subject: 'Activa tu cuenta en Bibliotech',
@@ -100,14 +100,12 @@ class AuthService {
                 actionUrl: link,
                 footer: `El enlace expira en ${VERIFY_MINUTES} minutos y solo puede usarse una vez.<br>Si no solicitaste este registro, ignora este correo.`
             })
-        });
-        return true;
+        };
     }
 
-    async sendRecoveryEmail(user, token) {
-        if (!this.mailer || !this.mailer.send) return false;
+    buildRecoveryEmail(user, token) {
         const link = `${APP_URL}/restablecer-password/${encodeURIComponent(token)}`;
-        await this.mailer.send({
+        return {
             to: user.email,
             senderName: 'Bibliotech',
             subject: 'Recuperacion de contrasena - Bibliotech',
@@ -120,8 +118,30 @@ class AuthService {
                 actionUrl: link,
                 footer: `El enlace expira en ${RESET_MINUTES} minutos y solo puede usarse una vez.<br>Si no solicitaste este cambio, ignora este correo.`
             })
-        });
+        };
+    }
+
+    async deliverEmail(message, { dedupeKey = null } = {}) {
+        if (this.outboxService) {
+            await this.outboxService.enqueue('email.send', message, {
+                dedupeKey,
+                aggregateType: 'email',
+                aggregateId: message.to || null
+            });
+            return true;
+        }
+        if (!this.mailer || !this.mailer.send) return false;
+        await this.mailer.send(message);
+        metrics.recordMailSent('direct');
         return true;
+    }
+
+    async sendVerificationEmail(user, token, options = {}) {
+        return this.deliverEmail(this.buildVerificationEmail(user, token), options);
+    }
+
+    async sendRecoveryEmail(user, token, options = {}) {
+        return this.deliverEmail(this.buildRecoveryEmail(user, token), options);
     }
 
     /**
@@ -140,6 +160,7 @@ class AuthService {
 
         const hashed = await bcrypt.hash(dto.password, 10);
         const token = hashHelper.randomToken(32);
+        const tokenHash = hashHelper.hashString(token);
         const expiration = new Date(Date.now() + VERIFY_MINUTES * 60 * 1000);
         const user = await db.transaction(async () => {
             const created = await this.userRepository.save(new User({
@@ -150,18 +171,23 @@ class AuthService {
                 password: hashed,
                 estado: 'PendienteVerificacion'
             }));
-            await this.userRepository.setVerificationToken(
-                created.email, hashHelper.hashString(token), expiration
-            );
+            await this.userRepository.setVerificationToken(created.email, tokenHash, expiration);
             await this.auditLogService.record(AuditLog.OPERACIONES.ALTA_USUARIO, null, created.id);
+            if (this.outboxService) {
+                await this.sendVerificationEmail(created, token, {
+                    dedupeKey: `verify:${tokenHash}`
+                });
+            }
             return created;
         });
 
-        try {
-            await this.sendVerificationEmail(user, token);
-        } catch (error) {
-            metrics.recordMailError();
-            logger.warn('auth.mail_failed', { operation: 'verification', error });
+        if (!this.outboxService) {
+            try {
+                await this.sendVerificationEmail(user, token);
+            } catch (error) {
+                metrics.recordMailError('verification');
+                logger.warn('auth.mail_failed', { operation: 'verification', error });
+            }
         }
 
         const fresh = await this.userRepository.findById(user.id);
@@ -238,17 +264,25 @@ class AuthService {
         if (!user) return generic;
 
         const token = hashHelper.randomToken(32);
+        const tokenHash = hashHelper.hashString(token);
         const expiration = new Date(Date.now() + RESET_MINUTES * 60 * 1000);
         await db.transaction(async () => {
-            await this.userRepository.setResetToken(normalizedEmail, hashHelper.hashString(token), expiration);
+            await this.userRepository.setResetToken(normalizedEmail, tokenHash, expiration);
             await this.auditLogService.record(AuditLog.OPERACIONES.SOLICITUD_RESETEO, user.id, user.id);
+            if (this.outboxService) {
+                await this.sendRecoveryEmail(user, token, {
+                    dedupeKey: `recovery:${tokenHash}`
+                });
+            }
         });
 
-        try {
-            await this.sendRecoveryEmail(user, token);
-        } catch (error) {
-            metrics.recordMailError();
-            logger.warn('auth.mail_failed', { operation: 'recovery', error });
+        if (!this.outboxService) {
+            try {
+                await this.sendRecoveryEmail(user, token);
+            } catch (error) {
+                metrics.recordMailError('recovery');
+                logger.warn('auth.mail_failed', { operation: 'recovery', error });
+            }
         }
 
         const result = { ...generic, expiresInMinutes: RESET_MINUTES };
@@ -299,13 +333,21 @@ class AuthService {
         if (!user || user.estado !== 'PendienteVerificacion') return generic;
 
         const token = hashHelper.randomToken(32);
+        const tokenHash = hashHelper.hashString(token);
         const expiration = new Date(Date.now() + VERIFY_MINUTES * 60 * 1000);
-        await this.userRepository.setVerificationToken(user.email, hashHelper.hashString(token), expiration);
-        try {
-            await this.sendVerificationEmail(user, token);
-        } catch (error) {
-            metrics.recordMailError();
-            logger.warn('auth.mail_failed', { operation: 'verification_resend', error });
+        if (this.outboxService) {
+            await db.transaction(async () => {
+                await this.userRepository.setVerificationToken(user.email, tokenHash, expiration);
+                await this.sendVerificationEmail(user, token, { dedupeKey: `verify:${tokenHash}` });
+            });
+        } else {
+            await this.userRepository.setVerificationToken(user.email, tokenHash, expiration);
+            try {
+                await this.sendVerificationEmail(user, token);
+            } catch (error) {
+                metrics.recordMailError('verification_resend');
+                logger.warn('auth.mail_failed', { operation: 'verification_resend', error });
+            }
         }
 
         const result = { ...generic };

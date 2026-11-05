@@ -99,6 +99,25 @@ class MariaDBNotificationRepository extends NotificationRepositoryInterface {
         );
         return result.affectedRows || 0;
     }
+
+    async countReadBefore(cutoff) {
+        const [rows] = await db.query(
+            'SELECT COUNT(*) AS total FROM notifications WHERE read_at IS NOT NULL AND read_at < ?',
+            [new Date(cutoff)]
+        );
+        return Number(rows[0]?.total) || 0;
+    }
+
+    async deleteReadBefore(cutoff, limit = 500) {
+        const [result] = await db.query(
+            `DELETE FROM notifications
+              WHERE read_at IS NOT NULL AND read_at < ?
+              ORDER BY id
+              LIMIT ?`,
+            [new Date(cutoff), Math.max(1, Math.min(Number(limit) || 500, 5000))]
+        );
+        return result.affectedRows || 0;
+    }
 }
 
 module.exports = MariaDBNotificationRepository;

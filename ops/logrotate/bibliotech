@@ -1,0 +1,13 @@
+# Install as /etc/logrotate.d/bibliotech when logs are written to files.
+# The application logs JSON lines to stdout; use journald/container rotation
+# when running under systemd, Docker or a platform with log collection.
+/var/log/bibliotech/*.log {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0640 bibliotech bibliotech
+}

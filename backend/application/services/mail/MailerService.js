@@ -1,5 +1,6 @@
 const { AccountManager } = require('../../../infrastructure/mail/AccountManager');
 const { EmailDispatcher } = require('../../../infrastructure/mail/EmailDispatcher');
+const { logger, maskEmail } = require('../../../utils/logger');
 
 class MailerService {
   constructor() {
@@ -17,7 +18,7 @@ class MailerService {
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         logs.push({ account: fromAccount.user, success: false, error: errorMsg });
-        throw new Error(`[MailerService] La cuenta preferida ${fromAccount.user} falló: ${errorMsg}`);
+        throw new Error(`[MailerService] La cuenta preferida ${maskEmail(fromAccount.user)} falló: ${errorMsg}`);
       }
     }
 
@@ -31,13 +32,13 @@ class MailerService {
     for (let i = 0; i < accounts.length; i++) {
       const currentAccount = accounts[(startIndex + i) % accounts.length];
       try {
-        console.log(`[MailerService] Intentando envío con: ${currentAccount.user}`);
+        logger.info('mail.send_attempt', { account: maskEmail(currentAccount.user) });
         const sentBy = await EmailDispatcher.send({ account: currentAccount, to, subject, html, text, senderName });
         logs.push({ account: currentAccount.user, success: true });
         return { sentBy, accountLogs: logs };
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.warn(`[MailerService] Falló la casilla ${currentAccount.user}. Probando la siguiente...`, errorMsg);
+        logger.warn('mail.account_failed', { account: maskEmail(currentAccount.user), error: errorMsg });
         logs.push({ account: currentAccount.user, success: false, error: errorMsg });
         lastError = error;
       }

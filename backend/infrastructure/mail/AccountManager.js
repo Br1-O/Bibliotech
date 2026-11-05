@@ -1,3 +1,5 @@
+const { logger } = require('../../utils/logger');
+
 class AccountManager {
   constructor(maxAccounts = 10) {
     this.accounts = this._loadAccounts(maxAccounts);
@@ -15,7 +17,7 @@ class AccountManager {
     }
 
     if (accounts.length === 0) {
-      console.warn('[AccountManager] No hay cuentas de correo configuradas. Los correos no se enviaran.');
+      logger.warn('mail.no_accounts_configured');
     }
 
     return accounts;

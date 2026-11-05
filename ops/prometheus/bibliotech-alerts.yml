@@ -1,0 +1,138 @@
+groups:
+  - name: bibliotech-availability
+    rules:
+      - alert: BibliotechHigh5xxRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+          service: bibliotech
+        annotations:
+          summary: "Bibliotech is returning 5xx responses"
+          description: "5xx rate is above 0.05 req/s for 10 minutes."
+          runbook: "docs/phase3_acceptance.md#security-monitoring"
+
+      - alert: BibliotechHighLatencyP95
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_ms_bucket[5m]))) > 2500
+        for: 15m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Bibliotech p95 latency is above 2.5s"
+          runbook: "docs/phase3_acceptance.md#metrics"
+
+      - alert: BibliotechHighLatencyP99
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_request_duration_ms_bucket[5m]))) > 5000
+        for: 15m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Bibliotech p99 latency is above 5s"
+          runbook: "docs/phase3_acceptance.md#metrics"
+
+      - alert: BibliotechDatabasePoolSaturated
+        expr: db_pool_connections{state="total"} / db_pool_connection_limit > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Database pool is above 90% utilization"
+          runbook: "docs/phase3_acceptance.md#metrics"
+
+      - alert: BibliotechDatabaseErrors
+        expr: sum(rate(db_errors_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: bibliotech
+        annotations:
+          summary: "Database queries are failing"
+          runbook: "docs/phase3_acceptance.md#metrics"
+
+  - name: bibliotech-security
+    rules:
+      - alert: BibliotechAuthFailureSpike
+        expr: sum(rate(security_events_total{type="auth_failure"}[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Authentication failures are elevated"
+          runbook: "docs/phase3_acceptance.md#security-monitoring"
+
+      - alert: BibliotechPermissionDeniedSpike
+        expr: sum(rate(security_events_total{type="permission_denied"}[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Permission denials are elevated"
+          runbook: "docs/phase3_acceptance.md#security-monitoring"
+
+      - alert: BibliotechRateLimitSpike
+        expr: sum(rate(security_events_total{type="rate_limited"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Rate limiting is frequently triggered"
+          runbook: "docs/phase3_acceptance.md#security-monitoring"
+
+      - alert: BibliotechUploadAnomalies
+        expr: sum(rate(upload_rejected_total[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Uploads are being rejected repeatedly"
+          runbook: "docs/phase3_acceptance.md#security-monitoring"
+
+  - name: bibliotech-durability
+    rules:
+      - alert: BibliotechOutboxDeadLetters
+        expr: outbox_events{status="dead"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: bibliotech
+        annotations:
+          summary: "Outbox has dead-letter events"
+          description: "Inspect outbox_events.status='dead' and retry after fixing the handler."
+          runbook: "docs/phase3_acceptance.md#outbox"
+
+      - alert: BibliotechOutboxBacklog
+        expr: outbox_events{status="pending"} > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Outbox backlog is growing"
+          runbook: "docs/phase3_acceptance.md#outbox"
+
+      - alert: BibliotechOutboxRetries
+        expr: sum(rate(outbox_events_retried_total[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Outbox events are retrying frequently"
+          runbook: "docs/phase3_acceptance.md#outbox"
+
+      - alert: BibliotechMailErrors
+        expr: sum(rate(mail_errors_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: bibliotech
+        annotations:
+          summary: "Transactional email delivery is failing"
+          runbook: "docs/phase3_acceptance.md#outbox"

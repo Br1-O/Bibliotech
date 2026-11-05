@@ -6,8 +6,9 @@
 const AuditLog = require('../../domain/entities/AuditLog');
 
 class AuditLogService {
-    constructor(auditLogRepository) {
+    constructor(auditLogRepository, outboxService = null) {
         this.auditLogRepository = auditLogRepository;
+        this.outboxService = outboxService;
     }
 
     /**
@@ -17,19 +18,32 @@ class AuditLogService {
      * @param {string|number|null} registroId objeto afectado
      */
     async record(tipoOperacion, usuarioId = null, registroId = null) {
-        // La auditoria es parte de la operacion: si no se puede registrar,
-        // la transaccion del caso de uso debe revertirse.
-        return this.auditLogRepository.save({ tipoOperacion, usuarioId, registroId });
-    }
-
-    async recordMany(tipoOperacion, usuarioId, registroIds = []) {
-        if (!registroIds.length) return [];
-        return this.auditLogRepository.saveMany(registroIds.map(registroId => ({
+        const log = {
             tipoOperacion,
             usuarioId,
             registroId,
             registroTipo: AuditLog.tipoRegistro(tipoOperacion)
-        })));
+        };
+        if (this.outboxService) {
+            await this.outboxService.enqueue('audit.record', { log }, { immediate: true });
+            return log;
+        }
+        return this.auditLogRepository.save(log);
+    }
+
+    async recordMany(tipoOperacion, usuarioId, registroIds = []) {
+        if (!registroIds.length) return [];
+        const logs = registroIds.map(registroId => ({
+            tipoOperacion,
+            usuarioId,
+            registroId,
+            registroTipo: AuditLog.tipoRegistro(tipoOperacion)
+        }));
+        if (this.outboxService) {
+            await this.outboxService.enqueue('audit.record_many', { logs }, { immediate: true });
+            return logs;
+        }
+        return this.auditLogRepository.saveMany(logs);
     }
 
     async getAllLogs(filters = {}) {

@@ -4,15 +4,16 @@
  * contra un servidor Bibliotech en marcha, sin necesidad de navegador.
  *
  * Uso:
- *   node frontend/js/tests/runNode.js
- *   BT_API_BASE=http://localhost:3000/api node frontend/js/tests/runNode.js
+ *   node frontend/js/tests/runNode.mjs
+ *   BT_API_BASE=http://localhost:3000/api node frontend/js/tests/runNode.mjs
  */
 
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
 
-const TESTS_DIR = __dirname;
+const TESTS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const FILES = [
     'testUtils.js',
     'authTests.js',

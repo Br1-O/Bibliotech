@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "db:migrate": "node scripts/migrate.js",
-    "test": "node ../frontend/js/tests/runNode.js",
+    "test": "node ../frontend/js/tests/runNode.mjs",
     "test:backend": "node --test tests/*.test.js",
     "test:contract": "RUN_DB_CONTRACT_TESTS=1 node --test tests/repositoryContract.test.js",
     "lint": "eslint .",

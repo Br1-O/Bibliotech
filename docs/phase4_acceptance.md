@@ -20,8 +20,8 @@ curl -fsS http://localhost:3000/healthz
 curl -fsS http://localhost:3000/readyz
 
 # targeted integration checks
-BT_TEST_FILTER='descargas de aprobados' node frontend/js/tests/runNode.js
-BT_TEST_FILTER='Carga masiva' node frontend/js/tests/runNode.js
+BT_TEST_FILTER='descargas de aprobados' node frontend/js/tests/runNode.mjs
+BT_TEST_FILTER='Carga masiva' node frontend/js/tests/runNode.mjs
 ```
 
 Observed results:

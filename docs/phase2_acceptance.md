@@ -24,13 +24,13 @@ AUTH_RECOVERY_RATE_LIMIT=10000 UPLOAD_RATE_LIMIT=10000 \
 nohup npm start > /tmp/bibliotech-server.log 2>&1 &
 
 # suite
-node frontend/js/tests/runNode.js
+node frontend/js/tests/runNode.mjs
 ```
 
 Observed results:
 
 - `npm run test:backend`: **35/35**.
-- `node frontend/js/tests/runNode.js`: **75/75**.
+- `node frontend/js/tests/runNode.mjs`: **75/75**.
 - `npm run test:perf`: all four probes passed. The verification database is remote (Aiven), so the `SELECT 1` baseline is about `159 ms`; query overhead was `0.5` to `1.8 ms` against the default `150 ms` budget.
 - `EXPLAIN` for the paginated global catalog uses `idx_materials_estado_created` (`Using index`, backward index scan, no filesort).
 - `EXPLAIN` for subject materials uses `idx_ms_subject_state_material` (backward index scan, no filesort).

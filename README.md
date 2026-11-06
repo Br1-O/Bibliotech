@@ -161,9 +161,9 @@ NODE_ENV=development EXPOSE_DEV_TOKENS=true FILES_MODE=local \
   AUTH_IP_RATE_LIMIT=10000 AUTH_ACCOUNT_RATE_LIMIT=10000 \
   AUTH_RECOVERY_RATE_LIMIT=10000 UPLOAD_RATE_LIMIT=10000 npm start
 # En otra terminal, desde la raiz del proyecto:
-node frontend/js/tests/runNode.js
+node frontend/js/tests/runNode.mjs
 # Filtrar por nombre de prueba:
-BT_TEST_FILTER='Test Seguridad' node frontend/js/tests/runNode.js
+BT_TEST_FILTER='Test Seguridad' node frontend/js/tests/runNode.mjs
 ```
 
 Pruebas unitarias, lint y contrato de modulos del frontend:

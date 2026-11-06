@@ -366,6 +366,8 @@
     "batchLinksPlaceholder": "Title | https://github.com/user/repository",
     "batchUploadAction": "UPLOAD BATCH",
     "batchLimit": "Batch upload allows at most 100 files or links.",
+    "batchResult": "Batch upload completed. Created ({created}): {createdNames}. Skipped duplicates ({skipped}): {skippedNames}.",
+    "batchNone": "none",
     "careersTitle": "Careers and years",
     "careersHint": "Create careers and years, and change their names or colors.",
     "careerName": "Career name",
@@ -395,7 +397,8 @@
     "invalidToken": "Invalid or expired link.",
     "serverError": "Internal server error.",
     "network": "Could not reach the server.",
-    "tooManyRequests": "Too many requests. Please try again later."
+    "tooManyRequests": "Too many requests. Please try again later.",
+    "serviceBusy": "The service is temporarily busy. Please try again in a few seconds."
   },
   "messages": {
     "registerSuccess": "Account created. Check your email and open the activation link before signing in.",

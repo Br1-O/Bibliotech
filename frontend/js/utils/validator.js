@@ -12,6 +12,9 @@
 *       .validateThis()
 *       .render();
 */
+import { LanguageManager } from '../i18n/LanguageManager.js';
+import { el, render } from './dom.js';
+
 
 class FormValidator {
     constructor(form) {
@@ -140,3 +143,5 @@ const Validator = {
         form.querySelectorAll('[aria-invalid]').forEach(node => node.removeAttribute('aria-invalid'));
     }
 };
+
+export { FormValidator, Validator };

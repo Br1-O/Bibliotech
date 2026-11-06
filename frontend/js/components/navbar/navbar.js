@@ -4,6 +4,14 @@
 * y con selector de tema claro/oscuro.
 * Atributo: active (catalog|subjects|panel|content|subscribed).
 */
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { apiService } from '../../services/apiService.js';
+import { Theme } from '../../theme.js';
+import { authHelper } from '../../utils/authHelper.js';
+import { el, render } from '../../utils/dom.js';
+import { Icons } from '../icons/icons.js';
+import { PasswordChange } from '../passwordChange/passwordChange.js';
+
 
 if (!customElements.get('bt-navbar')) {
     class BtNavbar extends HTMLElement {

@@ -4,6 +4,8 @@
 * Carga locales JSON, resuelve mensajes y aplica traducciones al DOM mediante
 * atributos data-i18n. Notifica cambios de idioma a los suscriptores (Observer).
 */
+import { el } from '../utils/dom.js';
+
 
 const LanguageManager = (() => {
     const DEFAULT_LANG = localStorage.getItem('bt_lang') || 'es';
@@ -65,3 +67,5 @@ const LanguageManager = (() => {
 
     return { init, load, t, tr, apply, onChange, get language() { return language; }, SUPPORTED };
 })();
+
+export { LanguageManager };

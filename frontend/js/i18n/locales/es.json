@@ -377,6 +377,8 @@
     "batchLinksPlaceholder": "Titulo | https://github.com/usuario/repositorio",
     "batchUploadAction": "SUBIR LOTE",
     "batchLimit": "La carga masiva admite como maximo 100 archivos o enlaces.",
+    "batchResult": "Carga masiva completada. Creados ({created}): {createdNames}. Omitidos por duplicado ({skipped}): {skippedNames}.",
+    "batchNone": "ninguno",
     "careersTitle": "Carreras y anios",
     "careersHint": "Crea carreras y anios, y modifica sus nombres o colores.",
     "careerName": "Nombre de la carrera",
@@ -403,7 +405,8 @@
     "invalidToken": "Enlace invalido o expirado.",
     "serverError": "Error interno del servidor.",
     "network": "No se pudo conectar con el servidor.",
-    "tooManyRequests": "Demasiadas solicitudes. Intenta de nuevo más tarde."
+    "tooManyRequests": "Demasiadas solicitudes. Intenta de nuevo más tarde.",
+    "serviceBusy": "El servicio esta temporalmente ocupado. Intenta de nuevo en unos segundos."
   },
   "messages": {
     "registerSuccess": "Cuenta creada. Revisa tu correo y abre el enlace de activacion antes de iniciar sesion.",

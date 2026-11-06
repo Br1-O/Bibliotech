@@ -3,6 +3,12 @@
 * app.js: bootstrap comun. Inicializa el idioma y notifica a las pantallas
 * mediante el evento 'bt:ready' cuando el locale ya esta disponible.
 */
+import { Loader } from './components/loader/loader.js';
+import { PasswordField } from './components/passwordField/passwordField.js';
+import { LanguageManager } from './i18n/LanguageManager.js';
+import { authHelper } from './utils/authHelper.js';
+import { el } from './utils/dom.js';
+
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof authHelper !== 'undefined') authHelper.clearLegacyFileCookie();

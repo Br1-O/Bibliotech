@@ -3,6 +3,18 @@
 * teacherFrontController: panel del profesor. Publicar material, revisar
 * sugerencias de alumnos y gestionar sus materias (RF-02, RF-04, RF-05).
 */
+import { attachTagInput } from '../components/tagInput/tagInput.js';
+import { Cards } from '../components/cards/cards.js';
+import { Loader } from '../components/loader/loader.js';
+import { Pagination } from '../components/pagination/pagination.js';
+import { ProfileSummary } from '../components/profileSummary/profileSummary.js';
+import { Toast } from '../components/toast/toast.js';
+import { LanguageManager } from '../i18n/LanguageManager.js';
+import { apiService } from '../services/apiService.js';
+import { authHelper } from '../utils/authHelper.js';
+import { el, render } from '../utils/dom.js';
+import { Validator } from '../utils/validator.js';
+
 
 document.addEventListener('bt:ready', () => {
     const root = document.getElementById('teacherDashboard');
@@ -22,7 +34,7 @@ document.addEventListener('bt:ready', () => {
     const reviewNode = document.getElementById('pendingReview');
     const observerNode = document.getElementById('observerPanel');
     const tTagsInput = document.getElementById('tTags');
-    if (tTagsInput && window.BTTagInput) window.BTTagInput(tTagsInput);
+    if (tTagsInput) attachTagInput(tTagsInput);
     let mySubjects = [];
     let subjectPage = 1;
     const SUBJECT_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;

@@ -60,3 +60,5 @@ const authHelper = {
         }
     }
 };
+
+export { authHelper };

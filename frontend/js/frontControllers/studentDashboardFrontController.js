@@ -3,6 +3,18 @@
 * studentFrontController: panel del alumno. Sugerir material (limite 3),
 * gestionar suscripciones (RF-03, RF-04).
 */
+import { attachTagInput } from '../components/tagInput/tagInput.js';
+import { Cards } from '../components/cards/cards.js';
+import { Modal } from '../components/modal/modal.js';
+import { Pagination } from '../components/pagination/pagination.js';
+import { ProfileSummary } from '../components/profileSummary/profileSummary.js';
+import { Toast } from '../components/toast/toast.js';
+import { LanguageManager } from '../i18n/LanguageManager.js';
+import { apiService } from '../services/apiService.js';
+import { authHelper } from '../utils/authHelper.js';
+import { el, render } from '../utils/dom.js';
+import { Validator } from '../utils/validator.js';
+
 
 document.addEventListener('bt:ready', () => {
     const root = document.getElementById('studentDashboard');
@@ -20,7 +32,7 @@ document.addEventListener('bt:ready', () => {
     const subjectsSelect = document.getElementById('materialSubjects');
     const categorySelect = document.getElementById('matCategory');
     const tagsInput = document.getElementById('matTags');
-    if (tagsInput && window.BTTagInput) window.BTTagInput(tagsInput);
+    if (tagsInput) attachTagInput(tagsInput);
 
     const SUBSCRIPTION_PAGE_SIZE = Pagination.DEFAULT_PAGE_SIZE;
     const ACCEPT_BY_TYPE = {

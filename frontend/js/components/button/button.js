@@ -4,6 +4,9 @@
 * Atributos: label, variant (primary|secondary|accent|danger|success|ghost),
 *            size (sm), block, type, icon.
 */
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { el, render } from '../../utils/dom.js';
+
 
 if (!customElements.get('bt-button')) {
     class BtButton extends HTMLElement {

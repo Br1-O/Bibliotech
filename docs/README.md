@@ -29,13 +29,14 @@ The existing documents cover routes, classes, entity relationships, and professo
 | [`phase0_acceptance.md`](phase0_acceptance.md) | What was implemented for Phase 0, how it was verified, and which residual risks remain. | Reviewers, operators, release owners |
 | [`phase1_acceptance.md`](phase1_acceptance.md) | What was implemented for Phase 1, how it was verified, and which residual risks remain. | Reviewers, operators, release owners |
 | [`phase2_acceptance.md`](phase2_acceptance.md) | What was implemented for Phase 2, how it was verified, and which residual performance risks remain. | Reviewers, operators, release owners |
+| [`phase4_acceptance.md`](phase4_acceptance.md) | What was implemented for Phase 4, how it was verified, and which structural/docs gaps remain. | Reviewers, operators, release owners |
 | [`routes.txt`](routes.txt) / [`routes.pdf`](routes.pdf) | Complete HTTP route inventory (82 API endpoints and 24 frontend routes), inputs, outputs, access rules, and side effects. | API consumers, QA, security review |
 | [`class_diagram.txt`](class_diagram.txt) / [`class_diagram.pdf`](class_diagram.pdf) | Domain, application, infrastructure, adapter, and frontend class/component model. | Developers, design reviews |
 | [`database_diagram.txt`](database_diagram.txt) / [`database_diagram.pdf`](database_diagram.pdf) | ER model and data dictionary for the 20 tables and 30 foreign keys. | Backend and database work |
 | [`professor_sequence_diagrams.txt`](professor_sequence_diagrams.txt) / [`professor_sequence_diagrams.pdf`](professor_sequence_diagrams.pdf) | Runtime sequences for the main professor workflows. | QA, onboarding, workflow analysis |
 | [`diagrams/`](diagrams/) | Mermaid sources and rendered PDFs for context, layers, deployment, request pipeline, material lifecycle, authentication, gamification, database hotspots, data flow, and target architecture. | Architecture communication |
 
-> Phases 0, 1 and 2 of the roadmap are implemented. See [`phase0_acceptance.md`](phase0_acceptance.md), [`phase1_acceptance.md`](phase1_acceptance.md) and [`phase2_acceptance.md`](phase2_acceptance.md) for evidence and residual risks; the findings below describe the pre-refactor baseline.
+> Phases 0, 1, 2 and 4 of the roadmap are implemented. See [`phase0_acceptance.md`](phase0_acceptance.md), [`phase1_acceptance.md`](phase1_acceptance.md), [`phase2_acceptance.md`](phase2_acceptance.md) and [`phase4_acceptance.md`](phase4_acceptance.md) for evidence and residual risks; the findings below describe the pre-refactor baseline.
 
 ---
 
@@ -45,19 +46,19 @@ The existing documents cover routes, classes, entity relationships, and professo
 |---|---|
 | Domain | Educational material, subjects, careers/years, professor assignments, student subscriptions, moderation, favorites, reading progress, gamification, notifications, audit. |
 | Roles | `Superadmin`, `Profesor`, `Alumno`, plus anonymous visitors. |
-| Backend | Node.js, CommonJS, Express 5, layered as routes → controllers → application services → repository ports → MariaDB adapters. |
-| Frontend | Vanilla JavaScript, Web Components, page controllers, centralized `apiService`, custom i18n, no framework and no build step. |
+| Backend | Node.js, CommonJS, Express 5, layered as routes → controllers → application services → repository ports → MariaDB adapters. Itemized unit tests, lint, format, coverage and OpenAPI checks run in CI. |
+| Frontend | Vanilla JavaScript ES modules, Web Components, page controllers, centralized `apiService`, custom i18n, no framework and no build step. |
 | Database | MariaDB/MySQL, InnoDB, `utf8mb4`, 20 tables, 30 foreign keys, custom SQL migrations. |
 | Authentication | JWT bearer tokens (2-hour default), bcrypt password hashes, email verification and password-reset tokens. |
 | File storage | Local disk under `backend/uploads` by default; optional Cloudinary mode. |
 | Email | Nodemailer transport selected by environment. |
 | Deployment shape | Single Node.js process serving both API and static frontend; one relational database; local or cloud file storage. |
-| API surface | 82 API endpoints; no version prefix; mixed response envelopes. |
-| Testing | Browser/Node API test suite under `frontend/js/tests`; no unit-test runner or coverage gate in the backend package. |
+| API surface | 86 API endpoints; no version prefix; flat success payloads with `requestId`, documented in `docs/openapi.yaml`. |
+| Testing | Node unit tests under `backend/tests` with coverage thresholds; browser/Node API suite under `frontend/js/tests`; CI gates for lint, format, OpenAPI and module graph. |
 
 ### Architecture in one sentence
 
-Bibliotech has a credible hexagonal/ports-and-adapters skeleton, but several controllers bypass application services, domain entities are mostly data holders, business rules are spread across services and SQL, and there is no transaction/unit-of-work boundary around multi-step operations.
+Bibliotech has a credible hexagonal/ports-and-adapters skeleton. Controllers delegate to application services, material flows use a facade with focused services, ports are contract-tested, and multi-step writes use `db.transaction`. Domain entities are still mostly data holders and some rules remain distributed between services and SQL.
 
 ---
 

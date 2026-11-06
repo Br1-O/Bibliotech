@@ -53,3 +53,5 @@ function render(container, nodes) {
     container.replaceChildren();
     [].concat(nodes).forEach(n => container.appendChild(n));
 }
+
+export { el, render };

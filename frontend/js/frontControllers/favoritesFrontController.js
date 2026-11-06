@@ -2,6 +2,14 @@
 * Project     : Bibliotech  |  Frontend - Controlador
 * favoritesFrontController: materiales guardados por el usuario autenticado.
 */
+import { Cards } from '../components/cards/cards.js';
+import { Loader } from '../components/loader/loader.js';
+import { Pagination } from '../components/pagination/pagination.js';
+import { LanguageManager } from '../i18n/LanguageManager.js';
+import { apiService } from '../services/apiService.js';
+import { authHelper } from '../utils/authHelper.js';
+import { el, render } from '../utils/dom.js';
+
 
 document.addEventListener('bt:ready', () => {
     const grid = document.getElementById('favoritesGrid');

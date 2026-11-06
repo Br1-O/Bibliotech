@@ -3,6 +3,8 @@
 * theme.js: tema claro/oscuro persistente. Se carga en <head> para evitar
 * el destello de tema incorrecto antes de pintar la pagina.
 */
+import { el } from './utils/dom.js';
+
 
 const Theme = (() => {
     const STORAGE_KEY = 'bt_theme';
@@ -52,3 +54,5 @@ const Theme = (() => {
 })();
 
 Theme.init();
+
+export { Theme };

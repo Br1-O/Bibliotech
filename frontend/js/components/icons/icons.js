@@ -80,3 +80,5 @@ const Icons = (() => {
         play: icon([{ d: 'M8 5.5v13l10-6.5-10-6.5Z', fill: 'currentColor' }], { size: 18 })
     };
 })();
+
+export { Icons };

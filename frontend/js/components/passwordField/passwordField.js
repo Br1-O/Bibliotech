@@ -2,6 +2,9 @@
 * Project     : Bibliotech  |  Frontend - Componente
 * passwordField.js: boton de visibilidad y validacion temprana de confirmacion.
 */
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { Icons } from '../icons/icons.js';
+
 
 const PasswordField = (() => {
     function iconNode(name) {
@@ -76,3 +79,5 @@ const PasswordField = (() => {
 
     return { enhance, enhanceAll, bindConfirmation };
 })();
+
+export { PasswordField };

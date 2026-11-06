@@ -14,6 +14,27 @@ tickets or logs.
 The targets must be confirmed with a real restore drill. Record the measured
 duration in the drill ticket.
 
+## Serverless database connections
+
+Production runs the API as Vercel serverless functions. Every active function
+instance owns a separate `mysql2` pool, so database `max_connections` must be
+sized for the maximum number of concurrent instances, not for one Node process.
+
+- The app auto-detects `VERCEL`, `AWS_LAMBDA_FUNCTION_NAME`,
+  or `SERVERLESS=true`.
+- Serverless defaults: `DB_CONNECTION_LIMIT=1`, `DB_QUEUE_LIMIT=20`,
+  `DB_IDLE_TIMEOUT_MS=10000`, `DB_MAX_IDLE=1`, `DB_POOL_WARMUP=0`.
+- Keep those limits low. Raising `DB_CONNECTION_LIMIT` multiplies connections
+  by the number of warm functions and can exhaust the provider limit; Aiven
+  currently allows 46.
+- When the pool queue is full or the server rejects a connection, the API
+  returns HTTP 503 `DATABASE_UNAVAILABLE`/`errors.serviceBusy` instead of a
+  generic 500. Retry with backoff and avoid long batch requests from many
+  clients at once.
+- `/metrics` exposes pool size, waiting requests, and database errors; alert on
+  saturation. If connection pressure persists, add a provider-side pooler or
+  move long-running batch work to a queue.
+
 ## Backup
 
 `npm run ops:backup` writes a compressed database dump, a tar of

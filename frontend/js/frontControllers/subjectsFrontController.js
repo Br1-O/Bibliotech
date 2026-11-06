@@ -2,6 +2,14 @@
 * Project     : Bibliotech  |  Frontend - Controlador
 * subjectsFrontController: pagina independiente de carreras y materias.
 */
+import { Cards } from '../components/cards/cards.js';
+import { Pagination } from '../components/pagination/pagination.js';
+import { Toast } from '../components/toast/toast.js';
+import { LanguageManager } from '../i18n/LanguageManager.js';
+import { apiService } from '../services/apiService.js';
+import { authHelper } from '../utils/authHelper.js';
+import { el, render } from '../utils/dom.js';
+
 
 document.addEventListener('bt:ready', () => {
     const subjectsGrid = document.getElementById('subjectsGrid');

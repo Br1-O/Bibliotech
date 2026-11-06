@@ -2,6 +2,14 @@
 * Project     : Bibliotech  |  Frontend - Controlador
 * authorFrontController: perfil publico del autor y sus materiales aprobados.
 */
+import { Cards } from '../components/cards/cards.js';
+import { Loader } from '../components/loader/loader.js';
+import { Pagination } from '../components/pagination/pagination.js';
+import { LanguageManager } from '../i18n/LanguageManager.js';
+import { apiService } from '../services/apiService.js';
+import { authHelper } from '../utils/authHelper.js';
+import { el, render } from '../utils/dom.js';
+
 
 document.addEventListener('bt:ready', () => {
     const header = document.getElementById('authorHeader');

@@ -1,0 +1,3234 @@
+openapi: 3.0.3
+info:
+  title: Bibliotech API
+  version: 1.0.0
+  description: >
+    Contrato HTTP principal de Bibliotech. Los mensajes de negocio se traducen
+
+    segun `Accept-Language`; los errores incluyen `message`, `code` y
+    `requestId`.
+servers:
+  - url: http://localhost:3000
+    description: Desarrollo local
+  - url: https://bibliotech.example.com
+    description: Despliegue de produccion
+tags:
+  - name: Auth
+  - name: Materials
+  - name: Moderation
+  - name: Files
+  - name: Careers
+  - name: Subjects
+  - name: Engagement
+  - name: Streaks
+  - name: Subscriptions
+  - name: Notifications
+  - name: Audit
+  - name: ThematicTags
+  - name: Health
+security:
+  - bearerAuth: []
+paths:
+  /api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Inicia sesion y emite el JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+            example:
+              email: user@example.com
+              password: Password123
+      responses:
+        "200":
+          description: Sesion iniciada; tambien establece la cookie de archivos
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Cookie HttpOnly usada por /file y /download
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - token
+                  - user
+                properties:
+                  message:
+                    type: string
+                  token:
+                    type: string
+                  user:
+                    $ref: "#/components/schemas/User"
+              example:
+                message: string
+                token: string
+                user:
+                  id: 1
+                  nombre: string
+                  apellido: string
+                  email: user@example.com
+                  rol: string
+                  estado: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+      operationId: postApiAuthLogin
+  /api/auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Devuelve el usuario autenticado
+      responses:
+        "200":
+          description: Usuario actual
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+              example:
+                user:
+                  id: 1
+                  nombre: string
+                  apellido: string
+                  email: user@example.com
+                  rol: string
+                  estado: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      operationId: getApiAuthMe
+  /api/materials/global:
+    get:
+      tags:
+        - Materials
+      summary: Catalogo global de materiales aprobados
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: subjects
+          in: query
+          description: IDs separados por coma
+          schema:
+            type: string
+        - name: tags
+          in: query
+          description: Etiquetas separadas por coma
+          schema:
+            type: string
+        - name: tipo
+          in: query
+          schema:
+            $ref: "#/components/schemas/MaterialType"
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: careerId
+          in: query
+          schema:
+            type: integer
+        - name: yearId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Listado paginado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaterialPage"
+              example:
+                materials:
+                  - id: 1
+                    autorId: 1
+                    uploadedBy: 1
+                    author: string
+                    categoryId: 1
+                    titulo: string
+                    tipo: PDF
+                    urlOrPath: string
+                    portada: string
+                    fileHash: string
+                    descripcion: string
+                    pages: 1
+                    categories:
+                      - string
+                    estado: Pendiente
+                    hasStoredFile: true
+                    materias:
+                      - {}
+                    materiasIds:
+                      - 1
+                    carreras:
+                      - {}
+                    createdAt: 2026-01-01T00:00:00.000Z
+                pagination:
+                  page: 1
+                  pageSize: 1
+                  total: 1
+                  totalPages: 1
+                  hasNext: true
+                  hasPrev: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      operationId: getApiMaterialsGlobal
+  /api/materials/filters:
+    get:
+      tags:
+        - Materials
+      summary: Opciones de filtro disponibles
+      security:
+        - bearerAuth: []
+        - {}
+      responses:
+        "200":
+          description: Anios y categorias
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  years:
+                    type: array
+                    items:
+                      type: integer
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        slug:
+                          type: string
+                        nombre:
+                          type: string
+              example:
+                years:
+                  - 1
+                categories:
+                  - id: 1
+                    slug: string
+                    nombre: string
+      operationId: getApiMaterialsFilters
+  /api/materials/mine:
+    get:
+      tags:
+        - Materials
+      summary: Materiales subidos por el usuario autenticado
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: estado
+          in: query
+          schema:
+            $ref: "#/components/schemas/MaterialState"
+      responses:
+        "200":
+          description: Listado paginado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaterialPage"
+              example:
+                materials:
+                  - id: 1
+                    autorId: 1
+                    uploadedBy: 1
+                    author: string
+                    categoryId: 1
+                    titulo: string
+                    tipo: PDF
+                    urlOrPath: string
+                    portada: string
+                    fileHash: string
+                    descripcion: string
+                    pages: 1
+                    categories:
+                      - string
+                    estado: Pendiente
+                    hasStoredFile: true
+                    materias:
+                      - {}
+                    materiasIds:
+                      - 1
+                    carreras:
+                      - {}
+                    createdAt: 2026-01-01T00:00:00.000Z
+                pagination:
+                  page: 1
+                  pageSize: 1
+                  total: 1
+                  totalPages: 1
+                  hasNext: true
+                  hasPrev: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      operationId: getApiMaterialsMine
+  /api/materials/upload:
+    post:
+      tags:
+        - Materials
+      summary: Sube un archivo o registra un enlace
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - titulo
+              properties:
+                titulo:
+                  type: string
+                  maxLength: 150
+                tipo:
+                  $ref: "#/components/schemas/MaterialType"
+                urlOrPath:
+                  type: string
+                  format: uri
+                  description: Obligatorio cuando no se envia `archivo`
+                archivo:
+                  type: string
+                  format: binary
+                portada:
+                  type: string
+                  format: binary
+                author:
+                  type: string
+                category:
+                  type: string
+                descripcion:
+                  type: string
+                pages:
+                  type: integer
+                  minimum: 1
+                categories:
+                  type: string
+                  description: Lista separada por coma
+                subjects:
+                  type: string
+                  description: IDs separados por coma
+                isMandatory:
+                  type: boolean
+            example:
+              titulo: string
+              tipo: PDF
+              urlOrPath: https://example.com/recurso
+              author: string
+              category: string
+              descripcion: string
+              pages: 1
+              categories: string
+              subjects: string
+              isMandatory: true
+      responses:
+        "201":
+          description: Material creado o sugerencia duplicada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  duplicate:
+                    type: boolean
+                  material:
+                    $ref: "#/components/schemas/Material"
+              example:
+                duplicate: true
+                material:
+                  id: 1
+                  autorId: 1
+                  uploadedBy: 1
+                  author: string
+                  categoryId: 1
+                  titulo: string
+                  tipo: PDF
+                  urlOrPath: string
+                  portada: string
+                  fileHash: string
+                  descripcion: string
+                  pages: 1
+                  categories:
+                    - string
+                  estado: Pendiente
+                  hasStoredFile: true
+                  materias:
+                    - {}
+                  materiasIds:
+                    - 1
+                  carreras:
+                    - {}
+                  createdAt: 2026-01-01T00:00:00.000Z
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+      operationId: postApiMaterialsUpload
+  /api/materials/{id}/file:
+    get:
+      tags:
+        - Files
+      summary: Sirve el archivo para visualizacion inline
+      description: |
+        Los materiales aprobados son publicos. Los pendientes requieren el
+        propietario, el profesor de una materia asociada o Superadmin. La cookie
+        de archivos se evalua de forma perezosa solo si hace falta.
+      security:
+        - bearerAuth: []
+        - fileCookieAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      responses:
+        "200":
+          description: Archivo completo
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+        "206":
+          description: Porcion del archivo solicitada con `Range`
+          headers:
+            Content-Range:
+              schema:
+                type: string
+        "302":
+          description: Redireccion a un enlace externo no gestionado
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      operationId: getApiMaterialsIdFile
+  /api/materials/{id}/download:
+    get:
+      tags:
+        - Files
+      summary: Descarga el archivo como adjunto
+      security:
+        - bearerAuth: []
+        - fileCookieAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      responses:
+        "200":
+          description: Archivo adjunto
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+        "302":
+          description: Redireccion a un enlace externo no gestionado
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      operationId: getApiMaterialsIdDownload
+  /api/materials/{id}/favorite:
+    post:
+      tags:
+        - Materials
+      summary: Alterna el material en favoritos
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      responses:
+        "200":
+          description: Estado de favorito resultante
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isFavorite:
+                    type: boolean
+                  favoritesCount:
+                    type: integer
+              example:
+                isFavorite: true
+                favoritesCount: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      operationId: postApiMaterialsIdFavorite
+  /api/materials/favorites/mine:
+    get:
+      tags:
+        - Materials
+      summary: Lista los favoritos del usuario autenticado
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Favoritos paginados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/MaterialPage"
+                  - type: object
+                    properties:
+                      favorites:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Material"
+              example:
+                materials:
+                  - id: 1
+                    autorId: 1
+                    uploadedBy: 1
+                    author: string
+                    categoryId: 1
+                    titulo: string
+                    tipo: PDF
+                    urlOrPath: string
+                    portada: string
+                    fileHash: string
+                    descripcion: string
+                    pages: 1
+                    categories:
+                      - string
+                    estado: Pendiente
+                    hasStoredFile: true
+                    materias:
+                      - {}
+                    materiasIds:
+                      - 1
+                    carreras:
+                      - {}
+                    createdAt: 2026-01-01T00:00:00.000Z
+                pagination:
+                  page: 1
+                  pageSize: 1
+                  total: 1
+                  totalPages: 1
+                  hasNext: true
+                  hasPrev: true
+                favorites:
+                  - id: 1
+                    autorId: 1
+                    uploadedBy: 1
+                    author: string
+                    categoryId: 1
+                    titulo: string
+                    tipo: PDF
+                    urlOrPath: string
+                    portada: string
+                    fileHash: string
+                    descripcion: string
+                    pages: 1
+                    categories:
+                      - string
+                    estado: Pendiente
+                    hasStoredFile: true
+                    materias:
+                      - {}
+                    materiasIds:
+                      - 1
+                    carreras:
+                      - {}
+                    createdAt: 2026-01-01T00:00:00.000Z
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      operationId: getApiMaterialsFavoritesMine
+  /api/materials/{id}/approve:
+    post:
+      tags:
+        - Moderation
+      summary: Aprueba un material para una materia
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - subjectId
+              properties:
+                subjectId:
+                  type: integer
+            example:
+              subjectId: 1
+      responses:
+        "200":
+          description: Asociacion aprobada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationResult"
+              example:
+                message: string
+                material:
+                  id: 1
+                  autorId: 1
+                  uploadedBy: 1
+                  author: string
+                  categoryId: 1
+                  titulo: string
+                  tipo: PDF
+                  urlOrPath: string
+                  portada: string
+                  fileHash: string
+                  descripcion: string
+                  pages: 1
+                  categories:
+                    - string
+                  estado: Pendiente
+                  hasStoredFile: true
+                  materias:
+                    - {}
+                  materiasIds:
+                    - 1
+                  carreras:
+                    - {}
+                  createdAt: 2026-01-01T00:00:00.000Z
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+      operationId: postApiMaterialsIdApprove
+  /api/materials/{id}/reject:
+    post:
+      tags:
+        - Moderation
+      summary: Rechaza un material para una materia
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - subjectId
+              properties:
+                subjectId:
+                  type: integer
+            example:
+              subjectId: 1
+      responses:
+        "200":
+          description: Asociacion rechazada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationResult"
+              example:
+                message: string
+                material:
+                  id: 1
+                  autorId: 1
+                  uploadedBy: 1
+                  author: string
+                  categoryId: 1
+                  titulo: string
+                  tipo: PDF
+                  urlOrPath: string
+                  portada: string
+                  fileHash: string
+                  descripcion: string
+                  pages: 1
+                  categories:
+                    - string
+                  estado: Pendiente
+                  hasStoredFile: true
+                  materias:
+                    - {}
+                  materiasIds:
+                    - 1
+                  carreras:
+                    - {}
+                  createdAt: 2026-01-01T00:00:00.000Z
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      operationId: postApiMaterialsIdReject
+  /api/materials/{id}/associate:
+    post:
+      tags:
+        - Moderation
+      summary: Asocia un material a una o mas materias del profesor
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - subjectId
+                  properties:
+                    subjectId:
+                      type: integer
+                - type: object
+                  required:
+                    - subjectIds
+                  properties:
+                    subjectIds:
+                      type: array
+                      minItems: 1
+                      items:
+                        type: integer
+            example:
+              subjectId: 1
+      responses:
+        "200":
+          description: Asociaciones creadas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationResult"
+              example:
+                message: string
+                material:
+                  id: 1
+                  autorId: 1
+                  uploadedBy: 1
+                  author: string
+                  categoryId: 1
+                  titulo: string
+                  tipo: PDF
+                  urlOrPath: string
+                  portada: string
+                  fileHash: string
+                  descripcion: string
+                  pages: 1
+                  categories:
+                    - string
+                  estado: Pendiente
+                  hasStoredFile: true
+                  materias:
+                    - {}
+                  materiasIds:
+                    - 1
+                  carreras:
+                    - {}
+                  createdAt: 2026-01-01T00:00:00.000Z
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      operationId: postApiMaterialsIdAssociate
+  /api/materials/{id}/cancel:
+    post:
+      tags:
+        - Materials
+      summary: Cancela una subida pendiente y borra sus archivos
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      responses:
+        "200":
+          description: Subida cancelada
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+      operationId: postApiMaterialsIdCancel
+  /api/materials/{id}:
+    delete:
+      tags:
+        - Moderation
+      summary: Elimina un material globalmente (Superadmin)
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      responses:
+        "200":
+          description: Material eliminado
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      operationId: deleteApiMaterialsId
+    put:
+      tags:
+        - Materials
+      summary: Actualiza un material
+      operationId: putApiMaterialsId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Registra un alumno
+      operationId: postApiAuthRegister
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/verify-account:
+    post:
+      tags:
+        - Auth
+      summary: Verifica una cuenta con codigo
+      operationId: postApiAuthVerifyAccount
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+    get:
+      tags:
+        - Auth
+      summary: Verifica una cuenta con codigo por query
+      operationId: getApiAuthVerifyAccount
+      security: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/auth/activate:
+    post:
+      tags:
+        - Auth
+      summary: Activa una cuenta con token
+      operationId: postApiAuthActivate
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/activate/{token}:
+    get:
+      tags:
+        - Auth
+      summary: Activa una cuenta desde el enlace del correo
+      operationId: getApiAuthActivateToken
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/auth/resend-verification:
+    post:
+      tags:
+        - Auth
+      summary: Reenvia el codigo de verificacion
+      operationId: postApiAuthResendVerification
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Cierra la sesion y elimina la cookie de archivos
+      operationId: postApiAuthLogout
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/forgot-password:
+    post:
+      tags:
+        - Auth
+      summary: Solicita el reseteo de clave
+      operationId: postApiAuthForgotPassword
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/reset-password/{token}/validate:
+    get:
+      tags:
+        - Auth
+      summary: Valida un token de reseteo
+      operationId: getApiAuthResetPasswordTokenValidate
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/auth/reset-password:
+    post:
+      tags:
+        - Auth
+      summary: Restablece la clave con token
+      operationId: postApiAuthResetPassword
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/roles:
+    get:
+      tags:
+        - Auth
+      summary: Lista los roles disponibles
+      operationId: getApiAuthRoles
+      security: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/auth/password:
+    put:
+      tags:
+        - Auth
+      summary: Cambia la clave del usuario autenticado
+      operationId: putApiAuthPassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/professors:
+    post:
+      tags:
+        - Auth
+      summary: Crea una cuenta de profesor (Superadmin)
+      operationId: postApiAuthProfessors
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/users:
+    get:
+      tags:
+        - Auth
+      summary: Lista usuarios con filtros (Superadmin)
+      operationId: getApiAuthUsers
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/auth/users/{id}/ban:
+    put:
+      tags:
+        - Auth
+      summary: Banea a un usuario (Superadmin)
+      operationId: putApiAuthUsersIdBan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/users/{id}/unban:
+    put:
+      tags:
+        - Auth
+      summary: Desbanea a un usuario (Superadmin)
+      operationId: putApiAuthUsersIdUnban
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/users/{id}/role:
+    put:
+      tags:
+        - Auth
+      summary: Cambia el rol de un usuario (Superadmin)
+      operationId: putApiAuthUsersIdRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/auth/users/{id}:
+    delete:
+      tags:
+        - Auth
+      summary: Da de baja a un usuario (Superadmin)
+      operationId: deleteApiAuthUsersId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/profile/{id}:
+    get:
+      tags:
+        - Engagement
+      summary: Perfil publico de un usuario
+      operationId: getApiProfileId
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/users/{id}/favorites:
+    get:
+      tags:
+        - Engagement
+      summary: Favoritos de un usuario
+      operationId: getApiUsersIdFavorites
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/users/{id}/uploads:
+    get:
+      tags:
+        - Engagement
+      summary: Subidas de un usuario
+      operationId: getApiUsersIdUploads
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/users/{id}/reads:
+    get:
+      tags:
+        - Engagement
+      summary: Lecturas de un usuario
+      operationId: getApiUsersIdReads
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/users/{id}/backlog:
+    get:
+      tags:
+        - Engagement
+      summary: Pendientes de lectura de un usuario
+      operationId: getApiUsersIdBacklog
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/profile:
+    put:
+      tags:
+        - Engagement
+      summary: Actualiza el perfil propio
+      operationId: putApiProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/profile-pictures:
+    get:
+      tags:
+        - Engagement
+      summary: Lista avatares disponibles
+      operationId: getApiProfilePictures
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/reads:
+    get:
+      tags:
+        - Engagement
+      summary: Lista las lecturas propias
+      operationId: getApiReads
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/reads/{materialId}:
+    get:
+      tags:
+        - Engagement
+      summary: Obtiene el progreso de lectura
+      operationId: getApiReadsMaterialId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/reads/{materialId}/toggle:
+    post:
+      tags:
+        - Engagement
+      summary: Marca o desmarca una lectura
+      operationId: postApiReadsMaterialIdToggle
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/reads/{materialId}/progress:
+    put:
+      tags:
+        - Engagement
+      summary: Actualiza el progreso de lectura
+      operationId: putApiReadsMaterialIdProgress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/backlog:
+    get:
+      tags:
+        - Engagement
+      summary: Lista los pendientes de lectura
+      operationId: getApiBacklog
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/backlog/{materialId}:
+    post:
+      tags:
+        - Engagement
+      summary: Agrega un material a pendientes
+      operationId: postApiBacklogMaterialId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+    delete:
+      tags:
+        - Engagement
+      summary: Quita un material de pendientes
+      operationId: deleteApiBacklogMaterialId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/subscriptions/{userId}:
+    post:
+      tags:
+        - Engagement
+      summary: Sigue a un autor
+      operationId: postApiSubscriptionsUserId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+    delete:
+      tags:
+        - Engagement
+      summary: Deja de seguir a un autor
+      operationId: deleteApiSubscriptionsUserId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/streaks:
+    get:
+      tags:
+        - Streaks
+      summary: Consulta la racha de lectura
+      operationId: getApiStreaks
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      x-generated: true
+  /api/streaks/heartbeat:
+    post:
+      tags:
+        - Streaks
+      summary: Registra actividad de lectura
+      operationId: postApiStreaksHeartbeat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/streaks/reset:
+    post:
+      tags:
+        - Streaks
+      summary: Reinicia la racha
+      operationId: postApiStreaksReset
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/careers:
+    get:
+      tags:
+        - Careers
+      summary: Lista carreras
+      operationId: getApiCareers
+      security:
+        - bearerAuth: []
+        - {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+    post:
+      tags:
+        - Careers
+      summary: Crea una carrera (Superadmin)
+      operationId: postApiCareers
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/careers/{id}:
+    get:
+      tags:
+        - Careers
+      summary: Obtiene una carrera
+      operationId: getApiCareersId
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+    put:
+      tags:
+        - Careers
+      summary: Actualiza una carrera (Superadmin)
+      operationId: putApiCareersId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/careers/{id}/years:
+    post:
+      tags:
+        - Careers
+      summary: Agrega un anio a una carrera (Superadmin)
+      operationId: postApiCareersIdYears
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/careers/years/{yearId}:
+    put:
+      tags:
+        - Careers
+      summary: Actualiza un anio (Superadmin)
+      operationId: putApiCareersYearsYearId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: yearId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/subjects:
+    get:
+      tags:
+        - Subjects
+      summary: Lista materias
+      operationId: getApiSubjects
+      security:
+        - bearerAuth: []
+        - {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+    post:
+      tags:
+        - Subjects
+      summary: Crea una materia (Superadmin)
+      operationId: postApiSubjects
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/subjects/{id}:
+    get:
+      tags:
+        - Subjects
+      summary: Obtiene una materia
+      operationId: getApiSubjectsId
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+    put:
+      tags:
+        - Subjects
+      summary: Actualiza una materia (Superadmin)
+      operationId: putApiSubjectsId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/subjects/{id}/materials:
+    get:
+      tags:
+        - Subjects
+      summary: Materiales de una materia
+      operationId: getApiSubjectsIdMaterials
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/subjects/{id}/request-association:
+    post:
+      tags:
+        - Subjects
+      summary: Solicita asociar una materia (Profesor)
+      operationId: postApiSubjectsIdRequestAssociation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/subjects/{id}/confirm-association:
+    post:
+      tags:
+        - Subjects
+      summary: Confirma una asociacion (Superadmin)
+      operationId: postApiSubjectsIdConfirmAssociation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/subjects/{id}/reject-association:
+    post:
+      tags:
+        - Subjects
+      summary: Rechaza una asociacion (Superadmin)
+      operationId: postApiSubjectsIdRejectAssociation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/materials/author/{id}:
+    get:
+      tags:
+        - Materials
+      summary: Materiales publicados por un autor
+      operationId: getApiMaterialsAuthorId
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/materials/pending:
+    get:
+      tags:
+        - Materials
+      summary: Sugerencias pendientes del usuario
+      operationId: getApiMaterialsPending
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/materials/pending-review:
+    get:
+      tags:
+        - Materials
+      summary: Bandeja de revision del profesor
+      operationId: getApiMaterialsPendingReview
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/materials/batch:
+    post:
+      tags:
+        - Materials
+      summary: Carga masiva de materiales (Superadmin)
+      operationId: postApiMaterialsBatch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/materials/{id}/subjects/{subjectId}:
+    delete:
+      tags:
+        - Materials
+      summary: Quita un material de una materia
+      operationId: deleteApiMaterialsIdSubjectsSubjectId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/subscriptions/mine:
+    get:
+      tags:
+        - Subscriptions
+      summary: Lista las suscripciones propias
+      operationId: getApiSubscriptionsMine
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      x-generated: true
+  /api/subscriptions/subscribe/{subjectId}:
+    post:
+      tags:
+        - Subscriptions
+      summary: Se suscribe a una materia
+      operationId: postApiSubscriptionsSubscribeSubjectId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+    delete:
+      tags:
+        - Subscriptions
+      summary: Cancela la suscripcion a una materia
+      operationId: deleteApiSubscriptionsSubscribeSubjectId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/subscriptions/subject/{subjectId}/observers:
+    get:
+      tags:
+        - Subscriptions
+      summary: Lista observadores de una materia
+      operationId: getApiSubscriptionsSubjectSubjectIdObservers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      x-generated: true
+  /api/subscriptions/ban/{alumnoId}/{subjectId}:
+    post:
+      tags:
+        - Subscriptions
+      summary: Banea a un alumno de una materia
+      operationId: postApiSubscriptionsBanAlumnoIdSubjectId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: alumnoId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Lista notificaciones
+      operationId: getApiNotifications
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      x-generated: true
+  /api/notifications/read-all:
+    post:
+      tags:
+        - Notifications
+      summary: Marca todas las notificaciones como leidas
+      operationId: postApiNotificationsReadAll
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/notifications/{id}/read:
+    post:
+      tags:
+        - Notifications
+      summary: Marca una notificacion como leida
+      operationId: postApiNotificationsIdRead
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/audit:
+    get:
+      tags:
+        - Audit
+      summary: Consulta la auditoria (Superadmin)
+      operationId: getApiAudit
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/audit/user/{id}:
+    get:
+      tags:
+        - Audit
+      summary: Consulta la auditoria de un usuario (Superadmin)
+      operationId: getApiAuditUserId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /api/thematic-tags:
+    get:
+      tags:
+        - ThematicTags
+      summary: Lista etiquetas tematicas
+      operationId: getApiThematicTags
+      security: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+    post:
+      tags:
+        - ThematicTags
+      summary: Crea una etiqueta tematica
+      operationId: postApiThematicTags
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/thematic-tags/{id}/ban:
+    put:
+      tags:
+        - ThematicTags
+      summary: Banea una etiqueta (Superadmin)
+      operationId: putApiThematicTagsIdBan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: {}
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /api/thematic-tags/{id}:
+    delete:
+      tags:
+        - ThematicTags
+      summary: Elimina una etiqueta (Superadmin)
+      operationId: deleteApiThematicTagsId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      x-generated: true
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Comprueba que el proceso responde
+      operationId: getHealthz
+      security: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+              example:
+                status: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /readyz:
+    get:
+      tags:
+        - Health
+      summary: Comprueba la disponibilidad de la base de datos
+      operationId: getReadyz
+      security: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+              example:
+                status: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Expone metricas Prometheus
+      operationId: getMetrics
+      security: []
+      responses:
+        "200":
+          description: Operacion correcta
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-generated: true
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    fileCookieAuth:
+      type: apiKey
+      in: cookie
+      name: bibliotech_file_token
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      description: Tamano de pagina (1-100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    MaterialId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+  schemas:
+    MaterialType:
+      type: string
+      enum:
+        - PDF
+        - EPUB
+        - Word
+        - Presentacion
+        - Youtube
+        - Enlace
+    MaterialState:
+      type: string
+      enum:
+        - Pendiente
+        - Aprobado
+        - Rechazado
+        - Cancelado
+    Material:
+      type: object
+      properties:
+        id:
+          type: integer
+        autorId:
+          type: integer
+        uploadedBy:
+          type: integer
+          nullable: true
+        author:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          nullable: true
+        titulo:
+          type: string
+        tipo:
+          $ref: "#/components/schemas/MaterialType"
+        urlOrPath:
+          type: string
+          nullable: true
+          description: Null para archivos almacenados en Cloudinary
+        portada:
+          type: string
+          nullable: true
+        fileHash:
+          type: string
+        descripcion:
+          type: string
+          nullable: true
+        pages:
+          type: integer
+          nullable: true
+        categories:
+          type: array
+          items:
+            type: string
+        estado:
+          $ref: "#/components/schemas/MaterialState"
+        hasStoredFile:
+          type: boolean
+        materias:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        materiasIds:
+          type: array
+          items:
+            type: integer
+        carreras:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        apellido:
+          type: string
+        email:
+          type: string
+          format: email
+        rol:
+          type: string
+        estado:
+          type: string
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
+    MaterialPage:
+      type: object
+      required:
+        - materials
+        - pagination
+      properties:
+        materials:
+          type: array
+          items:
+            $ref: "#/components/schemas/Material"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+    ModerationResult:
+      type: object
+      additionalProperties: true
+      properties:
+        message:
+          type: string
+        material:
+          $ref: "#/components/schemas/Material"
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        fields:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+          nullable: true
+  responses:
+    BadRequest:
+      description: Solicitud invalida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: string
+            code: string
+            errors:
+              - {}
+            fields: {}
+            requestId: string
+    Unauthorized:
+      description: Falta autenticacion o el token es invalido
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: string
+            code: string
+            errors:
+              - {}
+            fields: {}
+            requestId: string
+    Forbidden:
+      description: El usuario no puede realizar la operacion
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: string
+            code: string
+            errors:
+              - {}
+            fields: {}
+            requestId: string
+    NotFound:
+      description: Recurso inexistente
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: string
+            code: string
+            errors:
+              - {}
+            fields: {}
+            requestId: string
+    Conflict:
+      description: Conflicto con el estado actual del recurso
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: string
+            code: string
+            errors:
+              - {}
+            fields: {}
+            requestId: string
+    PayloadTooLarge:
+      description: Archivo o formulario demasiado grande
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: string
+            code: string
+            errors:
+              - {}
+            fields: {}
+            requestId: string
+    UnprocessableEntity:
+      description: Datos o archivo no validos
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: string
+            code: string
+            errors:
+              - {}
+            fields: {}
+            requestId: string
+    TooManyRequests:
+      description: Limite de peticiones excedido
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: string
+            code: string
+            errors:
+              - {}
+            fields: {}
+            requestId: string

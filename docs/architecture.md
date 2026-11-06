@@ -33,7 +33,7 @@ The architecture is therefore **hexagonal in shape but not yet hexagonal in enfo
 
 ## 2. System Context
 
-Bibliotech is a server-rendered/static frontend plus JSON API, backed by one relational database and optional file/email providers.
+Bibliotech is a static frontend plus JSON API, backed by one relational database and optional file/email providers. Locally it runs as a single Node.js process; in production the frontend is served by Vercel and `/api` is handled by serverless functions, so each active function instance owns its own DB pool.
 
 ```mermaid
 flowchart LR
@@ -42,7 +42,7 @@ flowchart LR
     Professor["Professor"] --> Browser
     Admin["Superadmin"] --> Browser
 
-    Browser -->|"HTTP /api/*"| Express["Express 5 process"]
+    Browser -->|"HTTP /api/*"| Express["Express 5 API<br/>local process or serverless"]
     Browser -->|"HTTP static"| Express
     Express --> MariaDB[("MariaDB / MySQL<br/>InnoDB")]
     Express -->|"local mode"| Disk[("Local uploads<br/>backend/uploads")]
@@ -73,7 +73,7 @@ flowchart TB
         LS[("localStorage<br/>bt_token, bt_user")]
     end
 
-    subgraph Server["Single Node.js process"]
+    subgraph Server["Node.js runtime<br/>single process locally, per-instance in serverless"]
         Static["express.static<br/>frontend/ + /uploads"]
         MW["Global middleware<br/>cors, json, language"]
         Routes["Routers<br/>/api/auth, /api/materials, ..."]
@@ -88,7 +88,7 @@ flowchart TB
     end
 
     subgraph Data["Data and providers"]
-        Pool[("mysql2 pool<br/>connectionLimit 10")]
+        Pool[("mysql2 pool<br/>1 serverless / 10 local")]
         DB[("MariaDB")]
         Uploads[("Local uploads or Cloudinary")]
         SMTP["Email provider"]
@@ -117,7 +117,7 @@ flowchart TB
     Container --> Repos
 ```
 
-The deployment is intentionally simple: **one process serves both the API and the frontend**. This is adequate for development and small deployments, but it couples static traffic, API traffic, CPU-bound hashing, and email side effects in the same event loop and process.
+Local development uses **one process for the API and frontend**. Production runs the frontend on Vercel and the API as serverless functions: there is no shared process or pool across instances. The runtime detects `VERCEL`, `AWS_LAMBDA_FUNCTION_NAME`, or `SERVERLESS=true` and defaults to one DB connection per instance with no pool warmup. Configure the database `max_connections` for the maximum number of concurrent functions, not for one process.
 
 ---
 
@@ -181,7 +181,7 @@ flowchart TB
 ### 4.1 Input adapters
 
 - `backend/routes/*.js` define the HTTP surface. Route order matters for Express matching, especially `/materials/global`, `/materials/mine`, and `/:id`.
-- `backend/controllers/*.js` parse request data, call services or repositories, and format responses through `utils/respond.js`.
+- `backend/controllers/*.js` parse request data, call application services, and format responses through `utils/respond.js`; no controller reads repositories directly.
 - `backend/middleware/authMiddleware.js` verifies JWTs and enforces coarse role checks.
 - `backend/middleware/languageMiddleware.js` resolves a language and exposes `req.t`.
 - `backend/validator/*` implements a rule-based validation module with localized messages.
@@ -194,25 +194,25 @@ flowchart TB
 | `RoleService` | Role CRUD and audit. | Role repository. |
 | `CareerService` | Careers and career years. | Career repository, audit. |
 | `SubjectService` | Subject CRUD, professor resolution/assignment, association requests. | Subject/user/career repositories, audit. |
-| `MaterialService` | Upload/suggest, duplicate handling, moderation, association, editing, deletion, batch upload, favorites. | Material/subject/subscription/notification repositories, audit, tags, file helper, gamification. |
+| `MaterialService` | Stable facade used by routes; delegates upload, moderation, association, management, catalog, favorites, and file access. | Material-focused subservices plus repositories, audit, tags, file helper, gamification. |
 | `SubscriptionService` | Student subscriptions and professor bans. | Subscription/subject/user repositories, audit. |
 | `NotificationService` | Notification inbox and read state. | Notification repository. |
 | `AuditLogService` | Best-effort audit writes and reads. | Audit repository. |
 | `ThematicTagService` | Tag listing, creation, ban/delete. | Tag repository. |
 | `GamificationService` | XP, reads, backlog, progress, streaks, badges, follows, profile. | Gamification/user/material/notification repositories. |
 
-`MaterialService` is the largest and most coupled service. It constructs with nine dependencies and mixes file handling, duplicate detection, subject ownership, moderation, notifications, tags, audit, favorites, and gamification.
+`MaterialService` keeps its public API but is now a thin facade. The implementation lives in `application/services/material/`: `MaterialUploadService`, `MaterialModerationService`, `MaterialAssociationService`, `MaterialManagementService`, `MaterialCatalogService`, `MaterialFavoriteService`, `MaterialAccessService`, and `MaterialServiceContext`. Shared authorization and state rules live in `domain/policies/MaterialPolicy.js`, with regression tests in `backend/tests/materialPolicy.test.js`.
 
 ### 4.3 Domain
 
 - Entities are mostly **data holders with mapping/normalization helpers** (`User`, `Material`, `Subject`, etc.).
 - `Material.cancelUpload()` is one of the few behavior-bearing domain methods.
 - `domain/observers/Observable.js` and `StudentObserver.js` model the Observer pattern, but `StudentObserver.notifications` is an in-memory array and is discarded after the request.
-- Repository ports are abstract classes with `_notImplemented` methods; they document intent but are not enforced by the language.
+- Repository ports are abstract classes with `_notImplemented` methods. `backend/tests/repositoryPorts.test.js` enforces that every MariaDB adapter implements its port; `npm run test:contract` validates read shapes against a real database.
 
 ### 4.4 Infrastructure
 
-- `config/db.js` creates a `mysql2` pool with `connectionLimit: 10`, `queueLimit: 0`, `utf8mb4`, and optional SSL with `rejectUnauthorized: false`.
+- `config/db.js` creates one process-global `mysql2` pool with serverless-aware defaults (`connectionLimit: 1`, `queueLimit: 20`, idle timeout 10s, no warmup) and local defaults (`connectionLimit: 10`, `queueLimit: 50`, `maxIdle: 2`), `utf8mb4`, and optional SSL with `rejectUnauthorized: false`. Connection saturation is normalized to `DATABASE_UNAVAILABLE`/HTTP 503.
 - `infrastructure/container.js` manually wires repositories and services. There is no lifecycle, scoping, or transaction manager.
 - `config/multerConfig.js` selects local disk or Cloudinary storage and applies MIME/size limits.
 - `utils/hashHelper.js` provides SHA-256 hashing for files, strings, and tokens.
@@ -261,19 +261,18 @@ sequenceDiagram
 ### 5.1 Cross-cutting behavior
 
 - **Language:** query `lang`, then `x-language`, then `Accept-Language`, then `DEFAULT_LANGUAGE`.
-- **Errors:** `errorMiddleware` localizes `AppError` and validation errors; unexpected errors become a generic 500.
+- **Errors:** `errorMiddleware` localizes `AppError` and validation errors; pool exhaustion becomes `DATABASE_UNAVAILABLE` (503); unexpected errors become a generic 500.
 - **Rate limiting:** only upload routes use an in-memory limiter. Login, registration, password reset, verification, follows, favorites, reads, and comments-like actions are not rate-limited.
-- **Static files:** frontend and uploads are served before API routes, so `/uploads/...` is public and cache behavior is Express default.
+- **Static files:** frontend assets are served by Vercel in production. Express only serves public cover images under `/uploads`; material documents go through `/api/materials/:id/file` and `.../download`.
+- **File authorization:** approved materials are public; pending materials require the author/uploader, a professor of an associated subject, or a Superadmin. Auth is resolved lazily only when the material is not public.
 - **CORS:** `app.use(cors())` allows any origin.
 
 ### 5.2 Important lifecycle gaps
 
-1. There is no **request-scoped transaction**. A use case that writes several tables cannot roll back atomically.
-2. There is no **unit of work** or transaction manager in the container.
+1. **Transaction coverage is partial**: `db.transaction` exists and some use cases use it, but many multi-table writes still run as independent repository calls.
+2. There is no **unit of work** or transaction manager in the container; repositories do not share a formal context beyond the AsyncLocalStorage connection.
 3. There is no **idempotency key** for uploads, follows, favorites, or moderation actions.
-4. There is no **request ID** or structured logging context.
-5. There is no **API versioning** or generated OpenAPI contract.
-6. There is no **graceful shutdown**; the pool is never closed explicitly.
+4. There is no **API versioning**; the HTTP contract is documented in [`openapi.yaml`](openapi.yaml).
 
 ---
 
@@ -442,12 +441,11 @@ Problems in this flow are covered in `code_analysis.md` and `database_performanc
 
 ### 7.5 Audit
 
-`AuditLogService.record()` wraps repository writes in `try/catch` and returns `null` on failure. This protects the main flow but means:
+`AuditLogService.record()` writes through the outbox with `immediate: true` when an outbox is available, so audit rows are retried and idempotent. Remaining gaps:
 
-- a successful business action may have no audit row;
-- there is no outbox or retry;
-- `audit_logs` is a normal mutable table, not append-only;
-- `findAll()` performs six polymorphic joins and no pagination.
+- the database user can still mutate `audit_logs` directly; there is no append-only trigger;
+- there is no retention/archive policy;
+- the list endpoints are paginated and batch target names, but audit is still a normal SQL table.
 
 ---
 
@@ -455,10 +453,14 @@ Problems in this flow are covered in `code_analysis.md` and `database_performanc
 
 ### 8.1 Page and module model
 
-- `frontend/html/*.html` are static pages.
+- `frontend/html/*.html` are static pages with a single `<script type="module" src="/js/bootstrap.js">` entry point.
+- `frontend/js/bootstrap.js` imports utilities, components, and page controllers as ES modules in dependency order.
+- Modules use explicit `import`/`export`; there are no `globalThis` bridges. `bootstrap.js` is the only application entry point.
+- `frontend/js/theme-init.js` remains a minimal classic script in `<head>` to apply the stored theme before first paint.
 - `frontend/js/frontControllers/*.js` bind to DOM elements and orchestrate page behavior.
 - `frontend/js/components/*` are native Web Components or component factories.
 - `frontend/js/services/apiService.js` centralizes fetch, JWT attachment, language propagation, and 401 logout.
+- `backend/scripts/checkFrontendModules.js` links and evaluates the module graph in CI.
 - `frontend/js/utils/authHelper.js` stores the JWT and user object in `localStorage`.
 - `frontend/js/i18n/LanguageManager.js` loads `es`/`en` locales and notifies components.
 - `frontend/js/utils/dom.js` (or equivalent) provides `el`, `render`, and safe DOM helpers; the project avoids `innerHTML` in application code.
@@ -494,7 +496,7 @@ This is simple and works for small datasets, but it makes first-load cost propor
 
 - `dotenv` loads `backend/.env` at process start.
 - `db.js`, `multerConfig.js`, `AuthService.js`, `authMiddleware.js`, and other modules read `process.env` at module load time.
-- There is no schema validation for required environment variables.
+- `backend/config/env.js` validates required variables, JWT secret strength, origins, booleans, integers and file mode at startup.
 - Defaults exist for port, JWT expiry, token lifetimes, language, file mode, and rate limits.
 
 ### 9.2 Deployment shape
@@ -509,7 +511,7 @@ flowchart LR
     Browser["Browser"] --> LB
 ```
 
-There is no container definition, process manager configuration, health endpoint, readiness endpoint, migration runner, or backup/restore automation in the repository. `npm start` runs `node server.js` directly.
+The repository still has no container definition, process manager configuration, migration runner, or backup/restore automation. The process exposes `/healthz`, `/readyz` and optional `/metrics`, and handles graceful shutdown; `npm start` runs `node server.js` directly.
 
 ### 9.3 Database bootstrap
 
@@ -540,16 +542,16 @@ These should be preserved during refactoring:
 | Gap | Consequence | Direction |
 |---|---|---|
 | Anemic domain model | Business rules live in services and SQL; invariants are duplicated and easy to bypass. | Move state transitions and invariants into entities/domain services; keep services as orchestration. |
-| No transaction/unit of work | Partial writes, orphan files, inconsistent counters, race conditions. | Introduce `TransactionManager`/`UnitOfWork`; repositories accept a transaction context. |
-| Controllers bypass services | Read logic and repository shapes leak into HTTP layer; inconsistent authorization. | Add query services or read models; keep controllers to parsing/formatting. |
-| Ports are not enforced | Any adapter shape can be returned; swapping databases is not realistic without changes. | Define DTOs and contract tests per port; avoid returning raw rows. |
+| Partial transaction/unit of work | Some multi-table writes still produce partial state, orphan files, or counters that diverge under concurrency. | Extend `TransactionManager`/`UnitOfWork` coverage; keep repositories inside one transaction context. |
+| Read DTOs are still thin | Material responses now use `application/dto/materialDto.js`, but other read models still expose repository-shaped data. | Add DTOs/query services per read path. |
+| Ports are only partly enforced | Adapter coverage is tested, but return shapes are documented mostly by convention. | Extend contract tests and DTOs to remaining ports. |
 | Observer is in-memory | Notifications/emails are not guaranteed; no retry or event history. | Persist domain events or use an outbox + worker. |
-| No API contract | Frontend/backend drift; no schema validation; docs are manual. | Add OpenAPI, request/response schemas, and contract tests. |
+| API contract is descriptive | `docs/openapi.yaml` covers every API route and CI validates route coverage and JSON examples, but there is no runtime request/response validation. | Add runtime schema validation if untrusted clients or breaking changes require it. |
 | No pagination standard | Unbounded responses; frontend downloads entire datasets. | Standard cursor/page contract; enforce max page size. |
 | No caching/read models | Expensive joins and counts on every request. | Cache-aside for reference data; summary tables for counters; CDN for public catalog later. |
 | Config at module load | Tests and runtime changes are hard; missing env vars fail late. | Central config module with schema validation, injected into services. |
-| No observability | Hard to diagnose slow queries, failed emails, or auth abuse. | Structured logs, request IDs, metrics, tracing, slow-query dashboards. |
-| No graceful shutdown | In-flight requests and DB connections are dropped on deploy. | Handle SIGTERM/SIGINT, stop accepting, drain, close pool. |
+| Observability is basic | Logs, request IDs, and metrics exist, but there is no tracing or slow-query dashboard. | Add OpenTelemetry tracing and DB slow-query metrics. |
+| Serverless pool fan-out | Each active function instance opens its own DB connection; batch traffic can exhaust `max_connections`. | Keep one connection per instance, short idle timeout, bounded queue with 503 backpressure, or add a DB proxy/pooler. |
 | No job/queue boundary | Hashing, email, notifications, and badge evaluation run in request path. | Offload to background jobs when latency matters. |
 
 ---
@@ -630,21 +632,21 @@ flowchart TB
 
 ---
 
-## 13. Architecture Decision Records to Create
+## 13. Architecture Decision Records
 
-The project would benefit from short ADRs for:
+Implemented ADRs live in [`adr/`](adr/README.md):
 
-- ADR-001: modular monolith vs services.
-- ADR-002: transaction and unit-of-work strategy.
-- ADR-003: material state model (global vs per-subject).
-- ADR-004: authorization policy for professors and students.
-- ADR-005: durable notifications/outbox.
-- ADR-006: pagination and search contract.
-- ADR-007: JWT/session lifecycle and revocation.
-- ADR-008: file storage and malware scanning.
-- ADR-009: audit immutability and retention.
-- ADR-010: configuration and secret management.
-- ADR-011: database migration and rollback policy.
-- ADR-012: observability and SLOs.
+- [0001](adr/0001-material-service-decomposition.md): `MaterialService` facade with focused services.
+- [0002](adr/0002-frontend-es-modules.md): native ES modules without a build step.
+- [0003](adr/0003-api-contract-and-ci.md): OpenAPI, DTOs, contracts, and CI gates.
+- [0004](adr/0004-state-model.md): material state and frontend-local UI state.
+- [0005](adr/0005-auth-session.md): JWT lifecycle and the HttpOnly file cookie.
+- [0006](adr/0006-transactions.md): per-use-case transactions with `AsyncLocalStorage`.
+- [0007](adr/0007-search.md): MariaDB FULLTEXT before an external engine.
+- [0008](adr/0008-storage.md): local disk or Cloudinary.
+- [0009](adr/0009-audit.md): outbox-backed audit with append-only intent.
+- [0010](adr/0010-extraction.md): no extraction of search/media/notifications without measured bottlenecks.
 
-These are not required to start the roadmap, but they prevent the same decisions from being re-litigated in every sprint.
+Still intentionally undocumented as ADRs: modular-monolith-vs-services (the
+monolith is the accepted baseline), configuration/secret management, database
+migration rollback, and observability/SLOs.

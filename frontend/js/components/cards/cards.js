@@ -2,6 +2,15 @@
 * Project     : Bibliotech  |  Frontend - Componentes
 * Tarjetas y tablas reutilizables: material, materia y listas.
 */
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { apiService } from '../../services/apiService.js';
+import { authHelper } from '../../utils/authHelper.js';
+import { el, render } from '../../utils/dom.js';
+import { Icons } from '../icons/icons.js';
+import { MaterialViewer } from '../materialViewer/materialViewer.js';
+import { Modal } from '../modal/modal.js';
+import { Toast } from '../toast/toast.js';
+
 
 const Cards = {
     TYPE_TONES: {
@@ -957,3 +966,5 @@ const Cards = {
         return el('div', { className: 'bt-empty' }, children);
     }
 };
+
+export { Cards };

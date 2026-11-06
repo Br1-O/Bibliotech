@@ -2,6 +2,9 @@
 * Project     : Bibliotech  |  Frontend - Componente
 * ContentTabs: pestanas reutilizables de materiales del usuario.
 */
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { el, render } from '../../utils/dom.js';
+
 
 const ContentTabs = {
     definitions: [
@@ -24,3 +27,5 @@ const ContentTabs = {
         return el('div', { className: 'bt-profile__tabs', attrs: { role: 'tablist' } }, buttons);
     }
 };
+
+export { ContentTabs };

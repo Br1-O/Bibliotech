@@ -3,6 +3,9 @@
 * Modal de confirmacion / aviso con soporte multilenguaje.
 * Uso: const ok = await Modal.confirm({ title, message });
 */
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { el } from '../../utils/dom.js';
+
 
 const Modal = (() => {
     let root = null;
@@ -78,3 +81,5 @@ const Modal = (() => {
         dismiss: () => close(true)
     };
 })();
+
+export { Modal };

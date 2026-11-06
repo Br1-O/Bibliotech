@@ -5,6 +5,9 @@
 *   Pagination.render(containerNode, { page, total, pageSize, onChange });
 * Se adapta al idioma activo y es responsivo.
 */
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { el, render } from '../../utils/dom.js';
+
 
 const Pagination = {
     DEFAULT_PAGE_SIZE: 8,
@@ -88,3 +91,5 @@ const Pagination = {
         containerNode.appendChild(this.build(options));
     }
 };
+
+export { Pagination };

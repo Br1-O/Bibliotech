@@ -1,3 +1,10 @@
+
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { apiService } from '../../services/apiService.js';
+import { authHelper } from '../../utils/authHelper.js';
+import { el } from '../../utils/dom.js';
+import { Icons } from '../icons/icons.js';
+import { Toast } from '../toast/toast.js';
 const MaterialViewer = (() => {
     const STORED_FILE_TYPES = ['PDF', 'EPUB', 'Word', 'Presentacion'];
     const EXTENSIONS = { PDF: '.pdf', EPUB: '.epub', Word: '.docx', Presentacion: '.pptx' };
@@ -46,7 +53,7 @@ const MaterialViewer = (() => {
 
     function apiFileHref(material, action = 'file') {
         if (!isStoredFile(material)) return '';
-        return `${window.location.origin}/api/materials/${encodeURIComponent(material.id)}/${action}`;
+        return `/api/materials/${encodeURIComponent(material.id)}/${action}`;
     }
 
     function fileHref(material) {
@@ -368,3 +375,5 @@ const MaterialViewer = (() => {
         downloadButton
     };
 })();
+
+export { MaterialViewer };

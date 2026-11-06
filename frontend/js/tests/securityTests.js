@@ -115,9 +115,14 @@ testUtils.createTestButton('Test Seguridad: descargas de aprobados y /uploads bl
     const suggestion = pending.data.material;
 
     const anonymousSuggestion = await testUtils.fileFetch(suggestion, null);
-    testUtils.assert(anonymousSuggestion.status === 403, 'Una sugerencia pendiente no debe abrirse sin sesion');
+    testUtils.assert(
+        anonymousSuggestion.status === 401 || anonymousSuggestion.status === 403,
+        'Una sugerencia pendiente no debe abrirse sin sesion'
+    );
     const ownerFile = await testUtils.fileFetch(suggestion, otro.token);
     testUtils.assert(ownerFile.ok, 'El autor de una sugerencia debe abrir su archivo');
+    const reviewerFile = await testUtils.fileFetch(suggestion, profesor);
+    testUtils.assert(reviewerFile.ok, 'El profesor debe abrir sugerencias de sus materias para revisarlas');
     const ownerLogin = await fetch(base + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

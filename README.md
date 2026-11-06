@@ -98,12 +98,17 @@ frontend/
 - `GET /healthz`: liveness. `GET /readyz`: readiness con `SELECT 1` a la base.
 - `GET /metrics`: metricas Prometheus; en produccion requiere `METRICS_TOKEN`.
 - `/uploads` solo sirve imagenes publicas. Los materiales aprobados se abren
-  con `GET /api/materials/:id/file` y se descargan con `.../download`; los
-  pendientes o no aprobados exigen sesion del autor o staff. El login deja una
-  cookie `HttpOnly` de archivos con alcance `/api`, y el visor usa peticiones
-  `Range` para paginar PDFs sin descargarlos completos.
+  con `GET /api/materials/:id/file` y se descargan con `.../download` sin
+  sesion; los pendientes exigen sesion del autor, un profesor de la materia o
+  un superadministrador. El login deja una cookie `HttpOnly` de archivos con
+  alcance `/api`, y el visor usa peticiones `Range` para paginar PDFs sin
+  descargarlos completos. Los enlaces del visor son relativos a `/api`.
 - El servidor cierra ordenadamente con `SIGTERM`/`SIGINT`, detiene el worker
   del outbox y drena la base.
+- En Vercel/Lambda cada instancia activa crea su propio pool. El runtime lo
+  detecta y usa `DB_CONNECTION_LIMIT=1`, `DB_MAX_IDLE=1`, sin warmup y con cola
+  acotada; al saturarse responde `503 DATABASE_UNAVAILABLE`. Ajustar
+  `max_connections` en la base al numero maximo de instancias concurrentes.
 - Las notificaciones, correos y auditorias usan un outbox transaccional con
   worker, reintentos con backoff y cola de mensajes muertos. La entrega es
   al-menos-una-vez; auditoria y notificaciones son idempotentes. Configurar
@@ -161,12 +166,28 @@ node frontend/js/tests/runNode.js
 BT_TEST_FILTER='Test Seguridad' node frontend/js/tests/runNode.js
 ```
 
-Pruebas unitarias del backend (no requieren servidor):
+Pruebas unitarias, lint y contrato de modulos del frontend:
 
 ```bash
 cd backend
-npm run test:backend
+npm ci
+npm run test:ci
 ```
+
+`test:ci` ejecuta lint, formato, validacion de OpenAPI (cobertura de rutas y
+ejemplos), cobertura con umbrales y el contrato de modulos del frontend.
+Comandos individuales: `npm run lint`, `npm run format:check`,
+`npm run check:openapi`, `npm run test:coverage`, `npm run check:modules`.
+
+El contrato de lectura contra una base real es opcional:
+
+```bash
+cd backend
+npm run test:contract
+```
+
+La referencia HTTP esta en [`docs/openapi.yaml`](docs/openapi.yaml) y las
+decisiones de arquitectura en [`docs/adr/`](docs/adr/).
 
 Presupuesto de rendimiento de consultas calientes (requiere base de datos):
 

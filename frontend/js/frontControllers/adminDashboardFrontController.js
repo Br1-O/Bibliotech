@@ -3,6 +3,17 @@
 * adminFrontController: panel del superadministrador. Usuarios, carreras,
 * materias, carga masiva, etiquetas y auditoria.
 */
+import { Cards } from '../components/cards/cards.js';
+import { Modal } from '../components/modal/modal.js';
+import { Pagination } from '../components/pagination/pagination.js';
+import { ProfileSummary } from '../components/profileSummary/profileSummary.js';
+import { Toast } from '../components/toast/toast.js';
+import { LanguageManager } from '../i18n/LanguageManager.js';
+import { apiService } from '../services/apiService.js';
+import { authHelper } from '../utils/authHelper.js';
+import { el, render } from '../utils/dom.js';
+import { Validator } from '../utils/validator.js';
+
 
 document.addEventListener('bt:ready', () => {
     const root = document.getElementById('adminDashboard');
@@ -817,7 +828,20 @@ document.addEventListener('bt:ready', () => {
         try {
             btn?.setLoading(true);
             const result = await apiService.upload('/materials/batch', payload);
-            Toast.success(tr(result.message, { created: result.created, skipped: result.skipped }));
+            const createdNames = (result.materials || [])
+                .map((material) => material.titulo)
+                .filter(Boolean)
+                .join(', ');
+            const skippedNames = (result.skippedMaterials || [])
+                .map((material) => (material.titulo ? `${material.titulo}${material.id ? ` (ID ${material.id})` : ''}` : ''))
+                .filter(Boolean)
+                .join(', ');
+            Toast.success(tr('admin.batchResult', {
+                created: result.created,
+                skipped: result.skipped,
+                createdNames: createdNames || tr('admin.batchNone'),
+                skippedNames: skippedNames || tr('admin.batchNone')
+            }));
             batchForm.reset();
             batchFileEntries = [];
             renderBatchFilesMeta();

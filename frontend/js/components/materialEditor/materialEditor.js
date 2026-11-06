@@ -2,6 +2,14 @@
 * Project     : Bibliotech  |  Frontend - Componente
 * MaterialEditor: dialogo seguro para editar todos los datos del material.
 */
+import { attachTagInput } from '../tagInput/tagInput.js';
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { apiService } from '../../services/apiService.js';
+import { el } from '../../utils/dom.js';
+import { Icons } from '../icons/icons.js';
+import { MaterialViewer } from '../materialViewer/materialViewer.js';
+import { Toast } from '../toast/toast.js';
+
 
 const MaterialEditor = {
     open(material, onSaved, options = {}) {
@@ -354,8 +362,8 @@ const MaterialEditor = {
 
         document.body.style.overflow = 'hidden';
         document.body.appendChild(dialog);
-        if (typeof window.BTTagInput === 'function') {
-            tagsControl = window.BTTagInput(tagsInput, { fetchSuggestions: true });
+        {
+            tagsControl = attachTagInput(tagsInput, { fetchSuggestions: true });
         }
         syncSourceFields();
         dialog.setAttribute('open', '');
@@ -364,3 +372,5 @@ const MaterialEditor = {
         titleInput.select();
     }
 };
+
+export { MaterialEditor };

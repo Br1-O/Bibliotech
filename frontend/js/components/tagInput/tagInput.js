@@ -3,8 +3,10 @@
 * TagInput: input de etiquetas tematicas con badges, creacion dinamica
 * al pulsar Enter y autocompletado con etiquetas existentes.
 */
-if (!window.BTTagInput) {
-    window.BTTagInput = function attachTagInput(inputEl, options = {}) {
+import { LanguageManager } from '../../i18n/LanguageManager.js';
+import { apiService } from '../../services/apiService.js';
+
+function attachTagInput(inputEl, options = {}) {
         if (!inputEl) return null;
         if (inputEl.dataset.tagInputReady) return inputEl._btTagInput || null;
         inputEl.dataset.tagInputReady = '1';
@@ -236,5 +238,6 @@ if (!window.BTTagInput) {
         };
         inputEl._btTagInput = control;
         return control;
-    };
 }
+
+export { attachTagInput };

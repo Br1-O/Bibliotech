@@ -2,6 +2,18 @@
 * Project     : Bibliotech  |  Frontend - Controlador
 * catalogFrontController: vista global de materiales.
 */
+import { attachTagInput } from '../components/tagInput/tagInput.js';
+import { Cards } from '../components/cards/cards.js';
+import { Loader } from '../components/loader/loader.js';
+import { MaterialEditor } from '../components/materialEditor/materialEditor.js';
+import { Modal } from '../components/modal/modal.js';
+import { Pagination } from '../components/pagination/pagination.js';
+import { Toast } from '../components/toast/toast.js';
+import { LanguageManager } from '../i18n/LanguageManager.js';
+import { apiService } from '../services/apiService.js';
+import { authHelper } from '../utils/authHelper.js';
+import { el, render } from '../utils/dom.js';
+
 
 document.addEventListener('bt:ready', () => {
     const grid = document.getElementById('materialsGrid');
@@ -236,8 +248,8 @@ document.addEventListener('bt:ready', () => {
         debounce = setTimeout(loadMaterials, 300);
     }
 
-    if (tagFilter && window.BTTagInput) {
-        tagFilterControl = window.BTTagInput(tagFilter, { onChange: scheduleMaterialLoad });
+    if (tagFilter) {
+        tagFilterControl = attachTagInput(tagFilter, { onChange: scheduleMaterialLoad });
     }
 
     searchInput?.addEventListener('input', scheduleMaterialLoad);

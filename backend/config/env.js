@@ -88,11 +88,17 @@ function validateOrigin(origin, errors) {
     }
 }
 
+function isServerlessRuntime(env = process.env) {
+    return parseBoolean(env.SERVERLESS, false)
+        || Boolean(env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME);
+}
+
 function validateConfig(env = process.env) {
     const errors = [];
     const nodeEnv = String(env.NODE_ENV || 'development').trim().toLowerCase();
     const isProduction = nodeEnv === 'production';
     const isTest = nodeEnv === 'testing' || nodeEnv === 'test';
+    const serverless = isServerlessRuntime(env);
 
     const port = parseInteger(env.PORT, 3000, { min: 1, max: 65535, name: 'PORT' });
     const appUrl = String(env.APP_URL || `http://localhost:${port}`).replace(/\/+$/, '');
@@ -107,12 +113,39 @@ function validateConfig(env = process.env) {
     }
 
     const dbPort = parseInteger(env.DB_PORT, 3306, { min: 1, max: 65535, name: 'DB_PORT' });
-    const dbConnectionLimit = parseInteger(env.DB_CONNECTION_LIMIT, 10, { min: 1, max: 100, name: 'DB_CONNECTION_LIMIT' });
-    const dbQueueLimit = parseInteger(env.DB_QUEUE_LIMIT, 50, { min: 0, max: 10000, name: 'DB_QUEUE_LIMIT' });
+    const dbConnectionLimit = parseInteger(
+        env.DB_CONNECTION_LIMIT,
+        serverless ? 1 : 10,
+        { min: 1, max: 100, name: 'DB_CONNECTION_LIMIT' }
+    );
+    const dbQueueLimit = parseInteger(
+        env.DB_QUEUE_LIMIT,
+        serverless ? 20 : 50,
+        { min: 0, max: 10000, name: 'DB_QUEUE_LIMIT' }
+    );
     const dbConnectTimeoutMs = parseInteger(env.DB_CONNECT_TIMEOUT_MS, 10000, { min: 1000, max: 120000, name: 'DB_CONNECT_TIMEOUT_MS' });
     const dbQueryTimeoutMs = parseInteger(env.DB_QUERY_TIMEOUT_MS, 15000, { min: 1000, max: 120000, name: 'DB_QUERY_TIMEOUT_MS' });
-    const dbIdleTimeoutMs = parseInteger(env.DB_IDLE_TIMEOUT_MS, 300000, { min: 0, max: 3600000, name: 'DB_IDLE_TIMEOUT_MS' });
-    const dbPoolWarmup = parseInteger(env.DB_POOL_WARMUP, 2, { min: 0, max: 100, name: 'DB_POOL_WARMUP' });
+    const dbIdleTimeoutMs = parseInteger(
+        env.DB_IDLE_TIMEOUT_MS,
+        serverless ? 10000 : 300000,
+        { min: 0, max: 3600000, name: 'DB_IDLE_TIMEOUT_MS' }
+    );
+    const dbMaxIdle = parseInteger(
+        env.DB_MAX_IDLE,
+        serverless ? 1 : Math.min(2, dbConnectionLimit),
+        { min: 0, max: 100, name: 'DB_MAX_IDLE' }
+    );
+    if (dbMaxIdle > dbConnectionLimit) {
+        errors.push('DB_MAX_IDLE must be less than or equal to DB_CONNECTION_LIMIT');
+    }
+    const dbPoolWarmup = parseInteger(
+        env.DB_POOL_WARMUP,
+        serverless ? 0 : 2,
+        { min: 0, max: 100, name: 'DB_POOL_WARMUP' }
+    );
+    if (dbPoolWarmup > dbConnectionLimit) {
+        errors.push('DB_POOL_WARMUP must be less than or equal to DB_CONNECTION_LIMIT');
+    }
     const dbPreparedStatements = parseBoolean(env.DB_PREPARED_STATEMENTS, false);
 
     const defaultOrigins = [`http://localhost:${port}`, `http://127.0.0.1:${port}`];
@@ -195,6 +228,7 @@ function validateConfig(env = process.env) {
         env: nodeEnv,
         isProduction,
         isTest,
+        serverless,
         port,
         appUrl,
         db: {
@@ -204,11 +238,13 @@ function validateConfig(env = process.env) {
             password: String(env.DB_PASS || ''),
             database: String(env.DB_NAME || '').trim(),
             ssl: parseBoolean(env.DB_SSL, false),
+            serverless,
             connectionLimit: dbConnectionLimit,
             queueLimit: dbQueueLimit,
             connectTimeout: dbConnectTimeoutMs,
             queryTimeoutMs: dbQueryTimeoutMs,
             idleTimeoutMs: dbIdleTimeoutMs,
+            maxIdle: dbMaxIdle,
             poolWarmup: dbPoolWarmup,
             preparedStatements: dbPreparedStatements
         },
@@ -321,6 +357,7 @@ module.exports = {
     getConfig,
     validateConfig,
     estimateEntropyBits,
+    isServerlessRuntime,
     resetConfigForTests,
     FALLBACK_SECRETS
 };

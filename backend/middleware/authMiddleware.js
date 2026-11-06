@@ -23,6 +23,11 @@ function bearerToken(req) {
     return header.startsWith('Bearer ') ? header.slice(7).trim() : null;
 }
 
+function fileToken(req) {
+    const cookies = parseCookies(req.headers?.cookie);
+    return bearerToken(req) || cookies[FILE_COOKIE] || null;
+}
+
 function fileCookieMaxAge(token) {
     try {
         const payload = jwt.decode(token);
@@ -120,8 +125,7 @@ function createAuthMiddleware({ userRepository }) {
     }
 
     async function optionalFileAuth(req, res, next) {
-        const cookies = parseCookies(req.headers?.cookie);
-        const token = bearerToken(req) || cookies[FILE_COOKIE];
+        const token = fileToken(req);
         if (!token) return next();
         try {
             const { user, payload } = await authenticate(token);
@@ -133,6 +137,24 @@ function createAuthMiddleware({ userRepository }) {
         return next();
     }
 
+    /**
+     * Resuelve el usuario solo cuando el material no es publico. Evita una
+     * consulta a users por cada peticion Range del visor de PDF.
+     */
+    async function attachFileUser(req, res) {
+        const token = fileToken(req);
+        if (!token) throw new AppError('errors.unauthorized', { status: 401 });
+        try {
+            const { user, payload } = await authenticate(token);
+            attach(req, user, payload, token);
+            setFileCookie(req, res, token);
+            return { usuarioId: user.id, rol: user.roleNombre };
+        } catch (error) {
+            if (error instanceof AppError && !bearerToken(req)) clearFileCookie(req, res);
+            throw error;
+        }
+    }
+
     function requireRole(...roles) {
         return (req, res, next) => {
             if (!req.rol) return res.status(401).json({ message: req.t('errors.unauthorized') });
@@ -141,7 +163,16 @@ function createAuthMiddleware({ userRepository }) {
         };
     }
 
-    return { verifyToken, optionalAuth, optionalFileAuth, requireRole, authenticate, setFileCookie, clearFileCookie };
+    return {
+        verifyToken,
+        optionalAuth,
+        optionalFileAuth,
+        attachFileUser,
+        requireRole,
+        authenticate,
+        setFileCookie,
+        clearFileCookie
+    };
 }
 
-module.exports = { createAuthMiddleware, parseCookies, FILE_COOKIE };
+module.exports = { createAuthMiddleware, parseCookies, fileToken, FILE_COOKIE };

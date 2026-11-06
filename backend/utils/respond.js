@@ -7,8 +7,9 @@
 function ok(req, res, payload = {}, status = 200) {
     const body = { ...payload };
     if (typeof body.message === 'string' && body.message.includes('.')) {
-        body.message = req.t(body.message);
+        body.message = req.t(body.message, body);
     }
+    if (req.id) body.requestId = req.id;
     return res.status(status).json(body);
 }
 

@@ -7,6 +7,7 @@ const path = require('path');
 const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
 const { ok } = require('../utils/respond');
+const { toMaterialDto: presentMaterial, toMaterialListDto: presentMaterials } = require('../application/dto/materialDto');
 const hashHelper = require('../utils/hashHelper');
 const fileHelper = require('../utils/fileHelper');
 const mediaValidator = require('../utils/mediaValidator');
@@ -154,18 +155,6 @@ const sendLocalFile = (res, next, localPath, disposition, fileName) => {
     return res.sendFile(localPath, onError);
 };
 
-const presentMaterial = (material) => {
-    if (!material) return material;
-    const result = typeof material.toJSON === 'function' ? material.toJSON() : { ...material };
-    if (mediaValidator.isFileType(result.tipo)) {
-        result.hasStoredFile = Boolean(result.urlOrPath);
-        if (fileHelper.isCloudinaryUrl(result.urlOrPath)) result.urlOrPath = null;
-    }
-    return result;
-};
-
-const presentMaterials = (materials) => (materials || []).map(presentMaterial);
-
 const titleFromFilename = (filename) => path.basename(filename, path.extname(filename)).slice(0, 150);
 
 const parseBatchLinks = (raw) => {
@@ -190,7 +179,7 @@ const parseBatchLinks = (raw) => {
 };
 
 module.exports = (container) => {
-    const { materialService, authService } = container;
+    const { materialService, authService, authMiddleware } = container;
 
     return {
         async global(req, res, next) {
@@ -551,9 +540,11 @@ module.exports = (container) => {
 
         async file(req, res, next) {
             try {
-                const material = await materialService.getDownloadable(req.params.id, {
-                    usuarioId: req.usuarioId, rol: req.rol
-                });
+                const material = await materialService.getDownloadable(
+                    req.params.id,
+                    { usuarioId: req.usuarioId, rol: req.rol },
+                    { authenticate: () => authMiddleware.attachFileUser(req, res) }
+                );
                 const urlOrPath = String(material.urlOrPath || '');
                 res.setHeader('X-Content-Type-Options', 'nosniff');
                 res.setHeader('Cache-Control', 'private, no-store');
@@ -574,9 +565,11 @@ module.exports = (container) => {
 
         async download(req, res, next) {
             try {
-                const material = await materialService.getDownloadable(req.params.id, {
-                    usuarioId: req.usuarioId, rol: req.rol
-                });
+                const material = await materialService.getDownloadable(
+                    req.params.id,
+                    { usuarioId: req.usuarioId, rol: req.rol },
+                    { authenticate: () => authMiddleware.attachFileUser(req, res) }
+                );
                 const urlOrPath = String(material.urlOrPath || '');
                 const name = downloadName(material);
                 res.setHeader('X-Content-Type-Options', 'nosniff');

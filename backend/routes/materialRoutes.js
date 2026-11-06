@@ -11,7 +11,7 @@ const { uploadRequestQuota } = require('../middleware/uploadQuotaMiddleware');
 module.exports = (container) => {
     const router = express.Router();
     const controller = require('../controllers/materialController')(container);
-    const { verifyToken, optionalAuth, optionalFileAuth, requireRole } = container.authMiddleware;
+    const { verifyToken, optionalAuth, requireRole } = container.authMiddleware;
     const Role = require('../domain/entities/Role');
 
     router.get('/global', optionalAuth, controller.global);
@@ -21,8 +21,8 @@ module.exports = (container) => {
     router.get('/pending', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), controller.pending);
     router.get('/pending-review', verifyToken, requireRole(Role.PROFESOR, Role.SUPERADMIN), controller.pendingReview);
     router.get('/favorites/mine', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR, Role.SUPERADMIN), controller.getFavorites);
-    router.get('/:id/file', optionalFileAuth, controller.file);
-    router.get('/:id/download', optionalFileAuth, controller.download);
+    router.get('/:id/file', controller.file);
+    router.get('/:id/download', controller.download);
 
     router.post('/upload', verifyToken, requireRole(Role.ALUMNO, Role.PROFESOR), uploadRateLimit(), uploadRequestQuota, materialUpload, controller.upload);
     router.post('/batch', verifyToken, requireRole(Role.SUPERADMIN), uploadRateLimit(), uploadRequestQuota, batchUpload, controller.batch);

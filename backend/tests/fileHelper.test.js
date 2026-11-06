@@ -27,6 +27,46 @@ test('isCloudinaryUrl matches Cloudinary hosts only', () => {
     assert.equal(fileHelper.isCloudinaryUrl('/uploads/a.pdf'), false);
 });
 
+test('deleteStorageFile parses Cloudinary URLs that include the cloud name', async () => {
+    const cloudinary = require('cloudinary').v2;
+    const originalDestroy = cloudinary.uploader.destroy;
+    const calls = [];
+    cloudinary.uploader.destroy = async (publicId, options) => {
+        calls.push({ publicId, options });
+        return { result: 'ok' };
+    };
+    try {
+        const url = 'https://res.cloudinary.com/demo/raw/upload/v123/bibliotech/material.pdf';
+        assert.equal(await fileHelper.deleteStorageFile(url), true);
+        assert.deepEqual(calls[0], {
+            publicId: 'bibliotech/material.pdf',
+            options: { resource_type: 'raw', invalidate: true }
+        });
+    } finally {
+        cloudinary.uploader.destroy = originalDestroy;
+    }
+});
+
+test('deleteStorageFile parses Cloudinary image URLs without a version segment', async () => {
+    const cloudinary = require('cloudinary').v2;
+    const originalDestroy = cloudinary.uploader.destroy;
+    const calls = [];
+    cloudinary.uploader.destroy = async (publicId, options) => {
+        calls.push({ publicId, options });
+        return { result: 'ok' };
+    };
+    try {
+        const url = 'https://res.cloudinary.com/demo/image/upload/bibliotech/cover.png';
+        assert.equal(await fileHelper.deleteStorageFile(url), true);
+        assert.deepEqual(calls[0], {
+            publicId: 'bibliotech/cover.png',
+            options: { resource_type: 'image', invalidate: true }
+        });
+    } finally {
+        cloudinary.uploader.destroy = originalDestroy;
+    }
+});
+
 test('deleteStorageFile ignores external URLs that are not Cloudinary assets', async () => {
     assert.equal(await fileHelper.deleteStorageFile('https://drive.google.com/file/d/abc/view'), false);
     assert.equal(await fileHelper.deleteStorageFile('https://www.youtube.com/watch?v=abc123'), false);

@@ -7,14 +7,23 @@ const RepositoryInterface = require('./RepositoryInterface');
 class MaterialRepositoryInterface extends RepositoryInterface {
     async save(material)                                     { return this._notImplemented('save'); }
     async findById(id)                                       { return this._notImplemented('findById'); }
+    async findFileSourceById(id)                             { return this._notImplemented('findFileSourceById'); }
     async findBasicById(id)                                  { return this._notImplemented('findBasicById'); }
     async findByHash(hash)                                   { return this._notImplemented('findByHash'); }
+    async findByHashForUpdate(hash)                          { return this._notImplemented('findByHashForUpdate'); }
+    async findByHashesForUpdate(hashes)                      { return this._notImplemented('findByHashesForUpdate'); }
+    async lockAuthor(authorId)                               { return this._notImplemented('lockAuthor'); }
+    async saveMany(materials)                                { return this._notImplemented('saveMany'); }
+    async syncTagsMany(materials)                            { return this._notImplemented('syncTagsMany'); }
     async findAllGlobal(filters)                             { return this._notImplemented('findAllGlobal'); }
     async findBySubject(subjectId, filters)                  { return this._notImplemented('findBySubject'); }
     async findByAuthor(authorId, filters)                    { return this._notImplemented('findByAuthor'); }
     async findPendingByAuthor(authorId)                      { return this._notImplemented('findPendingByAuthor'); }
     async findPendingForProfessor(profesorId)                { return this._notImplemented('findPendingForProfessor'); }
     async countPendingByAuthor(authorId)                     { return this._notImplemented('countPendingByAuthor'); }
+    async findAssociation(materialId, subjectId)             { return this._notImplemented('findAssociation'); }
+    async approveAssociation(materialId, subjectId)          { return this._notImplemented('approveAssociation'); }
+    async markApproved(materialId)                           { return this._notImplemented('markApproved'); }
     async associateToSubject(materialId, subjectId, estado)  { return this._notImplemented('associateToSubject'); }
     async updateAssociationState(materialId, subjectId, estado) { return this._notImplemented('updateAssociationState'); }
     async updateEstado(materialId, estado)                   { return this._notImplemented('updateEstado'); }

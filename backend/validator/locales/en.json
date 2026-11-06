@@ -114,6 +114,7 @@
     "accountDisabled": "Your account is disabled. Contact the administrator.",
     "serverError": "Internal server error.",
     "tooManyRequests": "Too many requests. Try again in {seconds} seconds.",
-    "requestTimeout": "The request took too long."
+    "requestTimeout": "The request took too long.",
+    "serviceBusy": "The service is temporarily busy. Please try again in a few seconds."
   }
 }

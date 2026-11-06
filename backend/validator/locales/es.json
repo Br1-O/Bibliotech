@@ -114,6 +114,7 @@
     "accountDisabled": "Tu cuenta esta deshabilitada. Contacta al administrador.",
     "serverError": "Error interno del servidor.",
     "tooManyRequests": "Demasiadas solicitudes. Intenta de nuevo en {seconds} segundos.",
-    "requestTimeout": "La solicitud tardo demasiado."
+    "requestTimeout": "La solicitud tardo demasiado.",
+    "serviceBusy": "El servicio esta temporalmente ocupado. Intenta de nuevo en unos segundos."
   }
 }

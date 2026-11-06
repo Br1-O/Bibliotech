@@ -5,6 +5,7 @@
 */
 
 const ValidationError = require('../validator/ValidationError');
+const db = require('../config/db');
 const { logger } = require('../utils/logger');
 const metrics = require('../utils/metrics');
 
@@ -18,7 +19,6 @@ const MULTER_ERRORS = {
     VALIDATION_COVER_TYPE: ['validation.coverType', 400]
 };
 
-// eslint-disable-next-line no-unused-vars
 function errorMiddleware(err, req, res, next) {
     const t = req.t || ((key) => key);
     const requestId = req.id || null;
@@ -65,6 +65,17 @@ function errorMiddleware(err, req, res, next) {
 
     if (err && err.type === 'entity.parse.failed') {
         return send(400, { message: t('validation.invalidData'), code: 'INVALID_JSON' });
+    }
+
+    if (db.isUnavailableError(err)) {
+        metrics.recordDbError('unavailable');
+        (req.log || logger).warn('http.database_unavailable', {
+            error: err,
+            method: req.method,
+            path: req.path,
+            requestId
+        });
+        return send(503, { message: t('errors.serviceBusy'), code: 'DATABASE_UNAVAILABLE' });
     }
 
     const log = req.log || logger;

@@ -7,7 +7,7 @@ const { ok } = require('../utils/respond');
 const { parsePagination, paginationMeta } = require('../utils/pagination');
 
 module.exports = (container) => {
-    const { authService, roleService, userRepository, authMiddleware } = container;
+    const { authService, roleService, authMiddleware } = container;
     const { setFileCookie, clearFileCookie } = authMiddleware;
 
     return {
@@ -107,7 +107,7 @@ module.exports = (container) => {
         async listUsers(req, res, next) {
             try {
                 const pagination = parsePagination(req.query, { defaultPageSize: 100 });
-                const result = await userRepository.findAll({
+                const result = await authService.listUsers({
                     ...pagination,
                     q: req.query.q || '',
                     role: req.query.role || null,

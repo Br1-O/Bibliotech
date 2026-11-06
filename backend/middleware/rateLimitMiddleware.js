@@ -10,7 +10,6 @@ const uploadRequests = new Map();
 function uploadRateLimit(options = {}) {
     const windowMs = options.windowMs || 60 * 1000; // 1 minuto por defecto
     const max = options.max || 5; // 5 uploads por minuto por defecto
-    const message = options.message || 'Too many upload requests';
 
     return (req, res, next) => {
         const userId = req.usuarioId || req.ip;

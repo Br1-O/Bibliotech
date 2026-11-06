@@ -4,28 +4,68 @@ const { getConfig } = require('./env');
 const metrics = require('../utils/metrics');
 const { logger } = require('../utils/logger');
 
-const config = getConfig().db;
+const appConfig = getConfig();
+const config = appConfig.db;
 
-const pool = mysql.createPool({
-    host: config.host,
-    user: config.user,
-    password: config.password,
-    database: config.database,
-    port: config.port,
-    waitForConnections: true,
-    connectionLimit: config.connectionLimit,
-    maxIdle: config.connectionLimit,
-    idleTimeout: config.idleTimeoutMs,
-    queueLimit: config.queueLimit,
-    connectTimeout: config.connectTimeout,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0,
-    charset: 'utf8mb4',
-    ...(config.ssl ? { ssl: { rejectUnauthorized: false } } : {})
-});
+const POOL_KEY = Symbol.for('bibliotech.db.pool');
 
-const promisePool = pool.promise();
+function effectiveMaxIdle() {
+    return appConfig.isTest
+        ? config.connectionLimit
+        : Math.min(config.maxIdle, config.connectionLimit);
+}
+
+function createPool() {
+    return mysql.createPool({
+        host: config.host,
+        user: config.user,
+        password: config.password,
+        database: config.database,
+        port: config.port,
+        waitForConnections: true,
+        connectionLimit: config.connectionLimit,
+        maxIdle: effectiveMaxIdle(),
+        idleTimeout: config.idleTimeoutMs,
+        queueLimit: config.queueLimit,
+        connectTimeout: config.connectTimeout,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0,
+        charset: 'utf8mb4',
+        ...(config.ssl ? { ssl: { rejectUnauthorized: false } } : {})
+    });
+}
+
+// Vercel/Lambda can evaluate this module in several isolated instances. Keep
+// exactly one pool per process even if the module is loaded through different
+// paths (for example, a hot-reload wrapper).
+if (!globalThis[POOL_KEY]) {
+    const rawPool = createPool();
+    globalThis[POOL_KEY] = { pool: rawPool, promisePool: rawPool.promise(), closed: false };
+}
+const pool = globalThis[POOL_KEY].pool;
+const promisePool = globalThis[POOL_KEY].promisePool;
 const transactionStorage = new AsyncLocalStorage();
+
+const UNAVAILABLE_CODES = new Set([
+    'ER_CON_COUNT_ERROR',
+    'ER_TOO_MANY_USER_CONNECTIONS',
+    'POOL_QUEUE_LIMIT',
+    'POOL_CLOSED'
+]);
+
+function normalizeError(error) {
+    if (error && !error.code && /Queue limit reached/i.test(String(error.message || ''))) {
+        error.code = 'POOL_QUEUE_LIMIT';
+    }
+    return error;
+}
+
+function isUnavailableError(error) {
+    return Boolean(error && (
+        UNAVAILABLE_CODES.has(String(error.code || ''))
+        || /Queue limit reached|No connections available/i.test(String(error.message || ''))
+    ));
+}
 
 function currentConnection() {
     const context = transactionStorage.getStore();
@@ -65,7 +105,7 @@ function instrument(promise, sql) {
             metrics.observe('db_query_duration_ms', durationMs, { operation });
             metrics.increment('db_queries_total', { operation, status: 'error' });
             metrics.recordDbError(operation);
-            throw error;
+            throw normalizeError(error);
         }
     );
 }
@@ -74,7 +114,13 @@ async function transaction(callback) {
     const active = transactionStorage.getStore();
     if (active) return callback(active.connection);
 
-    const connection = await promisePool.getConnection();
+    let connection;
+    try {
+        connection = await promisePool.getConnection();
+    } catch (error) {
+        metrics.recordDbError('acquire');
+        throw normalizeError(error);
+    }
     const context = { connection, afterCommit: [] };
     let result;
     let committed = false;
@@ -85,7 +131,7 @@ async function transaction(callback) {
         committed = true;
     } catch (error) {
         try { await connection.rollback(); } catch (rollbackError) { /* preserve original error */ }
-        throw error;
+        throw normalizeError(error);
     } finally {
         connection.release();
     }
@@ -138,7 +184,9 @@ const db = {
             all: Number(pool._allConnections?.length) || 0,
             free: Number(pool._freeConnections?.length) || 0,
             queued: Number(pool._connectionQueue?.length) || 0,
-            limit: config.connectionLimit
+            limit: config.connectionLimit,
+        maxIdle: effectiveMaxIdle(),
+            serverless: Boolean(config.serverless)
         };
     },
 
@@ -152,12 +200,16 @@ const db = {
             if (result.status === 'fulfilled') result.value.release();
         });
         const failure = results.find(result => result.status === 'rejected');
-        if (failure) throw failure.reason;
+        if (failure) throw normalizeError(failure.reason);
     },
 
+    isUnavailableError,
+
     close() {
+        if (globalThis[POOL_KEY]?.closed) return Promise.resolve();
+        if (globalThis[POOL_KEY]) globalThis[POOL_KEY].closed = true;
         return new Promise((resolve, reject) => {
-            pool.end(error => (error ? reject(error) : resolve()));
+            pool.end(error => (error ? reject(normalizeError(error)) : resolve()));
         });
     }
 };

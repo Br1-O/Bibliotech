@@ -28,11 +28,21 @@ function isCloudinaryUrl(value) {
 function parseCloudinaryAsset(value) {
     try {
         const url = new URL(String(value).trim());
-        const match = url.pathname.match(/^\/(image|raw|video)\/upload\/(?:v\d+\/)?(.+)$/i);
-        if (!match) return null;
-        const publicId = decodeURIComponent(match[2]);
+        const segments = url.pathname.split('/').filter(Boolean);
+        const uploadIndex = segments.findIndex((segment, index) => {
+            const resourceType = segment.toLowerCase();
+            return ['image', 'raw', 'video'].includes(resourceType)
+                && String(segments[index + 1] || '').toLowerCase() === 'upload';
+        });
+        if (uploadIndex === -1) return null;
+
+        const rest = segments.slice(uploadIndex + 2);
+        if (rest[0] && /^v\d+$/i.test(rest[0])) rest.shift();
+        if (!rest.length) return null;
+
+        const publicId = decodeURIComponent(rest.join('/'));
         return {
-            resourceType: match[1].toLowerCase(),
+            resourceType: segments[uploadIndex].toLowerCase(),
             publicId,
             publicIdWithoutExtension: publicId.replace(/\.[a-z0-9]+$/i, '')
         };

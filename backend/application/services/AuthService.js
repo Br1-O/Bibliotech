@@ -474,6 +474,10 @@ class AuthService {
         if (!user) throw new AppError('errors.notFound', { status: 404 });
         return user.toPublicJSON();
     }
+
+    async listUsers(filters = {}) {
+        return this.userRepository.findAll(filters);
+    }
 }
 
 module.exports = AuthService;

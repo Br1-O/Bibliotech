@@ -51,3 +51,35 @@ test('estimateEntropyBits grows with character diversity', () => {
     assert.ok(estimateEntropyBits(strongSecret) >= 128);
     assert.ok(estimateEntropyBits('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') < 128);
 });
+
+test('validateConfig caps the pool for serverless runtimes', () => {
+    const config = validateConfig({ ...baseEnv, VERCEL: '1' });
+    assert.equal(config.serverless, true);
+    assert.equal(config.db.serverless, true);
+    assert.equal(config.db.connectionLimit, 1);
+    assert.equal(config.db.maxIdle, 1);
+    assert.equal(config.db.poolWarmup, 0);
+});
+
+test('validateConfig does not treat the Vercel export flag as serverless', () => {
+    const config = validateConfig({ ...baseEnv, EXPORT_SIMPLE_FOR_DEPLOY: 'true' });
+    assert.equal(config.serverless, false);
+    assert.equal(config.db.connectionLimit, 10);
+});
+
+test('validateConfig keeps explicit pool values and rejects invalid idle limits', () => {
+    const config = validateConfig({
+        ...baseEnv,
+        VERCEL: '1',
+        DB_CONNECTION_LIMIT: '4',
+        DB_MAX_IDLE: '3',
+        DB_POOL_WARMUP: '2'
+    });
+    assert.equal(config.db.connectionLimit, 4);
+    assert.equal(config.db.maxIdle, 3);
+    assert.equal(config.db.poolWarmup, 2);
+    assert.throws(
+        () => validateConfig({ ...baseEnv, DB_CONNECTION_LIMIT: '2', DB_MAX_IDLE: '3' }),
+        /DB_MAX_IDLE/
+    );
+});

@@ -135,3 +135,31 @@ test('optionalFileAuth attaches a user from the file cookie and stays anonymous 
     assert.equal(nextValue, undefined);
     assert.equal(anonymous.usuarioId, undefined);
 });
+
+test('attachFileUser resolves the owner from the file cookie', async () => {
+    const current = user();
+    const middleware = createAuthMiddleware({
+        userRepository: { findById: async () => current }
+    });
+    const req = { headers: { cookie: `bt_file_access=${tokenFor(current)}` }, t: key => key };
+    const ctx = await middleware.attachFileUser(req, response());
+    assert.deepEqual(ctx, { usuarioId: 7, rol: 'Alumno' });
+    assert.equal(req.usuarioId, 7);
+});
+
+test('attachFileUser rejects missing and invalid file tokens', async () => {
+    const middleware = createAuthMiddleware({
+        userRepository: { findById: async () => null }
+    });
+    await assert.rejects(
+        middleware.attachFileUser({ headers: {}, t: key => key }, response()),
+        error => error.status === 401
+    );
+    await assert.rejects(
+        middleware.attachFileUser(
+            { headers: { cookie: 'bt_file_access=not-a-token' }, t: key => key },
+            response()
+        ),
+        error => error.status === 401
+    );
+});

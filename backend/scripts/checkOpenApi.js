@@ -5,8 +5,18 @@ const Ajv = require('ajv');
 const { allRoutes } = require('./openApiRoutes');
 
 const SPEC_PATH = path.join(__dirname, '..', '..', 'docs', 'openapi.yaml');
+const JSON_SPEC_PATH = path.join(__dirname, '..', '..', 'docs', 'openapi.json');
 const spec = YAML.parse(fs.readFileSync(SPEC_PATH, 'utf8'));
 const errors = [];
+
+try {
+    const jsonSpec = JSON.parse(fs.readFileSync(JSON_SPEC_PATH, 'utf8'));
+    if (JSON.stringify(jsonSpec) !== JSON.stringify(spec)) {
+        errors.push('docs/openapi.json is stale; run npm run generate:openapi');
+    }
+} catch (error) {
+    errors.push('docs/openapi.json is missing or invalid; run npm run generate:openapi');
+}
 
 function resolveRef(ref) {
     if (!ref.startsWith('#/')) throw new Error(`Unsupported $ref: ${ref}`);

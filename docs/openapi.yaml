@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Bibliotech API
+  title: Bibliotech API Documentation
   version: 1.0.0
   description: >
     Contrato HTTP principal de Bibliotech. Los mensajes de negocio se traducen
@@ -26,6 +26,7 @@ tags:
   - name: Audit
   - name: ThematicTags
   - name: Health
+  - name: Documentation
 security:
   - bearerAuth: []
 paths:
@@ -2941,6 +2942,333 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
       x-generated: true
+  /api/docs:
+    get:
+      tags:
+        - Documentation
+      summary: Indice publico de enlaces a la especificacion OpenAPI
+      operationId: getApiDocs
+      security: []
+      responses:
+        "200":
+          description: Enlaces publicos a la especificacion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  openapi:
+                    type: array
+                    items:
+                      type: string
+                  documentation:
+                    type: string
+              example:
+                openapi:
+                  - /api/docs/openapi.yaml
+                  - /api/docs/openapi.json
+                documentation: /api/documentation
+  /api/docs/openapi.yaml:
+    get:
+      tags:
+        - Documentation
+      summary: Especificacion OpenAPI en YAML
+      operationId: getApiDocsOpenapiYaml
+      security: []
+      responses:
+        "200":
+          description: Especificacion OpenAPI 3.0.3 en YAML
+          content:
+            application/yaml:
+              schema:
+                type: string
+              example: |
+                openapi: 3.0.3
+                info:
+                  title: Bibliotech API Documentation
+                  version: 1.0.0
+                paths: {}
+        "404": &a1
+          $ref: "#/components/responses/NotFound"
+  /api/docs/openapi.json:
+    get:
+      tags:
+        - Documentation
+      summary: Especificacion OpenAPI en JSON
+      operationId: getApiDocsOpenapiJson
+      security: []
+      responses:
+        "200":
+          description: Especificacion OpenAPI 3.0.3 en JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example:
+                openapi: 3.0.3
+                info:
+                  title: Bibliotech API Documentation
+                  version: 1.0.0
+                paths: {}
+        "404": *a1
+  /api/documentation:
+    get:
+      tags:
+        - Documentation
+      summary: Referencia interactiva de la API (Redoc)
+      operationId: getApiDocumentation
+      security: []
+      responses:
+        "200":
+          description: Referencia interactiva HTML servida con Redoc
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Bibliotech API
+                Documentation</title></head><body><h1>Bibliotech API
+                Documentation</h1></body></html>
+        "404": *a1
+  /api/documentation/overview:
+    get:
+      tags:
+        - Documentation
+      summary: Guia tecnica y arquitectura
+      operationId: getApiDocumentationOverview
+      security: []
+      responses:
+        "200":
+          description: Documentacion HTML publica
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Guia tecnica -
+                Bibliotech</title></head><body><h1>Guia
+                tecnica</h1></body></html>
+        "404": *a1
+  /api/documentation/architecture:
+    get:
+      tags:
+        - Documentation
+      summary: Arquitectura explicada
+      operationId: getApiDocumentationArchitecture
+      security: []
+      responses:
+        "200":
+          description: Documentacion HTML publica
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Arquitectura explicada -
+                Bibliotech</title></head><body><h1>Arquitectura
+                explicada</h1></body></html>
+        "404": *a1
+  /api/documentation/classes:
+    get:
+      tags:
+        - Documentation
+      summary: Diagramas de clases
+      operationId: getApiDocumentationClasses
+      security: []
+      responses:
+        "200":
+          description: Documentacion HTML publica
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Diagramas de clases -
+                Bibliotech</title></head><body><h1>Diagramas de
+                clases</h1></body></html>
+        "404": *a1
+  /api/documentation/sequences:
+    get:
+      tags:
+        - Documentation
+      summary: Diagramas de secuencia
+      operationId: getApiDocumentationSequences
+      security: []
+      responses:
+        "200":
+          description: Documentacion HTML publica
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Diagramas de secuencia -
+                Bibliotech</title></head><body><h1>Diagramas de
+                secuencia</h1></body></html>
+        "404": *a1
+  /api/documentation/db:
+    get:
+      tags:
+        - Documentation
+      summary: Diagrama y diccionario de base de datos
+      operationId: getApiDocumentationDb
+      security: []
+      responses:
+        "200":
+          description: Documentacion HTML publica
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Base de datos -
+                Bibliotech</title></head><body><h1>Base de
+                datos</h1></body></html>
+        "404": *a1
+  /api/documentation/openapi:
+    get:
+      tags:
+        - Documentation
+      summary: Instrucciones para importar OpenAPI
+      operationId: getApiDocumentationOpenapi
+      security: []
+      responses:
+        "200":
+          description: Documentacion HTML publica
+          content:
+            text/html:
+              schema:
+                type: string
+              example: <!doctype html><html lang="es"><head><title>OpenAPI -
+                Bibliotech</title></head><body><h1>OpenAPI</h1></body></html>
+        "404": *a1
+  /api/documentation/diagrams:
+    get:
+      tags:
+        - Documentation
+      summary: Indice de diagramas Mermaid y PDF
+      operationId: getApiDocumentationDiagrams
+      security: []
+      responses:
+        "200":
+          description: Documentacion HTML publica
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Diagramas del sistema -
+                Bibliotech</title></head><body><h1>Diagramas del
+                sistema</h1></body></html>
+        "404": *a1
+  /api/documentation/diagrams/{file}:
+    get:
+      tags:
+        - Documentation
+      summary: Diagrama Mermaid o PDF
+      operationId: getApiDocumentationDiagramsFile
+      security: []
+      parameters:
+        - name: file
+          in: path
+          required: true
+          description: Nombre de archivo permitido dentro de docs/diagrams
+          schema:
+            type: string
+            pattern: ^[0-9]{2}_[a-z0-9_]+\.(?:mmd|pdf)$
+      responses:
+        "200":
+          description: Fuente Mermaid en HTML o PDF renderizado
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Diagrama del sistema -
+                Bibliotech</title></head><body><h1>Diagrama del
+                sistema</h1></body></html>
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+              example: PDF
+        "404": *a1
+  /api/documentation/assets/{file}:
+    get:
+      tags:
+        - Documentation
+      summary: PDF de diagrama de clases, secuencias o base de datos
+      operationId: getApiDocumentationAssetsFile
+      security: []
+      parameters:
+        - name: file
+          in: path
+          required: true
+          description: Nombre de PDF permitido
+          schema:
+            type: string
+            enum:
+              - class_diagram.pdf
+              - database_diagram.pdf
+              - professor_sequence_diagrams.pdf
+      responses:
+        "200":
+          description: PDF publico renderizado por el navegador
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+              example: PDF
+        "404": *a1
+  /api/documentation/adr:
+    get:
+      tags:
+        - Documentation
+      summary: Indice de decisiones de arquitectura
+      operationId: getApiDocumentationAdr
+      security: []
+      responses:
+        "200":
+          description: Documentacion HTML publica
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Decisiones de arquitectura
+                - Bibliotech</title></head><body><h1>Decisiones de
+                arquitectura</h1></body></html>
+        "404": &a2
+          $ref: "#/components/responses/NotFound"
+  /api/documentation/adr/{file}:
+    get:
+      tags:
+        - Documentation
+      summary: Architecture Decision Record
+      operationId: getApiDocumentationAdrFile
+      security: []
+      parameters:
+        - name: file
+          in: path
+          required: true
+          description: Archivo Markdown de ADR permitido
+          schema:
+            type: string
+            pattern: ^[0-9]{4}-[a-z0-9-]+\.md$
+      responses:
+        "200":
+          description: ADR renderizado como HTML
+          content:
+            text/html:
+              schema:
+                type: string
+              example:
+                <!doctype html><html lang="es"><head><title>Architecture Decision
+                Record - Bibliotech</title></head><body><h1>Architecture
+                Decision Record</h1></body></html>
+        "404": *a2
 components:
   securitySchemes:
     bearerAuth:

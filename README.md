@@ -187,7 +187,12 @@ npm run test:contract
 ```
 
 La referencia HTTP esta en [`docs/openapi.yaml`](docs/openapi.yaml) y las
-decisiones de arquitectura en [`docs/adr/`](docs/adr/).
+decisiones de arquitectura en [`docs/adr/`](docs/adr/). Tambien se publica sin
+autenticacion: `GET /api/documentation` abre la referencia interactiva (Redoc)
+y `GET /api/documentation/overview` reune arquitectura, clases, secuencias,
+base de datos y ADRs. La especificacion queda disponible para Postman,
+Insomnia o Swagger Editor en `GET /api/docs/openapi.yaml` y
+`GET /api/docs/openapi.json`.
 
 Presupuesto de rendimiento de consultas calientes (requiere base de datos):
 

@@ -4,6 +4,7 @@ const YAML = require('yaml');
 const { allRoutes } = require('./openApiRoutes');
 
 const SPEC_PATH = path.join(__dirname, '..', '..', 'docs', 'openapi.yaml');
+const JSON_SPEC_PATH = path.join(__dirname, '..', '..', 'docs', 'openapi.json');
 
 const TAG_BY_FILE = {
     'authRoutes.js': 'Auth',
@@ -16,7 +17,9 @@ const TAG_BY_FILE = {
     'notificationRoutes.js': 'Notifications',
     'auditRoutes.js': 'Audit',
     'thematicTagsRoutes.js': 'ThematicTags',
-    'server.js': 'Health'
+    'server.js': 'Health',
+    'docsRoutes.js': 'Documentation',
+    'documentationRoutes.js': 'Documentation'
 };
 
 const SUMMARIES = {
@@ -93,7 +96,22 @@ const SUMMARIES = {
     'delete /api/thematic-tags/{id}': 'Elimina una etiqueta (Superadmin)',
     'get /healthz': 'Comprueba que el proceso responde',
     'get /readyz': 'Comprueba la disponibilidad de la base de datos',
-    'get /metrics': 'Expone metricas Prometheus'
+    'get /metrics': 'Expone metricas Prometheus',
+    'get /api/docs': 'Indice publico de enlaces a la especificacion OpenAPI',
+    'get /api/docs/openapi.yaml': 'Especificacion OpenAPI en YAML',
+    'get /api/docs/openapi.json': 'Especificacion OpenAPI en JSON',
+    'get /api/documentation': 'Referencia interactiva de la API (Redoc)',
+    'get /api/documentation/overview': 'Guia tecnica y arquitectura',
+    'get /api/documentation/architecture': 'Arquitectura explicada',
+    'get /api/documentation/adr': 'Indice de decisiones de arquitectura',
+    'get /api/documentation/adr/{file}': 'Architecture Decision Record',
+    'get /api/documentation/classes': 'Diagramas de clases',
+    'get /api/documentation/sequences': 'Diagramas de secuencia',
+    'get /api/documentation/db': 'Diagrama y diccionario de base de datos',
+    'get /api/documentation/openapi': 'Instrucciones para importar OpenAPI',
+    'get /api/documentation/diagrams': 'Indice de diagramas Mermaid y PDF',
+    'get /api/documentation/diagrams/{file}': 'Diagrama Mermaid o PDF',
+    'get /api/documentation/assets/{file}': 'PDF de diagrama de clases, secuencias o base de datos'
 };
 
 function operationId(method, routePath) {
@@ -134,7 +152,22 @@ const DETAILED_OPERATIONS = new Set([
     'post /api/materials/{id}/reject',
     'post /api/materials/{id}/associate',
     'post /api/materials/{id}/cancel',
-    'delete /api/materials/{id}'
+    'delete /api/materials/{id}',
+    'get /api/docs',
+    'get /api/docs/openapi.yaml',
+    'get /api/docs/openapi.json',
+    'get /api/documentation',
+    'get /api/documentation/overview',
+    'get /api/documentation/architecture',
+    'get /api/documentation/adr',
+    'get /api/documentation/adr/{file}',
+    'get /api/documentation/classes',
+    'get /api/documentation/sequences',
+    'get /api/documentation/db',
+    'get /api/documentation/openapi',
+    'get /api/documentation/diagrams',
+    'get /api/documentation/diagrams/{file}',
+    'get /api/documentation/assets/{file}'
 ]);
 
 function securityFor(route) {
@@ -294,7 +327,8 @@ function main() {
     addExamples(spec.components, spec);
 
     fs.writeFileSync(SPEC_PATH, YAML.stringify(spec));
-    console.log(`OpenAPI regenerated: ${Object.keys(spec.paths).length} paths`);
+    fs.writeFileSync(JSON_SPEC_PATH, `${JSON.stringify(spec, null, 2)}\n`);
+    console.log(`OpenAPI regenerated: ${Object.keys(spec.paths).length} paths (YAML + JSON)`);
 }
 
 main();

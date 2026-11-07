@@ -49,10 +49,16 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.redoc.ly'],
             scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'],
+            imgSrc: [
+                "'self'",
+                'data:',
+                'https://res.cloudinary.com',
+                'https://cdn.redoc.ly',
+                'https://cdn.redocly.com'
+            ],
             fontSrc: ["'self'", 'data:'],
             connectSrc: ["'self'"],
             frameSrc: ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com'],
@@ -140,6 +146,8 @@ app.use(express.static(frontendDir, {
     setHeaders: res => res.setHeader('X-Content-Type-Options', 'nosniff')
 }));
 
+app.use('/api/docs', require('./routes/docsRoutes')());
+app.use('/api/documentation', require('./routes/documentationRoutes')());
 app.use('/api/auth', require('./routes/authRoutes')(container));
 app.use('/api', require('./routes/engagementRoutes')(container));
 app.use('/api/streaks', require('./routes/streakRoutes')(container));

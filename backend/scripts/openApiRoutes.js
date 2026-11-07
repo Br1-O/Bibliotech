@@ -13,7 +13,9 @@ const MOUNTS = [
     ['/api/subscriptions', 'subscriptionRoutes.js'],
     ['/api/notifications', 'notificationRoutes.js'],
     ['/api/audit', 'auditRoutes.js'],
-    ['/api/thematic-tags', 'thematicTagsRoutes.js']
+    ['/api/thematic-tags', 'thematicTagsRoutes.js'],
+    ['/api/docs', 'docsRoutes.js'],
+    ['/api/documentation', 'documentationRoutes.js']
 ];
 
 const METHOD_PATTERN = /router\.(get|post|put|patch|delete)\(\s*(?:\[\s*)?['"]([^'"]+)['"]/g;

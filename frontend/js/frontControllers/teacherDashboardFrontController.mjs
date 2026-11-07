@@ -3,17 +3,17 @@
 * teacherFrontController: panel del profesor. Publicar material, revisar
 * sugerencias de alumnos y gestionar sus materias (RF-02, RF-04, RF-05).
 */
-import { attachTagInput } from '../components/tagInput/tagInput.js';
-import { Cards } from '../components/cards/cards.js';
-import { Loader } from '../components/loader/loader.js';
-import { Pagination } from '../components/pagination/pagination.js';
-import { ProfileSummary } from '../components/profileSummary/profileSummary.js';
-import { Toast } from '../components/toast/toast.js';
-import { LanguageManager } from '../i18n/LanguageManager.js';
-import { apiService } from '../services/apiService.js';
-import { authHelper } from '../utils/authHelper.js';
-import { el, render } from '../utils/dom.js';
-import { Validator } from '../utils/validator.js';
+import { attachTagInput } from '../components/tagInput/tagInput.mjs';
+import { Cards } from '../components/cards/cards.mjs';
+import { Loader } from '../components/loader/loader.mjs';
+import { Pagination } from '../components/pagination/pagination.mjs';
+import { ProfileSummary } from '../components/profileSummary/profileSummary.mjs';
+import { Toast } from '../components/toast/toast.mjs';
+import { LanguageManager } from '../i18n/LanguageManager.mjs';
+import { apiService } from '../services/apiService.mjs';
+import { authHelper } from '../utils/authHelper.mjs';
+import { el, render } from '../utils/dom.mjs';
+import { Validator } from '../utils/validator.mjs';
 
 
 document.addEventListener('bt:ready', () => {

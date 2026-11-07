@@ -3,13 +3,13 @@
 * authFrontController: login, registro, verificacion de cuenta y recuperacion
 * de contrasena (RF-01 / RD-03).
 */
-import { Loader } from '../components/loader/loader.js';
-import { Modal } from '../components/modal/modal.js';
-import { Toast } from '../components/toast/toast.js';
-import { LanguageManager } from '../i18n/LanguageManager.js';
-import { apiService } from '../services/apiService.js';
-import { authHelper } from '../utils/authHelper.js';
-import { Validator } from '../utils/validator.js';
+import { Loader } from '../components/loader/loader.mjs';
+import { Modal } from '../components/modal/modal.mjs';
+import { Toast } from '../components/toast/toast.mjs';
+import { LanguageManager } from '../i18n/LanguageManager.mjs';
+import { apiService } from '../services/apiService.mjs';
+import { authHelper } from '../utils/authHelper.mjs';
+import { Validator } from '../utils/validator.mjs';
 
 
 document.addEventListener('bt:ready', () => {

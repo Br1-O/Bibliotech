@@ -3,7 +3,7 @@
 * theme.js: tema claro/oscuro persistente. Se carga en <head> para evitar
 * el destello de tema incorrecto antes de pintar la pagina.
 */
-import { el } from './utils/dom.js';
+import { el } from './utils/dom.mjs';
 
 
 const Theme = (() => {

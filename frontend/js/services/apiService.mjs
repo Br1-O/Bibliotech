@@ -3,9 +3,9 @@
 * apiService: cliente HTTP centralizado. Adjunta el token JWT, propaga el
 * idioma activo (lang) y normaliza el manejo de errores.
 */
-import { LanguageManager } from '../i18n/LanguageManager.js';
-import { authHelper } from '../utils/authHelper.js';
-import { el } from '../utils/dom.js';
+import { LanguageManager } from '../i18n/LanguageManager.mjs';
+import { authHelper } from '../utils/authHelper.mjs';
+import { el } from '../utils/dom.mjs';
 
 
 const apiService = {

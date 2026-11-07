@@ -3,7 +3,7 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.resolve(__dirname, '../../frontend');
-const entryPoint = path.join(root, 'js/bootstrap.js');
+const entryPoint = path.join(root, 'js/bootstrap.mjs');
 const cache = new Map();
 const listeners = [];
 class HTMLElement {}

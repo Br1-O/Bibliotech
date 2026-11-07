@@ -2,13 +2,13 @@
 * Project     : Bibliotech  |  Frontend - Componente
 * PasswordChange: cambio de contrasena autenticado desde el menu del perfil.
 */
-import { LanguageManager } from '../../i18n/LanguageManager.js';
-import { apiService } from '../../services/apiService.js';
-import { authHelper } from '../../utils/authHelper.js';
-import { el } from '../../utils/dom.js';
-import { Modal } from '../modal/modal.js';
-import { PasswordField } from '../passwordField/passwordField.js';
-import { Toast } from '../toast/toast.js';
+import { LanguageManager } from '../../i18n/LanguageManager.mjs';
+import { apiService } from '../../services/apiService.mjs';
+import { authHelper } from '../../utils/authHelper.mjs';
+import { el } from '../../utils/dom.mjs';
+import { Modal } from '../modal/modal.mjs';
+import { PasswordField } from '../passwordField/passwordField.mjs';
+import { Toast } from '../toast/toast.mjs';
 
 
 const PasswordChange = (() => {

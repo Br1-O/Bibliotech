@@ -13,9 +13,12 @@ bundler ni framework y debe seguir sirviendose como sitio estatico.
 
 ## Decision
 
-- `frontend/js/bootstrap.js` es el unico punto de entrada de aplicacion y se
+- `frontend/js/bootstrap.mjs` es el unico punto de entrada de aplicacion y se
   carga con `<script type="module">` en todas las paginas.
-- Cada utilidad, componente y controlador usa `import`/`export` explicitos.
+- Cada utilidad, componente y controlador usa `import`/`export` explicitos y
+  extension `.mjs`. En el despliegue de Vercel los `.js` del frontend se
+  convierten a CommonJS; los `.mjs` se sirven sin transformar y conservan la
+  sintaxis nativa de ES modules.
 - No se usan puentes `globalThis` para la API de los modulos. Las dependencias
   se importan directamente; `tagInput` exporta `attachTagInput` y `theme`
   exporta `Theme`.
@@ -28,7 +31,8 @@ bundler ni framework y debe seguir sirviendose como sitio estatico.
 ## Consecuencias
 
 - El grafo de dependencias es explicito y verificable en CI.
-- No se requiere compilador, bundler ni cambios de despliegue.
+- No se requiere compilador ni bundler. La extension `.mjs` evita que Vercel
+  convierta los modulos a CommonJS durante el despliegue.
 - Un fallo de importacion afecta toda la pagina, por lo que el chequeo de modulos
   y el smoke test son obligatorios.
 - El codigo nuevo debe importar lo que usa; agregar globals ya no es aceptado.

@@ -4,7 +4,7 @@
 * Carga locales JSON, resuelve mensajes y aplica traducciones al DOM mediante
 * atributos data-i18n. Notifica cambios de idioma a los suscriptores (Observer).
 */
-import { el } from '../utils/dom.js';
+import { el } from '../utils/dom.mjs';
 
 
 const LanguageManager = (() => {

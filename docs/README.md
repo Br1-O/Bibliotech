@@ -140,5 +140,5 @@ The roadmap groups these IDs by phase. Some findings have a short-term mitigatio
 | Business rules | `backend/application/services/*.js`, `backend/domain/entities/*.js`, `backend/domain/observers/*.js` |
 | SQL and mappings | `backend/infrastructure/repositories/*.js` |
 | Security | `backend/middleware/authMiddleware.js`, `backend/application/services/AuthService.js`, `backend/validators/*` |
-| Frontend behavior | `frontend/js/frontControllers/*.js`, `frontend/js/services/apiService.js`, `frontend/js/components/*` |
+| Frontend behavior | `frontend/js/frontControllers/*.mjs`, `frontend/js/services/apiService.mjs`, `frontend/js/components/*` |
 | Existing detailed docs | `docs/routes.txt`, `docs/class_diagram.txt`, `docs/database_diagram.txt`, `docs/professor_sequence_diagrams.txt` |

@@ -101,7 +101,7 @@ payload is retained for compatibility; no `{data, meta}` wrapper was introduced.
 
 ## P4-07 — Frontend ES modules
 
-- Every application page loads only `<script type="module" src="/js/bootstrap.js">`.
+- Every application page loads only `<script type="module" src="/js/bootstrap.mjs">`.
 - Utilities, components and controllers use explicit imports/exports.
 - No `globalThis` bridge remains for application modules.
 - `theme-init.js` is the only classic script, used to avoid a theme flash.
@@ -189,6 +189,6 @@ extraction and rejects extraction without evidence.
 - `docs/openapi.yaml`
 - `docs/architecture.md`
 - `docs/adr/*.md`
-- `frontend/js/bootstrap.js`
+- `frontend/js/bootstrap.mjs`
 - `frontend/js/theme-init.js`
 - `frontend/html/*.html`

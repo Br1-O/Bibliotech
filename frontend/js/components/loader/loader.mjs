@@ -2,8 +2,8 @@
 * Project     : Bibliotech  |  Frontend - Componente
 * Loader global con marca animada + helpers de esqueletos de carga.
 */
-import { LanguageManager } from '../../i18n/LanguageManager.js';
-import { el, render } from '../../utils/dom.js';
+import { LanguageManager } from '../../i18n/LanguageManager.mjs';
+import { el, render } from '../../utils/dom.mjs';
 
 
 const Loader = (() => {

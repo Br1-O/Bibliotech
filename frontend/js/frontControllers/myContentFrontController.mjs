@@ -2,17 +2,17 @@
 * Project     : Bibliotech  |  Frontend - Controlador
 * myContentFrontController: compendio personal de subidas, favoritos, lecturas y backlog.
 */
-import { Cards } from '../components/cards/cards.js';
-import { ContentTabs } from '../components/contentTabs/contentTabs.js';
-import { Loader } from '../components/loader/loader.js';
-import { MaterialEditor } from '../components/materialEditor/materialEditor.js';
-import { MaterialViewer } from '../components/materialViewer/materialViewer.js';
-import { Pagination } from '../components/pagination/pagination.js';
-import { Toast } from '../components/toast/toast.js';
-import { LanguageManager } from '../i18n/LanguageManager.js';
-import { apiService } from '../services/apiService.js';
-import { authHelper } from '../utils/authHelper.js';
-import { el, render } from '../utils/dom.js';
+import { Cards } from '../components/cards/cards.mjs';
+import { ContentTabs } from '../components/contentTabs/contentTabs.mjs';
+import { Loader } from '../components/loader/loader.mjs';
+import { MaterialEditor } from '../components/materialEditor/materialEditor.mjs';
+import { MaterialViewer } from '../components/materialViewer/materialViewer.mjs';
+import { Pagination } from '../components/pagination/pagination.mjs';
+import { Toast } from '../components/toast/toast.mjs';
+import { LanguageManager } from '../i18n/LanguageManager.mjs';
+import { apiService } from '../services/apiService.mjs';
+import { authHelper } from '../utils/authHelper.mjs';
+import { el, render } from '../utils/dom.mjs';
 
 
 document.addEventListener('bt:ready', () => {

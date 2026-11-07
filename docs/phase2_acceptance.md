@@ -212,4 +212,4 @@ The migration was applied to the local database as `007_phase2_performance.sql`.
 - `backend/tests/materialFile.test.js`
 - `frontend/js/tests/gamificationTests.js`
 - `frontend/js/tests/securityTests.js`
-- `frontend/js/utils/authHelper.js`
+- `frontend/js/utils/authHelper.mjs`

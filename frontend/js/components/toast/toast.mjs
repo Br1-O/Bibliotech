@@ -3,8 +3,8 @@
 * Notificaciones flotantes (toasts).
 * Uso: Toast.success('Guardado'), Toast.error('Fallo'), Toast.info('...').
 */
-import { LanguageManager } from '../../i18n/LanguageManager.js';
-import { el } from '../../utils/dom.js';
+import { LanguageManager } from '../../i18n/LanguageManager.mjs';
+import { el } from '../../utils/dom.mjs';
 
 
 const Toast = (() => {

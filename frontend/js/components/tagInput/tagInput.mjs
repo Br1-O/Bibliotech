@@ -3,8 +3,8 @@
 * TagInput: input de etiquetas tematicas con badges, creacion dinamica
 * al pulsar Enter y autocompletado con etiquetas existentes.
 */
-import { LanguageManager } from '../../i18n/LanguageManager.js';
-import { apiService } from '../../services/apiService.js';
+import { LanguageManager } from '../../i18n/LanguageManager.mjs';
+import { apiService } from '../../services/apiService.mjs';
 
 function attachTagInput(inputEl, options = {}) {
         if (!inputEl) return null;

@@ -12,8 +12,8 @@
 *       .validateThis()
 *       .render();
 */
-import { LanguageManager } from '../i18n/LanguageManager.js';
-import { el, render } from './dom.js';
+import { LanguageManager } from '../i18n/LanguageManager.mjs';
+import { el, render } from './dom.mjs';
 
 
 class FormValidator {

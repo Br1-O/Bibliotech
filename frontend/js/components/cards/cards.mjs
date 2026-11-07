@@ -2,14 +2,14 @@
 * Project     : Bibliotech  |  Frontend - Componentes
 * Tarjetas y tablas reutilizables: material, materia y listas.
 */
-import { LanguageManager } from '../../i18n/LanguageManager.js';
-import { apiService } from '../../services/apiService.js';
-import { authHelper } from '../../utils/authHelper.js';
-import { el, render } from '../../utils/dom.js';
-import { Icons } from '../icons/icons.js';
-import { MaterialViewer } from '../materialViewer/materialViewer.js';
-import { Modal } from '../modal/modal.js';
-import { Toast } from '../toast/toast.js';
+import { LanguageManager } from '../../i18n/LanguageManager.mjs';
+import { apiService } from '../../services/apiService.mjs';
+import { authHelper } from '../../utils/authHelper.mjs';
+import { el, render } from '../../utils/dom.mjs';
+import { Icons } from '../icons/icons.mjs';
+import { MaterialViewer } from '../materialViewer/materialViewer.mjs';
+import { Modal } from '../modal/modal.mjs';
+import { Toast } from '../toast/toast.mjs';
 
 
 const Cards = {

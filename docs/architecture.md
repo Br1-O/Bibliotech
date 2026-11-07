@@ -453,17 +453,17 @@ Problems in this flow are covered in `code_analysis.md` and `database_performanc
 
 ### 8.1 Page and module model
 
-- `frontend/html/*.html` are static pages with a single `<script type="module" src="/js/bootstrap.js">` entry point.
-- `frontend/js/bootstrap.js` imports utilities, components, and page controllers as ES modules in dependency order.
-- Modules use explicit `import`/`export`; there are no `globalThis` bridges. `bootstrap.js` is the only application entry point.
+- `frontend/html/*.html` are static pages with a single `<script type="module" src="/js/bootstrap.mjs">` entry point.
+- `frontend/js/bootstrap.mjs` imports utilities, components, and page controllers as ES modules in dependency order.
+- Modules use explicit `import`/`export`; there are no `globalThis` bridges. `bootstrap.mjs` is the only application entry point.
 - `frontend/js/theme-init.js` remains a minimal classic script in `<head>` to apply the stored theme before first paint.
-- `frontend/js/frontControllers/*.js` bind to DOM elements and orchestrate page behavior.
+- `frontend/js/frontControllers/*.mjs` bind to DOM elements and orchestrate page behavior.
 - `frontend/js/components/*` are native Web Components or component factories.
-- `frontend/js/services/apiService.js` centralizes fetch, JWT attachment, language propagation, and 401 logout.
+- `frontend/js/services/apiService.mjs` centralizes fetch, JWT attachment, language propagation, and 401 logout.
 - `backend/scripts/checkFrontendModules.js` links and evaluates the module graph in CI.
-- `frontend/js/utils/authHelper.js` stores the JWT and user object in `localStorage`.
-- `frontend/js/i18n/LanguageManager.js` loads `es`/`en` locales and notifies components.
-- `frontend/js/utils/dom.js` (or equivalent) provides `el`, `render`, and safe DOM helpers; the project avoids `innerHTML` in application code.
+- `frontend/js/utils/authHelper.mjs` stores the JWT and user object in `localStorage`.
+- `frontend/js/i18n/LanguageManager.mjs` loads `es`/`en` locales and notifies components.
+- `frontend/js/utils/dom.mjs` (or equivalent) provides `el`, `render`, and safe DOM helpers; the project avoids `innerHTML` in application code.
 
 ### 8.2 Rendering and data loading
 

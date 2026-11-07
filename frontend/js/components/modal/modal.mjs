@@ -3,8 +3,8 @@
 * Modal de confirmacion / aviso con soporte multilenguaje.
 * Uso: const ok = await Modal.confirm({ title, message });
 */
-import { LanguageManager } from '../../i18n/LanguageManager.js';
-import { el } from '../../utils/dom.js';
+import { LanguageManager } from '../../i18n/LanguageManager.mjs';
+import { el } from '../../utils/dom.mjs';
 
 
 const Modal = (() => {

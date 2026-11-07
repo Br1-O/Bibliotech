@@ -4,8 +4,8 @@
 * Atributos: label, variant (primary|secondary|accent|danger|success|ghost),
 *            size (sm), block, type, icon.
 */
-import { LanguageManager } from '../../i18n/LanguageManager.js';
-import { el, render } from '../../utils/dom.js';
+import { LanguageManager } from '../../i18n/LanguageManager.mjs';
+import { el, render } from '../../utils/dom.mjs';
 
 
 if (!customElements.get('bt-button')) {

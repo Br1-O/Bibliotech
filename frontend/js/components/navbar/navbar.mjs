@@ -4,13 +4,13 @@
 * y con selector de tema claro/oscuro.
 * Atributo: active (catalog|subjects|panel|content|subscribed).
 */
-import { LanguageManager } from '../../i18n/LanguageManager.js';
-import { apiService } from '../../services/apiService.js';
-import { Theme } from '../../theme.js';
-import { authHelper } from '../../utils/authHelper.js';
-import { el, render } from '../../utils/dom.js';
-import { Icons } from '../icons/icons.js';
-import { PasswordChange } from '../passwordChange/passwordChange.js';
+import { LanguageManager } from '../../i18n/LanguageManager.mjs';
+import { apiService } from '../../services/apiService.mjs';
+import { Theme } from '../../theme.mjs';
+import { authHelper } from '../../utils/authHelper.mjs';
+import { el, render } from '../../utils/dom.mjs';
+import { Icons } from '../icons/icons.mjs';
+import { PasswordChange } from '../passwordChange/passwordChange.mjs';
 
 
 if (!customElements.get('bt-navbar')) {

@@ -2,10 +2,10 @@
 * Project     : Bibliotech  |  Frontend - Componente
 * ProfileSummary: resumen de rango, racha e insignias para los paneles.
 */
-import { LanguageManager } from '../../i18n/LanguageManager.js';
-import { apiService } from '../../services/apiService.js';
-import { authHelper } from '../../utils/authHelper.js';
-import { el } from '../../utils/dom.js';
+import { LanguageManager } from '../../i18n/LanguageManager.mjs';
+import { apiService } from '../../services/apiService.mjs';
+import { authHelper } from '../../utils/authHelper.mjs';
+import { el } from '../../utils/dom.mjs';
 
 
 const ProfileSummary = {
